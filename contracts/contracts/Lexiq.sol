@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title Lexiq — solo word race on Celo. Build words from 7 letters in 90 seconds.
+/// @notice Stake USDM for bonus: get it back if you score >= 10 points.
 contract Lexiq is Ownable, ReentrancyGuard {
     IERC20 public immutable usdm;
 
@@ -95,6 +96,17 @@ contract Lexiq is Ownable, ReentrancyGuard {
             letters[i] = freq[idx];
         }
     }
+
+    function getRound(uint256 roundId) external view returns (
+        address player, bytes32 letterSeed, uint32 startedAt,
+        uint8 commitCount, uint8 totalScore_, RoundState state, uint256 stake
+    ) {
+        Round storage r = rounds[roundId];
+        return (r.player, r.letterSeed, r.startedAt, r.commitCount, r.totalScore, r.state, r.stake);
+    }
+
+    function getPlayerRounds(address p) external view returns (uint256[] memory) { return playerRounds[p]; }
+    function totalRounds() external view returns (uint256) { return _roundCounter; }
 
     function _scoreWord(uint8 length) internal pure returns (uint8) {
         if (length < 2) return 0; if (length == 2) return 1; if (length == 3) return 2;
