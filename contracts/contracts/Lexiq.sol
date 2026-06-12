@@ -108,6 +108,36 @@ contract Lexiq is Ownable, ReentrancyGuard {
     function getPlayerRounds(address p) external view returns (uint256[] memory) { return playerRounds[p]; }
     function totalRounds() external view returns (uint256) { return _roundCounter; }
 
+    function depositWeeklyPrize(uint256 amount) external {
+        require(usdm.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        weeklyPrizePool += amount;
+    }
+
+    function withdrawFees() external onlyOwner {
+        uint256 a = platformFeeBalance; platformFeeBalance = 0;
+        require(usdm.transfer(owner(), a), "Transfer failed");
+    }
+
+    function distributePrize(address[] calldata recipients, uint256[] calldata amounts) external onlyOwner {
+        require(recipients.length == amounts.length, "Length mismatch");
+        uint256 total = 0;
+        for (uint256 i = 0; i < amounts.length; i++) total += amounts[i];
+        require(total <= weeklyPrizePool, "Exceeds pool");
+        weeklyPrizePool -= total;
+        for (uint256 i = 0; i < recipients.length; i++) {
+            require(usdm.transfer(recipients[i], amounts[i]), "Transfer failed");
+            emit PrizeDistributed(recipients[i], amounts[i]);
+        }
+    }
+
+    function emergencyRefundStake(uint256 roundId) external onlyOwner {
+        Round storage r = rounds[roundId];
+        require(r.state == RoundState.ACTIVE, "Not active");
+        require(r.stake > 0, "No stake");
+        r.state = RoundState.FINISHED;
+        require(usdm.transfer(r.player, r.stake), "Transfer failed");
+    }
+
     function _scoreWord(uint8 length) internal pure returns (uint8) {
         if (length < 2) return 0; if (length == 2) return 1; if (length == 3) return 2;
         if (length == 4) return 3; if (length == 5) return 5; if (length == 6) return 8;
