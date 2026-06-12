@@ -14,6 +14,23 @@ contract Lexiq is Ownable, ReentrancyGuard {
 
     enum RoundState { ACTIVE, FINISHED }
 
+    struct WordCommit {
+        bytes32 hash;
+        bool    revealed;
+        uint8   score;
+    }
+
+    struct Round {
+        address player;
+        bytes32 letterSeed;
+        uint32  startedAt;
+        WordCommit[15] commits;
+        uint8   commitCount;
+        uint8   totalScore;
+        RoundState state;
+        uint256 stake;
+    }
+
     constructor(address _usdm) Ownable(msg.sender) {
         usdm = IERC20(_usdm);
     }
