@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+/// @title Lexiq — solo word race on Celo. Build words from 7 letters in 90 seconds.
 contract Lexiq is Ownable, ReentrancyGuard {
     IERC20 public immutable usdm;
 
@@ -61,7 +62,7 @@ contract Lexiq is Ownable, ReentrancyGuard {
 
     function revealWords(uint256 roundId, string[] calldata words, bytes32[] calldata salts) external nonReentrant {
         Round storage r = rounds[roundId];
-        require(r.player == msg.sender,       "Not your round");
+        require(r.player == msg.sender, "Not your round");
         require(r.state == RoundState.ACTIVE, "Already finished");
         require(words.length == salts.length, "Length mismatch");
         for (uint8 i = 0; i < words.length && i < r.commitCount; i++) {
@@ -84,6 +85,15 @@ contract Lexiq is Ownable, ReentrancyGuard {
             } else { weeklyPrizePool += r.stake; }
         }
         emit RoundFinished(roundId, msg.sender, r.totalScore);
+    }
+
+    function getLetters(uint256 roundId) external view returns (bytes1[7] memory letters) {
+        bytes32 seed = rounds[roundId].letterSeed;
+        bytes memory freq = "AAABBBCCDDDEEEEEEFFGGGHHIIIIJKLLLLMMNNNNNOOOOOOPPQRRRRRSSSSSTTTTTTUUUVVWWXYYZ";
+        for (uint8 i = 0; i < 7; i++) {
+            uint8 idx = uint8(uint256(keccak256(abi.encodePacked(seed, i))) % freq.length);
+            letters[i] = freq[idx];
+        }
     }
 
     function _scoreWord(uint8 length) internal pure returns (uint8) {
