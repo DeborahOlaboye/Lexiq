@@ -50,12 +50,22 @@ contract Lexiq is Ownable, ReentrancyGuard {
 
     function commitWord(uint256 roundId, bytes32 wordHash) external {
         Round storage r = rounds[roundId];
-        require(r.player == msg.sender,               "Not your round");
-        require(r.state  == RoundState.ACTIVE,        "Not active");
+        require(r.player == msg.sender, "Not your round");
+        require(r.state == RoundState.ACTIVE, "Not active");
         require(block.timestamp < r.startedAt + ROUND_DURATION, "Time up");
-        require(r.commitCount < MAX_WORDS,            "Max words reached");
+        require(r.commitCount < MAX_WORDS, "Max words reached");
         r.commits[r.commitCount] = WordCommit({ hash: wordHash, revealed: false, score: 0 });
         r.commitCount++;
         emit WordCommitted(roundId, r.commitCount - 1);
+    }
+
+    function _scoreWord(uint8 length) internal pure returns (uint8) {
+        if (length < 2) return 0;
+        if (length == 2) return 1;
+        if (length == 3) return 2;
+        if (length == 4) return 3;
+        if (length == 5) return 5;
+        if (length == 6) return 8;
+        return 11;
     }
 }
