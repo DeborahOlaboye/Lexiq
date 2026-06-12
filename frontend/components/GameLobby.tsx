@@ -86,7 +86,7 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
       <div className="bg-gray-900 rounded-2xl p-4 space-y-4">
         <p className="font-semibold text-white">New Round</p>
         <div className="bg-violet-900/20 border border-violet-800/40 rounded-xl p-3 text-xs text-violet-300 space-y-1">
-          <p>Get 7 random letters, build words in 90 seconds</p>
+          <p>7 random letters · 90 second round</p>
           <p>Commit words on-chain, reveal at the end</p>
           <p>Longer words score more points</p>
         </div>
