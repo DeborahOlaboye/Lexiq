@@ -32,3 +32,10 @@ export const LEXIQ_ABI = [
 export const ERC20_ABI = [
   { name: "approve", type: "function", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ name: "", type: "bool" }] },
 ] as const;
+
+export function scoreWord(word: string): number {
+  const l = word.length;
+  if (l < 2) return 0; if (l === 2) return 1; if (l === 3) return 2;
+  if (l === 4) return 3; if (l === 5) return 5; if (l === 6) return 8;
+  return 11;
+}
