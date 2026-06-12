@@ -35,7 +35,21 @@ contract Lexiq is Ownable, ReentrancyGuard {
     event RoundFinished(uint256 indexed roundId, address indexed player, uint8 finalScore);
     event PrizeDistributed(address indexed recipient, uint256 amount);
 
-    constructor(address _usdm) Ownable(msg.sender) {
-        usdm = IERC20(_usdm);
+    constructor(address _usdm) Ownable(msg.sender) { usdm = IERC20(_usdm); }
+
+    function startRound(uint256 stakeAmount) external nonReentrant returns (uint256 roundId) {
+        if (stakeAmount > 0) {
+            require(usdm.transferFrom(msg.sender, address(this), stakeAmount), "Stake failed");
+        }
+        roundId = _roundCounter++;
+        Round storage r = rounds[roundId];
+        r.player    = msg.sender;
+        r.startedAt = uint32(block.timestamp);
+        r.stake     = stakeAmount;
+        r.state     = RoundState.ACTIVE;
+        r.letterSeed = keccak256(abi.encodePacked(block.prevrandao, msg.sender, roundId, block.timestamp));
+        playerRounds[msg.sender].push(roundId);
+        gamesPlayed[msg.sender]++;
+        emit RoundStarted(roundId, msg.sender, r.letterSeed);
     }
 }
