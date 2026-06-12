@@ -29,6 +29,12 @@ contract Lexiq is Ownable, ReentrancyGuard {
     uint256 public weeklyPrizePool;
     uint256 public platformFeeBalance;
 
+    event RoundStarted(uint256 indexed roundId, address indexed player, bytes32 letterSeed);
+    event WordCommitted(uint256 indexed roundId, uint8 slot);
+    event WordRevealed(uint256 indexed roundId, string word, uint8 score);
+    event RoundFinished(uint256 indexed roundId, address indexed player, uint8 finalScore);
+    event PrizeDistributed(address indexed recipient, uint256 amount);
+
     constructor(address _usdm) Ownable(msg.sender) {
         usdm = IERC20(_usdm);
     }
