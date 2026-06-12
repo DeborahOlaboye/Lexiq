@@ -38,18 +38,24 @@ contract Lexiq is Ownable, ReentrancyGuard {
     constructor(address _usdm) Ownable(msg.sender) { usdm = IERC20(_usdm); }
 
     function startRound(uint256 stakeAmount) external nonReentrant returns (uint256 roundId) {
-        if (stakeAmount > 0) {
-            require(usdm.transferFrom(msg.sender, address(this), stakeAmount), "Stake failed");
-        }
+        if (stakeAmount > 0) require(usdm.transferFrom(msg.sender, address(this), stakeAmount), "Stake failed");
         roundId = _roundCounter++;
         Round storage r = rounds[roundId];
-        r.player    = msg.sender;
-        r.startedAt = uint32(block.timestamp);
-        r.stake     = stakeAmount;
-        r.state     = RoundState.ACTIVE;
+        r.player = msg.sender; r.startedAt = uint32(block.timestamp);
+        r.stake = stakeAmount; r.state = RoundState.ACTIVE;
         r.letterSeed = keccak256(abi.encodePacked(block.prevrandao, msg.sender, roundId, block.timestamp));
-        playerRounds[msg.sender].push(roundId);
-        gamesPlayed[msg.sender]++;
+        playerRounds[msg.sender].push(roundId); gamesPlayed[msg.sender]++;
         emit RoundStarted(roundId, msg.sender, r.letterSeed);
+    }
+
+    function commitWord(uint256 roundId, bytes32 wordHash) external {
+        Round storage r = rounds[roundId];
+        require(r.player == msg.sender,               "Not your round");
+        require(r.state  == RoundState.ACTIVE,        "Not active");
+        require(block.timestamp < r.startedAt + ROUND_DURATION, "Time up");
+        require(r.commitCount < MAX_WORDS,            "Max words reached");
+        r.commits[r.commitCount] = WordCommit({ hash: wordHash, revealed: false, score: 0 });
+        r.commitCount++;
+        emit WordCommitted(roundId, r.commitCount - 1);
     }
 }
