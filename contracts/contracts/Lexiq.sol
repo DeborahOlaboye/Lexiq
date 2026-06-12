@@ -59,13 +59,36 @@ contract Lexiq is Ownable, ReentrancyGuard {
         emit WordCommitted(roundId, r.commitCount - 1);
     }
 
+    function revealWords(uint256 roundId, string[] calldata words, bytes32[] calldata salts) external nonReentrant {
+        Round storage r = rounds[roundId];
+        require(r.player == msg.sender,       "Not your round");
+        require(r.state == RoundState.ACTIVE, "Already finished");
+        require(words.length == salts.length, "Length mismatch");
+        for (uint8 i = 0; i < words.length && i < r.commitCount; i++) {
+            bytes32 expected = keccak256(abi.encodePacked(words[i], salts[i]));
+            if (expected == r.commits[i].hash && !r.commits[i].revealed) {
+                uint8 pts = _scoreWord(uint8(bytes(words[i]).length));
+                r.commits[i].score = pts; r.commits[i].revealed = true;
+                r.totalScore += pts;
+                emit WordRevealed(roundId, words[i], pts);
+            }
+        }
+        r.state = RoundState.FINISHED;
+        totalScore[msg.sender] += r.totalScore;
+        if (r.totalScore > highScore[msg.sender]) highScore[msg.sender] = r.totalScore;
+        if (r.stake > 0) {
+            if (r.totalScore >= STAKE_THRESHOLD) {
+                uint256 fee = r.stake / 100; uint256 back = r.stake - fee;
+                platformFeeBalance += fee / 2; weeklyPrizePool += fee / 2;
+                require(usdm.transfer(msg.sender, back), "Payout failed");
+            } else { weeklyPrizePool += r.stake; }
+        }
+        emit RoundFinished(roundId, msg.sender, r.totalScore);
+    }
+
     function _scoreWord(uint8 length) internal pure returns (uint8) {
-        if (length < 2) return 0;
-        if (length == 2) return 1;
-        if (length == 3) return 2;
-        if (length == 4) return 3;
-        if (length == 5) return 5;
-        if (length == 6) return 8;
+        if (length < 2) return 0; if (length == 2) return 1; if (length == 3) return 2;
+        if (length == 4) return 3; if (length == 5) return 5; if (length == 6) return 8;
         return 11;
     }
 }
