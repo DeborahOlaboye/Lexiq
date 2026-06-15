@@ -1,5 +1,5 @@
 export const USDM_ADDRESS = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as const;
-export const LEXIQ_ADDRESS = "" as `0x${string}`;
+export const LEXIQ_ADDRESS = "0x836ee478e4Cd79D4C3b8ac8E93439B4F703A2c09" as `0x${string}`;
 
 export const LEXIQ_ABI = [
   { name: "startRound", type: "function", stateMutability: "nonpayable", inputs: [{ name: "stakeAmount", type: "uint256" }], outputs: [{ name: "roundId", type: "uint256" }] },

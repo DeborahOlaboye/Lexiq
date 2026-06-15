@@ -53,11 +53,17 @@
   50%       { opacity: 0.25; }
 }
 
+@keyframes viewIn {
+  0%   { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
 @layer utilities {
   .animate-floaty    { animation: floaty var(--dur, 4s) ease-in-out var(--delay, 0s) infinite; }
   .animate-tile-in   { animation: tileIn 0.5s ease-out both; }
   .animate-pop-score { animation: popScore 0.42s cubic-bezier(0.2, 1.5, 0.4, 1); }
   .animate-float-up  { animation: floatUp 0.95s ease-out forwards; }
   .animate-blink     { animation: blink 1.4s infinite; }
+  .animate-view-in   { animation: viewIn 0.4s ease both; }
   .confetti-piece    { animation: confetti var(--dur, 2.4s) linear var(--delay, 0s) infinite; }
 }

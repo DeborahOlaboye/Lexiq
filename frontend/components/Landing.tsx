@@ -1,4 +1,5 @@
 "use client";
+import { useConnect } from "wagmi";
 
 const HERO_TILES = [
   { l: "R", r: "-4deg", dur: "4s",   delay: "0s" },
@@ -10,92 +11,114 @@ const HERO_TILES = [
   { l: "S", r: "-1deg", dur: "4.3s", delay: "0.15s" },
 ];
 
-const ONBOARD_TILES = [
-  { l: "L", lime: false, delay: "0s" },
-  { l: "E", lime: false, delay: "0.08s" },
-  { l: "X", lime: false, delay: "0.16s" },
-  { l: "I", lime: false, delay: "0.24s" },
-  { l: "Q", lime: true,  delay: "0.32s" },
-];
-
 const LINE = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
 
-export default function Landing({ isConnecting }: { isConnecting: boolean }) {
-  return (
-    <div className="min-h-screen bg-ink text-cream font-ui overflow-x-hidden">
+export default function Landing() {
+  const { connect, connectors, isPending } = useConnect();
 
-      {/* ── NAV ── */}
-      <nav className="flex items-center justify-between max-w-[1080px] mx-auto px-10 py-[22px]">
-        <div className="flex items-center gap-[11px]">
-          <div
-            className="w-[30px] h-[34px] rounded-[6px] bg-tile flex items-center justify-center font-display font-extrabold text-[20px] text-tileink"
-            style={{ boxShadow: "inset 0 -3px 0 #CFC1A6" }}
-          >
-            L
+  function handleConnect() {
+    const connector = connectors[0];
+    if (connector) connect({ connector });
+  }
+
+  return (
+    <div className="min-h-dvh bg-ink text-cream font-ui overflow-x-hidden">
+
+      {/* NAV — sticky + blur */}
+      <nav
+        style={{
+          position: "sticky", top: 0, zIndex: 40,
+          backdropFilter: "blur(10px)",
+          background: "rgba(21,17,13,.72)",
+          borderBottom: LINE,
+        }}
+      >
+        <div
+          className="flex items-center justify-between"
+          style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "0 clamp(18px,5vw,40px)", height: 60 }}
+        >
+          <div className="flex items-center gap-[11px]">
+            <div style={{ width: 28, height: 32, borderRadius: 6, background: "#F3ECDB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "#2A2017", boxShadow: "inset 0 -2px 0 #CFC1A6" }}>L</div>
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, color: "#F5EFE2" }}>Lexiq</span>
           </div>
-          <span className="font-display font-extrabold text-[21px] tracking-[-0.01em]">Lexiq</span>
-        </div>
-        <div className="hidden md:flex items-center gap-[30px]">
-          <span className="text-sm text-creamdim cursor-pointer hover:text-cream transition-colors">How it works</span>
-          <span className="text-sm text-creamdim cursor-pointer hover:text-cream transition-colors">Scoring</span>
-          <span className="text-sm text-creamdim cursor-pointer hover:text-cream transition-colors">Leaderboard</span>
-          <span className="inline-flex items-center px-[18px] py-[10px] rounded-[11px] bg-lime text-ink font-display font-extrabold text-sm cursor-pointer">
-            Play on MiniPay
-          </span>
+          <button
+            onClick={handleConnect}
+            disabled={isPending}
+            style={{ padding: "10px 20px", borderRadius: 11, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}
+          >
+            {isPending ? "Connecting…" : "Connect Wallet"}
+          </button>
         </div>
       </nav>
 
-      {/* ── HERO ── */}
-      <div className="max-w-[1080px] mx-auto px-10 pt-[46px] pb-[30px] grid md:grid-cols-[1.05fr_0.95fr] gap-10 items-center">
+      {/* HERO */}
+      <div
+        style={{
+          width: "min(1080px, 100%)", margin: "0 auto",
+          padding: "clamp(40px,8vw,80px) clamp(18px,5vw,40px) clamp(20px,4vw,40px)",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+          gap: "clamp(30px,5vw,60px)",
+          alignItems: "center",
+        }}
+      >
+        {/* Copy */}
         <div>
           <div
-            className="inline-flex items-center gap-2 px-[13px] py-[7px] rounded-full font-mono text-[11px] tracking-[0.12em] uppercase text-lime"
-            style={{ border: LINE2 }}
+            className="inline-flex items-center gap-2"
+            style={{ padding: "7px 13px", borderRadius: 20, border: LINE2, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#CFE94B" }}
           >
-            <span className="w-[7px] h-[7px] rounded-full bg-lime animate-blink" />
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#CFE94B", display: "inline-block", animation: "blink 1.4s infinite" }} />
             On-chain word race · Celo
           </div>
-          <h1 className="font-display font-extrabold text-[52px] md:text-[62px] leading-[0.96] tracking-[-0.025em] mt-5">
+          <h1
+            style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(40px,8vw,64px)", lineHeight: 0.96, letterSpacing: "-0.025em", marginTop: 20, marginBottom: 0, color: "#F5EFE2" }}
+          >
             Seven letters.<br />Ninety seconds.<br />
-            <span className="text-lime">One shot.</span>
+            <span style={{ color: "#CFE94B" }}>One shot.</span>
           </h1>
-          <p className="text-[18px] leading-[1.55] text-creamdim max-w-[430px] mt-[22px]">
+          <p style={{ fontSize: "clamp(15px,2vw,18px)", lineHeight: 1.55, color: "#CBC0AE", maxWidth: 430, marginTop: 20, marginBottom: 0 }}>
             Build as many words as you can from 7 random letters. Longer words score more. Stake USDM, beat your best,
             and climb the weekly prize board.
           </p>
-          <div className="flex flex-wrap gap-[14px] mt-[30px]">
+          <div className="flex flex-wrap gap-[14px]" style={{ marginTop: "clamp(20px,3vw,30px)" }}>
             <button
-              className="inline-flex items-center gap-[9px] px-[26px] py-[16px] rounded-[14px] bg-lime text-ink font-display font-extrabold text-[17px]"
-              style={{ boxShadow: "0 6px 0 #A9C931" }}
+              onClick={handleConnect}
+              disabled={isPending}
+              style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,26px)", borderRadius: 14, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", boxShadow: "0 6px 0 #A9C931", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}
             >
-              {isConnecting ? "Connecting…" : "Play on MiniPay"}
+              {isPending ? "Connecting…" : "Connect Wallet"}
             </button>
-            <button
-              className="inline-flex items-center gap-[9px] px-[24px] py-[16px] rounded-[14px] text-cream font-display font-bold text-[17px]"
-              style={{ border: LINE2 }}
+            <a
+              href="#how"
+              style={{ display: "inline-flex", alignItems: "center", padding: "clamp(12px,2vw,16px) clamp(20px,3vw,24px)", borderRadius: 14, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(15px,2vw,17px)", textDecoration: "none" }}
             >
               How it works
-            </button>
+            </a>
           </div>
-          <div className="flex gap-[22px] mt-[26px] font-mono text-[12px] text-muted">
+          <div style={{ display: "flex", flexWrap: "wrap", columnGap: 22, rowGap: 4, marginTop: 20, fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77" }}>
             <span>↳ Settled on Celo</span>
             <span>· USDM</span>
             <span>· No sign-up</span>
+            <span>· Phone & laptop</span>
           </div>
         </div>
 
-        {/* Hero art */}
-        <div className="relative h-[420px] hidden md:block">
-          <div className="absolute top-[120px] left-1/2 -translate-x-1/2 flex gap-[7px]">
+        {/* Floating tiles art */}
+        <div style={{ position: "relative", minHeight: "clamp(200px,40vw,380px)" }}>
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", display: "flex", gap: 7 }}>
             {HERO_TILES.map(({ l, r, dur, delay }) => (
               <div
                 key={l}
-                className="animate-floaty w-[54px] h-[62px] rounded-[9px] bg-tile flex items-center justify-center font-display font-extrabold text-[32px] text-tileink"
+                className="animate-floaty"
                 style={{
-                  "--r": r,
-                  "--dur": dur,
-                  "--delay": delay,
+                  "--r": r, "--dur": dur, "--delay": delay,
+                  width: "clamp(36px,6vw,54px)", height: "clamp(42px,7vw,62px)",
+                  borderRadius: 9, background: "#F3ECDB",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontFamily: "var(--font-display)", fontWeight: 800,
+                  fontSize: "clamp(20px,3.5vw,32px)", color: "#2A2017",
                   boxShadow: "inset 0 -4px 0 #CFC1A6, 0 8px 18px rgba(0,0,0,.35)",
                 } as React.CSSProperties}
               >
@@ -103,223 +126,149 @@ export default function Landing({ isConnecting }: { isConnecting: boolean }) {
               </div>
             ))}
           </div>
-          <div
-            className="absolute top-[36px] right-2 bg-coral text-white p-[13px_18px] rounded-[14px] rotate-[5deg]"
-            style={{ boxShadow: "0 10px 26px rgba(255,91,69,.4)" }}
-          >
-            <div className="font-mono text-[10px] opacity-85 tracking-[0.1em]">RETAINS</div>
-            <div className="font-display font-extrabold text-[30px] leading-none">+11</div>
+          <div style={{ position: "absolute", top: "8%", right: "4%", background: "#FF5B45", color: "white", padding: "13px 18px", borderRadius: 14, transform: "rotate(5deg)", boxShadow: "0 10px 26px rgba(255,91,69,.4)" }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, opacity: 0.85, letterSpacing: "0.1em" }}>RETAINS</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 30, lineHeight: 1 }}>+11</div>
           </div>
-          <div
-            className="absolute bottom-10 left-0 bg-panel p-[11px_16px] rounded-[13px] -rotate-[4deg]"
-            style={{ border: LINE }}
-          >
-            <div className="font-mono text-[10px] text-muted tracking-[0.1em]">TIME</div>
-            <div className="font-mono font-bold text-[26px] text-cream leading-none">01:30</div>
+          <div style={{ position: "absolute", bottom: "10%", left: "4%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13, transform: "rotate(-4deg)" }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", letterSpacing: "0.1em" }}>TIME</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 26, color: "#F5EFE2", lineHeight: 1 }}>01:30</div>
           </div>
-          <div
-            className="absolute bottom-[54px] right-6 bg-panel p-[11px_16px] rounded-[13px] rotate-[3deg]"
-            style={{ border: LINE }}
-          >
-            <div className="font-mono text-[10px] text-muted tracking-[0.1em]">YOUR BEST</div>
-            <div className="font-display font-extrabold text-[26px] text-lime leading-none">47</div>
+          <div style={{ position: "absolute", bottom: "24%", right: "8%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13, transform: "rotate(3deg)" }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", letterSpacing: "0.1em" }}>YOUR BEST</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, color: "#CFE94B", lineHeight: 1 }}>47</div>
           </div>
         </div>
       </div>
 
-      {/* ── STATS BAND ── */}
-      <div className="max-w-[1080px] mx-auto px-10 mt-[18px]">
-        <div
-          className="grid grid-cols-2 md:grid-cols-4 gap-[14px] py-[26px]"
-          style={{ borderTop: LINE, borderBottom: LINE }}
-        >
+      {/* Connect subtext */}
+      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "0 clamp(18px,5vw,40px) clamp(20px,3vw,40px)", textAlign: "center" }}>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77", margin: 0 }}>
+          Connect your wallet — it works the same on your phone and your laptop
+        </p>
+      </div>
+
+      {/* STATS BAND */}
+      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "0 clamp(18px,5vw,40px)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14, padding: "clamp(18px,4vw,26px) 0", borderTop: LINE, borderBottom: LINE }}>
           {[
-            { val: "90s",    label: "per round",        lime: false },
-            { val: "7",      label: "random letters",   lime: false },
-            { val: "11 pts", label: "top word score",   lime: true  },
+            { val: "90s",    label: "per round",         lime: false },
+            { val: "7",      label: "random letters",    lime: false },
+            { val: "11 pts", label: "top word score",    lime: true  },
             { val: "USDM",   label: "weekly prize pool", lime: false },
           ].map(({ val, label, lime }) => (
             <div key={val}>
-              <div className={`font-display font-extrabold text-[34px] leading-none ${lime ? "text-lime" : "text-cream"}`}>
-                {val}
-              </div>
-              <div className="text-[13px] text-muted mt-[5px]">{label}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,34px)", lineHeight: 1, color: lime ? "#CFE94B" : "#F5EFE2" }}>{val}</div>
+              <div style={{ fontSize: 13, color: "#9A8C77", marginTop: 5 }}>{label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── HOW IT WORKS ── */}
-      <div className="max-w-[1080px] mx-auto px-10 pt-[64px] pb-5">
-        <h2 className="font-display font-extrabold text-[38px] tracking-[-0.02em] mb-[6px]">How it works</h2>
-        <p className="text-muted text-[16px] mb-[36px]">No opponents to wait for. Just you, the clock, and the chain.</p>
-        <div className="grid md:grid-cols-3 gap-[18px]">
+      {/* HOW IT WORKS */}
+      <div id="how" style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(40px,6vw,64px) clamp(18px,5vw,40px) 20px" }}>
+        <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(26px,5vw,38px)", letterSpacing: "-0.02em", margin: "0 0 6px" }}>How it works</h2>
+        <p style={{ color: "#9A8C77", fontSize: 16, marginBottom: 36 }}>No opponents to wait for. Just you, the clock, and the chain.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 18 }}>
           {[
-            {
-              n: "01", title: "Get your 7 letters",
-              body: "Seven random letters drawn from a keccak256 seed of live block data. Provably fair, fresh every round.",
-            },
-            {
-              n: "02", title: "Spell against the clock",
-              body: "Tap tiles or type. Each word is committed on-chain as you go. Longer words are worth far more.",
-            },
-            {
-              n: "03", title: "Reveal & score",
-              body: "At the buzzer your words reveal and tally. Beat 10 points to keep your stake — or feed the pool.",
-            },
+            { n: "01", title: "Get your 7 letters", body: "Seven random letters drawn from a keccak256 seed of live block data. Provably fair, fresh every round." },
+            { n: "02", title: "Spell against the clock", body: "Tap tiles or type. Each word is committed on-chain as you go. Longer words are worth far more." },
+            { n: "03", title: "Reveal & score", body: "At the buzzer your words reveal and tally. Beat 10 points to keep your stake — or feed the pool." },
           ].map(({ n, title, body }) => (
-            <div key={n} className="bg-panel rounded-[20px] p-[28px]" style={{ border: LINE }}>
-              <div className="font-display font-extrabold text-[15px] text-lime tracking-[0.1em]">{n}</div>
-              <div className="font-display font-bold text-[22px] mt-[14px] mb-2">{title}</div>
-              <p className="text-creamdim text-[15px] leading-[1.5] m-0">{body}</p>
+            <div key={n} style={{ background: "#241C13", borderRadius: 20, padding: "clamp(18px,3vw,28px)", border: LINE }}>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "#CFE94B", letterSpacing: "0.1em" }}>{n}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(17px,2.5vw,22px)", marginTop: 14, marginBottom: 8 }}>{title}</div>
+              <p style={{ color: "#CBC0AE", fontSize: 15, lineHeight: 1.5, margin: 0 }}>{body}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── SCORING LADDER ── */}
-      <div className="max-w-[1080px] mx-auto px-10 pt-[56px] pb-5">
-        <div className="grid md:grid-cols-[0.8fr_1.2fr] gap-10 items-center">
+      {/* SCORING LADDER */}
+      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(36px,6vw,56px) clamp(18px,5vw,40px) 20px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "clamp(24px,5vw,40px)", alignItems: "center" }}>
           <div>
-            <h2 className="font-display font-extrabold text-[38px] tracking-[-0.02em] mb-3">
-              Length is everything
-            </h2>
-            <p className="text-creamdim text-[16px] leading-[1.55] m-0">
-              Two-letter words barely register. The seven-letter bomb is the jackpot. The whole game is the hunt
-              for one more long word before the buzzer.
+            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(26px,5vw,38px)", letterSpacing: "-0.02em", marginBottom: 12 }}>Length is everything</h2>
+            <p style={{ color: "#CBC0AE", fontSize: 16, lineHeight: 1.55, margin: 0 }}>
+              Two-letter words barely register. The seven-letter bomb is the jackpot. The whole game is the hunt for one more long word before the buzzer.
             </p>
           </div>
-          <div className="flex flex-col gap-2 mt-8 md:mt-0">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { label: "2 L",  pts: "1 pt",   w: "14%",  bar: "var(--line2)",            jackpot: false },
-              { label: "3 L",  pts: "2 pts",  w: "24%",  bar: "var(--line2)",            jackpot: false },
-              { label: "4 L",  pts: "3 pts",  w: "34%",  bar: "rgba(207,233,75,.4)",     jackpot: false },
-              { label: "5 L",  pts: "5 pts",  w: "50%",  bar: "rgba(207,233,75,.6)",     jackpot: false },
-              { label: "6 L",  pts: "8 pts",  w: "70%",  bar: "#CFE94B",                jackpot: false },
-              { label: "7 L+", pts: "11 pts", w: "100%", bar: "#FF5B45",                jackpot: true  },
+              { label: "2 L",  pts: "1 pt",   w: "14%",  bar: "var(--line2)",        jackpot: false },
+              { label: "3 L",  pts: "2 pts",  w: "24%",  bar: "var(--line2)",        jackpot: false },
+              { label: "4 L",  pts: "3 pts",  w: "34%",  bar: "rgba(207,233,75,.4)", jackpot: false },
+              { label: "5 L",  pts: "5 pts",  w: "50%",  bar: "rgba(207,233,75,.6)", jackpot: false },
+              { label: "6 L",  pts: "8 pts",  w: "70%",  bar: "#CFE94B",             jackpot: false },
+              { label: "7 L+", pts: "11 pts", w: "100%", bar: "#FF5B45",             jackpot: true  },
             ].map(({ label, pts, w, bar, jackpot }) => (
-              <div key={label} className="flex items-center gap-3">
-                <span className={`w-[52px] font-mono text-[13px] shrink-0 ${jackpot ? "text-coral" : "text-muted"}`}>
-                  {label}
-                </span>
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ width: 52, fontFamily: "var(--font-mono)", fontSize: 13, flexShrink: 0, color: jackpot ? "#FF5B45" : "#9A8C77" }}>{label}</span>
                 {jackpot ? (
-                  <div
-                    className="h-[38px] flex-1 rounded-[8px] flex items-center pl-[14px] font-display font-extrabold text-white text-[14px] tracking-[0.08em]"
-                    style={{ background: bar }}
-                  >
-                    JACKPOT
-                  </div>
+                  <div style={{ height: 38, flex: 1, borderRadius: 8, background: bar, display: "flex", alignItems: "center", paddingLeft: 14, fontFamily: "var(--font-display)", fontWeight: 800, color: "white", fontSize: 14, letterSpacing: "0.08em" }}>JACKPOT</div>
                 ) : (
-                  <div className="h-[30px] rounded-[8px]" style={{ width: w, background: bar }} />
+                  <div style={{ height: 30, borderRadius: 8, width: w, background: bar, flexShrink: 0 }} />
                 )}
-                <span
-                  className={`font-display font-bold text-[15px] shrink-0 ${jackpot ? "text-coral text-[18px] font-extrabold" : "text-creamdim"}`}
-                >
-                  {pts}
-                </span>
+                <span style={{ fontFamily: "var(--font-display)", fontWeight: jackpot ? 800 : 700, fontSize: jackpot ? 18 : 15, flexShrink: 0, color: jackpot ? "#FF5B45" : "#CBC0AE" }}>{pts}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ── STAKE / PRIZE ── */}
-      <div className="max-w-[1080px] mx-auto px-10 pt-[56px] pb-5">
-        <div className="grid md:grid-cols-2 gap-[18px]">
-          <div className="bg-panel rounded-[20px] p-[30px]" style={{ border: LINE }}>
-            <div className="font-mono text-[11px] tracking-[0.14em] text-muted uppercase">Free to play</div>
-            <div className="font-display font-extrabold text-[26px] mt-3 mb-2">Just for the high score</div>
-            <p className="text-creamdim text-[15px] leading-[1.5] m-0">
-              Skip the stake entirely. Chase your personal best and climb the board on pure skill.
-            </p>
+      {/* STAKE / PRIZE */}
+      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(36px,6vw,56px) clamp(18px,5vw,40px) 20px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 18 }}>
+          <div style={{ background: "#241C13", borderRadius: 20, padding: "clamp(20px,3vw,30px)", border: LINE }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#9A8C77", textTransform: "uppercase" }}>Free to play</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,2.5vw,26px)", marginTop: 12, marginBottom: 8 }}>Just for the high score</div>
+            <p style={{ color: "#CBC0AE", fontSize: 15, lineHeight: 1.5, margin: 0 }}>Skip the stake entirely. Chase your personal best and climb the board on pure skill.</p>
           </div>
-          <div
-            className="rounded-[20px] p-[30px]"
-            style={{ background: "linear-gradient(135deg,rgba(255,91,69,.16),rgba(207,233,75,.10))", border: "1px solid rgba(255,91,69,.35)" }}
-          >
-            <div className="font-mono text-[11px] tracking-[0.14em] text-coral uppercase">Stake to sweat</div>
-            <div className="font-display font-extrabold text-[26px] mt-3 mb-2">Score 10+ or lose it</div>
-            <p className="text-creamdim text-[15px] leading-[1.5] m-0">
-              Stake USDM before the round. Beat 10 points and it comes back (minus 1%). Fall short and it drops
-              into the weekly pool.
-            </p>
+          <div style={{ borderRadius: 20, padding: "clamp(20px,3vw,30px)", background: "linear-gradient(135deg,rgba(255,91,69,.16),rgba(207,233,75,.10))", border: "1px solid rgba(255,91,69,.35)" }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#FF5B45", textTransform: "uppercase" }}>Stake to sweat</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,2.5vw,26px)", marginTop: 12, marginBottom: 8 }}>Score 10+ or lose it</div>
+            <p style={{ color: "#CBC0AE", fontSize: 15, lineHeight: 1.5, margin: 0 }}>Stake USDM before the round. Beat 10 points and it comes back (minus 1%). Fall short and it drops into the weekly pool.</p>
           </div>
         </div>
-        <div
-          className="mt-[18px] bg-ink2 rounded-[20px] p-[30px] flex items-center justify-between flex-wrap gap-5"
-          style={{ border: LINE }}
-        >
+        <div style={{ marginTop: 18, background: "#1E1710", borderRadius: 20, padding: "clamp(20px,3vw,30px)", border: LINE, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
           <div>
-            <div className="font-mono text-[11px] tracking-[0.14em] text-muted uppercase">This week's prize pool</div>
-            <div className="font-display font-extrabold text-[46px] text-lime leading-none mt-2">
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#9A8C77", textTransform: "uppercase" }}>This week's prize pool</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(32px,6vw,46px)", color: "#CFE94B", lineHeight: 1, marginTop: 8 }}>
               128.40{" "}
-              <span className="text-[22px] text-creamdim font-bold">USDM</span>
+              <span style={{ fontSize: "clamp(16px,2.5vw,22px)", color: "#CBC0AE", fontWeight: 700 }}>USDM</span>
             </div>
           </div>
-          <div className="text-right">
-            <div className="font-mono text-[12px] text-muted">Resets in</div>
-            <div className="font-mono font-bold text-[26px] text-cream">3d 14h 22m</div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77" }}>Resets in</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 26, color: "#F5EFE2" }}>3d 14h 22m</div>
           </div>
         </div>
       </div>
 
-      {/* ── FINAL CTA ── */}
-      <div className="max-w-[1080px] mx-auto px-10 mt-16">
-        <div className="bg-lime rounded-[26px] p-[54px_44px] text-center">
-          <h2 className="font-display font-extrabold text-[46px] tracking-[-0.02em] text-ink m-0">
-            Got 90 seconds?
-          </h2>
-          <p className="text-[#3c4416] text-[17px] mt-3 mb-[26px]">
-            Open Lexiq in MiniPay. Your wallet connects automatically.
+      {/* FINAL CTA */}
+      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(36px,6vw,64px) clamp(18px,5vw,40px)" }}>
+        <div style={{ background: "#CFE94B", borderRadius: 26, padding: "clamp(36px,6vw,54px) clamp(24px,4vw,44px)", textAlign: "center" }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(30px,6vw,46px)", letterSpacing: "-0.02em", color: "#15110D", margin: "0 0 12px" }}>Got 90 seconds?</h2>
+          <p style={{ color: "#3c4416", fontSize: "clamp(14px,2vw,17px)", margin: "0 0 26px" }}>
+            Connect your wallet — it works the same on your phone and your laptop.
           </p>
-          <button className="inline-flex items-center gap-[10px] px-[34px] py-[17px] rounded-[14px] bg-ink text-lime font-display font-extrabold text-[18px]">
-            Play on MiniPay
+          <button
+            onClick={handleConnect}
+            disabled={isPending}
+            style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "clamp(13px,2vw,17px) clamp(26px,4vw,34px)", borderRadius: 14, background: "#15110D", color: "#CFE94B", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,18px)", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}
+          >
+            {isPending ? "Connecting…" : "Connect Wallet"}
           </button>
         </div>
       </div>
 
-      {/* ── FOOTER ── */}
-      <div
-        className="max-w-[1080px] mx-auto px-10 mt-12 pb-[46px] pt-[30px] flex items-center justify-between flex-wrap gap-[14px]"
-        style={{ borderTop: LINE }}
-      >
-        <div className="flex items-center gap-[10px]">
-          <span className="font-display font-extrabold text-[17px]">Lexiq</span>
-          <span className="text-[13px] text-muted">· Solo word race on Celo</span>
+      {/* FOOTER */}
+      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(20px,4vw,30px) clamp(18px,5vw,40px) clamp(30px,5vw,46px)", borderTop: LINE, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17 }}>Lexiq</span>
+          <span style={{ fontSize: 13, color: "#9A8C77" }}>· Solo word race on Celo</span>
         </div>
-        <div className="font-mono text-[11px] text-muted">USDM · 0x765D…282a · chainId 42220</div>
-      </div>
-
-      {/* ── MOBILE ONBOARDING CTA (shown below the fold on small screens) ── */}
-      <div className="md:hidden max-w-[390px] mx-auto px-6 pb-16">
-        <div className="flex justify-center gap-[6px] mb-6">
-          {ONBOARD_TILES.map(({ l, lime, delay }) => (
-            <div
-              key={l}
-              className="animate-tile-in w-[42px] h-[50px] rounded-[8px] flex items-center justify-center font-display font-extrabold text-[26px]"
-              style={{
-                "--delay": delay,
-                background: lime ? "#CFE94B" : "#F3ECDB",
-                color: lime ? "#15110D" : "#2A2017",
-                boxShadow: lime
-                  ? "inset 0 -3px 0 #A9C931, 0 6px 14px rgba(0,0,0,.35)"
-                  : "inset 0 -3px 0 #CFC1A6, 0 6px 14px rgba(0,0,0,.35)",
-              } as React.CSSProperties}
-            >
-              {l}
-            </div>
-          ))}
-        </div>
-        <button
-          className="flex items-center justify-center w-full py-[16px] rounded-[16px] bg-lime text-ink font-display font-extrabold text-[17px]"
-          style={{ boxShadow: "0 6px 0 #A9C931" }}
-        >
-          {isConnecting ? "Connecting…" : "Open in MiniPay"}
-        </button>
-        <div className="flex items-center justify-center gap-[7px] mt-3 font-mono text-[11px] text-muted">
-          <span className="w-[6px] h-[6px] rounded-full bg-lime animate-blink" />
-          Auto-connects your wallet · Mainnet
-        </div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77" }}>USDM · 0x765D…282a · chainId 42220</div>
       </div>
     </div>
   );
