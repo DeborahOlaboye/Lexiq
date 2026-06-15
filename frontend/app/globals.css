@@ -1,5 +1,63 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-body { @apply bg-gray-950 text-white; -webkit-font-smoothing: antialiased; }
-button { -webkit-tap-highlight-color: transparent; }
+
+@layer base {
+  :root {
+    --line: rgba(245, 239, 226, 0.09);
+    --line2: rgba(245, 239, 226, 0.18);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background-color: #15110D;
+    color: #F5EFE2;
+    font-family: var(--font-ui, "Hanken Grotesk", system-ui, sans-serif);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button { -webkit-tap-highlight-color: transparent; }
+}
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+  50%       { transform: translateY(-9px) rotate(var(--r, 0deg)); }
+}
+
+@keyframes popScore {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+@keyframes floatUp {
+  0%   { transform: translate(-50%, -50%) scale(0.7); opacity: 0; }
+  18%  { opacity: 1; transform: translate(-50%, -62%) scale(1.12); }
+  100% { transform: translate(-50%, -150%) scale(1); opacity: 0; }
+}
+
+@keyframes tileIn {
+  0%   { transform: translateY(14px) rotate(-8deg); opacity: 0; }
+  100% { transform: translateY(0) rotate(0); opacity: 1; }
+}
+
+@keyframes confetti {
+  0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(420px) rotate(620deg); opacity: 0; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
+}
+
+@layer utilities {
+  .animate-floaty    { animation: floaty var(--dur, 4s) ease-in-out var(--delay, 0s) infinite; }
+  .animate-tile-in   { animation: tileIn 0.5s ease-out both; }
+  .animate-pop-score { animation: popScore 0.42s cubic-bezier(0.2, 1.5, 0.4, 1); }
+  .animate-float-up  { animation: floatUp 0.95s ease-out forwards; }
+  .animate-blink     { animation: blink 1.4s infinite; }
+  .confetti-piece    { animation: confetti var(--dur, 2.4s) linear var(--delay, 0s) infinite; }
+}
