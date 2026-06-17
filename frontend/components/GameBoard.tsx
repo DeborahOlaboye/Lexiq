@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { keccak256, encodePacked } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, scoreWord } from "@/lib/contracts";
+import { celoFee } from "@/lib/minipay";
 
 const LINE = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -106,7 +107,7 @@ export default function GameBoard({
     if (word.length < 2 || !canBuild(word, letterStr) || words.find((w) => w.word === word)) return;
     const salt = randomSalt();
     const pts = scoreWord(word);
-    commit({ address: contract, abi: LEXIQ_ABI, functionName: "commitWord", args: [roundId, hashWord(word, salt)] });
+    commit({ address: contract, abi: LEXIQ_ABI, functionName: "commitWord", args: [roundId, hashWord(word, salt)], ...celoFee() } as any);
     setWords((prev) => [...prev, { word, salt, pts }]);
     setInput("");
 
@@ -121,7 +122,8 @@ export default function GameBoard({
     reveal({
       address: contract, abi: LEXIQ_ABI, functionName: "revealWords",
       args: [roundId, words.map((w) => w.word), words.map((w) => w.salt)],
-    });
+      ...celoFee(),
+    } as any);
     setRevealed(true);
     setTimeout(() => refetch(), 3000);
   }

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ERC20_ABI, USDM_ADDRESS } from "@/lib/contracts";
+import { celoFee } from "@/lib/minipay";
 
 const MIN_STAKE = 0.01;
 const LINE = "1px solid var(--line)";
@@ -43,17 +44,17 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
     if (stakeBN > 0n) {
       setPendingStake(stakeBN);
       setStatus("Approving USDM…");
-      approve({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "approve", args: [contract, stakeBN] });
+      approve({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "approve", args: [contract, stakeBN], ...celoFee() } as any);
     } else {
       setStatus("Starting round…");
-      start({ address: contract, abi: LEXIQ_ABI, functionName: "startRound", args: [0n] });
+      start({ address: contract, abi: LEXIQ_ABI, functionName: "startRound", args: [0n], ...celoFee() } as any);
     }
   }
 
   useEffect(() => {
     if (approveOk && pendingStake > 0n && !startTx) {
       setStatus("Starting round…");
-      start({ address: contract, abi: LEXIQ_ABI, functionName: "startRound", args: [pendingStake] });
+      start({ address: contract, abi: LEXIQ_ABI, functionName: "startRound", args: [pendingStake], ...celoFee() } as any);
     }
   }, [approveOk]); // eslint-disable-line
 
