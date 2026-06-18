@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAccount, useReadContract } from "wagmi";
 import { writeContract, waitForTransactionReceipt } from "@wagmi/core";
 import { keccak256, encodePacked } from "viem";
@@ -9,7 +9,6 @@ import { wagmiConfig } from "@/lib/wagmi";
 
 const LINE = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
-const COMMIT_AT = 10; // auto-fire batch commit when this many seconds remain
 
 const CONFETTI = [
   { left: "10%", dur: "2.4s", delay: "0s",    color: "#CFE94B", round: false },
@@ -40,7 +39,6 @@ function canBuild(word: string, letters: string) {
 }
 
 type WordEntry = { word: string; salt: `0x${string}`; pts: number };
-type CommitPhase = "playing" | "committing" | "committed" | "commit_failed";
 type Pop = { id: number; text: string };
 
 export default function GameBoard({
@@ -58,16 +56,11 @@ export default function GameBoard({
   const [words, setWords] = useState<WordEntry[]>([]);
   const [timeLeft, setTimeLeft] = useState(90);
   const [phase, setPhase] = useState<"active" | "done">("active");
-  const [commitPhase, setCommitPhase] = useState<CommitPhase>("playing");
   const [pops, setPops] = useState<Pop[]>([]);
   const [popId, setPopId] = useState(0);
-  const [revealing, setRevealing] = useState(false);
-  const [revealProgress, setRevealProgress] = useState<string | null>(null);
-  const [revealError, setRevealError] = useState<string | null>(null);
-
-  // Snapshot of words at commit time — order must match on-chain commit slots
-  const committedWordsRef = useRef<WordEntry[]>([]);
-  const autoCommitFiredRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitProgress, setSubmitProgress] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { data: round, refetch } = useReadContract({
     address: contract, abi: LEXIQ_ABI, functionName: "getRound",
@@ -105,88 +98,39 @@ export default function GameBoard({
     return () => clearInterval(id);
   }, [phase, round]);
 
-  // Auto-fire batch commit when COMMIT_AT seconds remain
-  useEffect(() => {
-    if (
-      timeLeft <= COMMIT_AT &&
-      timeLeft > 0 &&
-      phase === "active" &&
-      !autoCommitFiredRef.current &&
-      commitPhase === "playing" &&
-      words.length > 0 &&
-      roundId !== null
-    ) {
-      autoCommitFiredRef.current = true;
-      doCommit([...words], roundId);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, phase, commitPhase, words.length, roundId]);
-
-  async function doCommit(snapshot: WordEntry[], rid: bigint) {
-    setCommitPhase("committing");
-    committedWordsRef.current = snapshot;
+  // Single tap: commit all words then reveal
+  async function doSubmit() {
+    if (!roundId || submitting || words.length === 0) return;
+    setSubmitting(true);
+    setSubmitError(null);
     try {
-      const hashes = snapshot.map((w) => hashWord(w.word, w.salt));
+      // Step 1 — commit all hashes in one tx (no time restriction on new contract)
+      setSubmitProgress(`Committing ${words.length} word${words.length !== 1 ? "s" : ""}…`);
+      const hashes = words.map((w) => hashWord(w.word, w.salt));
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const hash = await (writeContract as any)(wagmiConfig, {
+      const commitHash = await (writeContract as any)(wagmiConfig, {
         address: contract, abi: LEXIQ_ABI, functionName: "commitWords",
-        args: [rid, hashes],
+        args: [roundId, hashes],
         ...celoFee(),
       });
-      await waitForTransactionReceipt(wagmiConfig, { hash });
-      setCommitPhase("committed");
-    } catch {
-      setCommitPhase("commit_failed");
-    }
-  }
+      await waitForTransactionReceipt(wagmiConfig, { hash: commitHash });
 
-  async function doReveal() {
-    if (!roundId || revealing) return;
-
-    // If commit failed or never fired (no words when auto-trigger ran), try now
-    if (commitPhase === "commit_failed" || commitPhase === "playing") {
-      if (words.length === 0) return;
-      setRevealProgress("Committing words…");
-      const snapshot = [...words];
-      committedWordsRef.current = snapshot;
-      autoCommitFiredRef.current = true;
-      try {
-        const hashes = snapshot.map((w) => hashWord(w.word, w.salt));
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const commitHash = await (writeContract as any)(wagmiConfig, {
-          address: contract, abi: LEXIQ_ABI, functionName: "commitWords",
-          args: [roundId, hashes],
-          ...celoFee(),
-        });
-        await waitForTransactionReceipt(wagmiConfig, { hash: commitHash });
-        setCommitPhase("committed");
-      } catch {
-        setRevealError("Commit failed — tap to retry.");
-        setRevealProgress(null);
-        return;
-      }
-    }
-
-    setRevealing(true);
-    setRevealError(null);
-    const committed = committedWordsRef.current;
-
-    try {
-      setRevealProgress(`Revealing ${committed.length} word${committed.length !== 1 ? "s" : ""}…`);
+      // Step 2 — reveal
+      setSubmitProgress("Revealing…");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const revealHash = await (writeContract as any)(wagmiConfig, {
         address: contract, abi: LEXIQ_ABI, functionName: "revealWords",
-        args: [roundId, committed.map((w) => w.word), committed.map((w) => w.salt)],
+        args: [roundId, words.map((w) => w.word), words.map((w) => w.salt)],
         ...celoFee(),
       });
       await waitForTransactionReceipt(wagmiConfig, { hash: revealHash });
-      setRevealProgress(null);
+      setSubmitProgress(null);
       setTimeout(() => refetch(), 1000);
     } catch {
-      setRevealError("Reveal failed — tap to retry.");
-      setRevealProgress(null);
+      setSubmitError("Transaction failed — tap to retry.");
+      setSubmitProgress(null);
     } finally {
-      setRevealing(false);
+      setSubmitting(false);
     }
   }
 
@@ -195,11 +139,12 @@ export default function GameBoard({
   const progress = best > 0 ? Math.min(100, Math.round((myScore / best) * 100)) : 0;
   const usedCounts = getLetterCounts(input);
   const availCounts = getLetterCounts(letterStr);
-  const isActive = phase === "active" && commitPhase === "playing";
   const timeStr = String(Math.floor(timeLeft / 60)).padStart(2, "0") + ":" + String(timeLeft % 60).padStart(2, "0");
   const timerColor = phase !== "active"
     ? "#6E6557"
     : timeLeft > 30 ? "#F5EFE2" : timeLeft > 10 ? "#F4C84B" : "#FF5B45";
+  const isActive = phase === "active" && timeLeft > 0 && !submitting;
+  const timeUp = (timeLeft === 0 || phase === "done");
 
   const submitWord = useCallback(() => {
     if (!isActive || !roundId) return;
@@ -238,7 +183,6 @@ export default function GameBoard({
       <button onClick={onBack} style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#CFE94B", background: "none", border: "none", cursor: "pointer" }}>← Back to lobby</button>
     </div>
   );
-
   if (!round) return (
     <div className="flex items-center justify-center py-16">
       <p style={{ fontSize: 14, color: "#9A8C77", fontFamily: "var(--font-mono)" }}>Loading round…</p>
@@ -248,13 +192,11 @@ export default function GameBoard({
   const [,, , , finalScore, state, stake] = round as [
     `0x${string}`, `0x${string}`, number, number, number, number, bigint
   ];
-
   const isNewBest = finalScore > best && best > 0;
   const sortedWords = [...words].sort((a, b) => b.pts - a.pts);
   const displayScore = state === 1 ? finalScore : myScore;
-  const timeUp = (timeLeft === 0 || phase === "done") && state !== 1;
 
-  /* ── RESULTS SCREEN ── */
+  /* ── RESULTS ── */
   if (state === 1) {
     return (
       <div className="animate-view-in" style={{ width: "min(560px, 100%)", margin: "0 auto", paddingTop: "clamp(12px,3vw,24px)" }}>
@@ -262,34 +204,23 @@ export default function GameBoard({
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
             {CONFETTI.map((c, i) => (
               <span key={i} className="absolute top-0 w-[8px] h-[8px] confetti-piece"
-                style={{ left: c.left, "--dur": c.dur, "--delay": c.delay, background: c.color, borderRadius: c.round ? "50%" : "2px" } as React.CSSProperties}
-              />
+                style={{ left: c.left, "--dur": c.dur, "--delay": c.delay, background: c.color, borderRadius: c.round ? "50%" : "2px" } as React.CSSProperties} />
             ))}
           </div>
           <div className="relative flex flex-col items-center text-center" style={{ padding: "clamp(24px,5vw,44px)" }}>
             <div className="flex flex-wrap gap-[8px] justify-center mb-4">
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 16px", borderRadius: 20, background: "#241C13", border: LINE, fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, letterSpacing: "0.12em", color: "#F5EFE2", textTransform: "uppercase" }}>
-                Round Complete
-              </div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 16px", borderRadius: 20, background: "#241C13", border: LINE, fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, letterSpacing: "0.12em", color: "#F5EFE2", textTransform: "uppercase" }}>Round Complete</div>
               {isNewBest && (
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 16px", borderRadius: 20, background: "#FF5B45", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, letterSpacing: "0.1em", color: "white", boxShadow: "0 6px 18px rgba(255,91,69,.45)" }}>
-                  ★ NEW BEST!
-                </div>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 16px", borderRadius: 20, background: "#FF5B45", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, letterSpacing: "0.1em", color: "white", boxShadow: "0 6px 18px rgba(255,91,69,.45)" }}>★ NEW BEST!</div>
               )}
             </div>
-            <div key={finalScore} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(72px,16vw,96px)", color: "#CFE94B", lineHeight: 1, animation: "popScore .5s cubic-bezier(.2,1.5,.4,1)" }}>
-              {finalScore}
-            </div>
+            <div key={finalScore} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(72px,16vw,96px)", color: "#CFE94B", lineHeight: 1, animation: "popScore .5s cubic-bezier(.2,1.5,.4,1)" }}>{finalScore}</div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, color: "#F5EFE2", marginTop: 4 }}>points</div>
-            {isNewBest && (
-              <div style={{ fontSize: 14, color: "#CBC0AE", marginTop: 8 }}>
-                Beat your old best of {best} by <b style={{ color: "#FF5B45" }}>+{finalScore - best}</b>
-              </div>
-            )}
+            {isNewBest && <div style={{ fontSize: 14, color: "#CBC0AE", marginTop: 8 }}>Beat your old best of {best} by <b style={{ color: "#FF5B45" }}>+{finalScore - best}</b></div>}
             <div style={{ display: "flex", gap: 10, marginTop: 20, width: "100%" }}>
               <div style={{ flex: 1, background: "#241C13", borderRadius: 14, padding: 14, border: LINE }}>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase" }}>Words</div>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, color: "#F5EFE2", marginTop: 2 }}>{committedWordsRef.current.length || words.length}</div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, color: "#F5EFE2", marginTop: 2 }}>{words.length}</div>
               </div>
               {sortedWords.length > 0 && (
                 <div style={{ flex: 1.8, background: "#241C13", borderRadius: 14, padding: 14, border: LINE, textAlign: "left" }}>
@@ -303,9 +234,7 @@ export default function GameBoard({
             </div>
             {stake > 0n && (
               <div style={{ width: "100%", marginTop: 12, borderRadius: 14, padding: 14, background: finalScore >= 10 ? "rgba(207,233,75,.10)" : "rgba(255,91,69,.10)", border: finalScore >= 10 ? "1px solid rgba(207,233,75,.35)" : "1px solid rgba(255,91,69,.35)" }}>
-                <span style={{ fontSize: 13, color: "#F5EFE2" }}>
-                  {finalScore >= 10 ? "✓ Stake returned" : "✗ Score under 10 — stake forfeited"}
-                </span>
+                <span style={{ fontSize: 13, color: "#F5EFE2" }}>{finalScore >= 10 ? "✓ Stake returned" : "✗ Score under 10 — stake forfeited"}</span>
               </div>
             )}
             {sortedWords.length > 0 && (
@@ -317,9 +246,7 @@ export default function GameBoard({
                 ))}
               </div>
             )}
-            <button onClick={onBack} style={{ width: "100%", marginTop: 20, padding: "clamp(13px,2.5vw,16px)", borderRadius: 15, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", boxShadow: "0 6px 0 #A9C931", border: "none", cursor: "pointer" }}>
-              Play again
-            </button>
+            <button onClick={onBack} style={{ width: "100%", marginTop: 20, padding: "clamp(13px,2.5vw,16px)", borderRadius: 15, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", boxShadow: "0 6px 0 #A9C931", border: "none", cursor: "pointer" }}>Play again</button>
             <div style={{ display: "flex", gap: 10, width: "100%", marginTop: 10 }}>
               <button onClick={() => shareResult(finalScore)} style={{ flex: 1, padding: "clamp(11px,2vw,13px)", borderRadius: 14, background: "none", border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Share result</button>
               <button onClick={onLeaderboard} style={{ flex: 1, padding: "clamp(11px,2vw,13px)", borderRadius: 14, background: "none", border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Leaderboard</button>
@@ -346,17 +273,9 @@ export default function GameBoard({
           {/* Stat strip */}
           <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
             {[
-              { label: "Score", val: (
-                <span key={displayScore} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#CFE94B", lineHeight: 1.05, display: "inline-block", animation: displayScore > 0 ? "popScore .42s cubic-bezier(.2,1.5,.4,1)" : "none" }}>
-                  {displayScore}
-                </span>
-              )},
-              { label: "Words", val: (
-                <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#F5EFE2", lineHeight: 1.05 }}>{words.length}</span>
-              )},
-              { label: "Time", val: (
-                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "clamp(22px,4.5vw,28px)", lineHeight: 1.12, color: timerColor }}>{timeStr}</span>
-              )},
+              { label: "Score", val: <span key={displayScore} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#CFE94B", lineHeight: 1.05, display: "inline-block", animation: displayScore > 0 ? "popScore .42s cubic-bezier(.2,1.5,.4,1)" : "none" }}>{displayScore}</span> },
+              { label: "Words", val: <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#F5EFE2", lineHeight: 1.05 }}>{words.length}</span> },
+              { label: "Time",  val: <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "clamp(22px,4.5vw,28px)", lineHeight: 1.12, color: timerColor }}>{timeStr}</span> },
             ].map(({ label, val }) => (
               <div key={label} style={{ flex: 1, background: "#241C13", borderRadius: 15, padding: "clamp(9px,2vw,12px)", textAlign: "center", border: LINE }}>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.12em", color: "#9A8C77", textTransform: "uppercase" }}>{label}</div>
@@ -377,25 +296,6 @@ export default function GameBoard({
             </div>
           )}
 
-          {/* Commit status banners */}
-          {commitPhase === "committing" && (
-            <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(244,200,75,.10)", border: "1px solid rgba(244,200,75,.3)", display: "flex", alignItems: "center", gap: 8 }}>
-              <span className="animate-blink" style={{ width: 7, height: 7, borderRadius: "50%", background: "#F4C84B", display: "inline-block", flexShrink: 0 }} />
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#F4C84B" }}>Locking in your words…</span>
-            </div>
-          )}
-          {commitPhase === "committed" && (
-            <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(207,233,75,.10)", border: "1px solid rgba(207,233,75,.3)", display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "#CFE94B", fontSize: 14 }}>✓</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#CFE94B" }}>Words locked in — tap Reveal when ready</span>
-            </div>
-          )}
-          {commitPhase === "commit_failed" && (
-            <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(255,91,69,.10)", border: "1px solid rgba(255,91,69,.3)" }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#FF5B45" }}>⚠ Lock-in failed — tap Reveal to retry</span>
-            </div>
-          )}
-
           {/* Letter tiles */}
           {letterStr && (
             <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap", marginBottom: 12 }}>
@@ -404,8 +304,7 @@ export default function GameBoard({
                 const disabled = isUsed || !isActive;
                 return (
                   <button key={i} onClick={() => tapTile(l)} disabled={disabled}
-                    style={{ width: "clamp(38px,8vw,46px)", height: "clamp(44px,9vw,54px)", borderRadius: 9, background: "#F3ECDB", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,27px)", color: "#2A2017", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.3 : 1, boxShadow: disabled ? "inset 0 -3px 0 #CFC1A6" : "inset 0 -3px 0 #CFC1A6, 0 4px 10px rgba(0,0,0,.3)", transition: "opacity 0.15s" }}
-                  >
+                    style={{ width: "clamp(38px,8vw,46px)", height: "clamp(44px,9vw,54px)", borderRadius: 9, background: "#F3ECDB", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,27px)", color: "#2A2017", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.3 : 1, boxShadow: disabled ? "inset 0 -3px 0 #CFC1A6" : "inset 0 -3px 0 #CFC1A6, 0 4px 10px rgba(0,0,0,.3)", transition: "opacity 0.15s" }}>
                     {l}
                   </button>
                 );
@@ -413,7 +312,7 @@ export default function GameBoard({
             </div>
           )}
 
-          {/* Input row — only while playing */}
+          {/* Input — only while active */}
           {isActive && (
             <div style={{ position: "relative", marginBottom: 12 }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 9 }}>
@@ -424,22 +323,16 @@ export default function GameBoard({
                     if (val === "" || canBuild(val, letterStr)) setInput(val);
                   }}
                   onKeyDown={(e) => e.key === "Enter" && submitWord()}
-                  placeholder="Build a word…"
-                  autoFocus
+                  placeholder="Build a word…" autoFocus
                   style={{ flex: 1, minWidth: 0, background: "#1E1710", borderRadius: 13, padding: "clamp(11px,2vw,14px) clamp(12px,2vw,16px)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", letterSpacing: "0.14em", color: "#F5EFE2", textTransform: "uppercase", outline: "none", border: input.length >= 2 && canBuild(input, letterStr) ? "1px solid #CFE94B" : LINE2 }}
                 />
                 <button onClick={() => setInput((p) => p.slice(0, -1))}
-                  style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}>
-                  ⌫
-                </button>
+                  style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}>⌫</button>
               </div>
-              <button
-                onClick={submitWord}
+              <button onClick={submitWord}
                 disabled={input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input)}
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: "pointer", opacity: (input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input)) ? 0.4 : 1, boxShadow: "0 5px 0 #A9C931", transition: "opacity 0.15s" }}>
-                {input.length >= 2 && canBuild(input, letterStr) && scoreWord(input) > 0
-                  ? `Submit  +${scoreWord(input)}`
-                  : "Submit"}
+                {input.length >= 2 && canBuild(input, letterStr) && scoreWord(input) > 0 ? `Submit  +${scoreWord(input)}` : "Submit"}
               </button>
               {pops.map((p) => (
                 <span key={p.id} className="animate-float-up absolute pointer-events-none"
@@ -450,42 +343,30 @@ export default function GameBoard({
             </div>
           )}
 
-          {/* Time up — reveal panel */}
-          {timeUp && (
+          {/* Time-up panel */}
+          {timeUp && state !== 1 && (
             <div style={{ background: "#241C13", borderRadius: 20, padding: "clamp(18px,4vw,24px)", textAlign: "center", border: LINE }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.18em", color: "#FF5B45", marginBottom: 8 }}>TIME!</div>
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(52px,12vw,72px)", color: "#CFE94B", lineHeight: 1 }}>{myScore}</div>
               <div style={{ color: "#CBC0AE", fontSize: 14, marginTop: 6, marginBottom: 18 }}>
                 {words.length} word{words.length !== 1 ? "s" : ""} · {myScore} point{myScore !== 1 ? "s" : ""}
               </div>
-              {revealError && (
-                <p style={{ fontSize: 12, color: "#FF5B45", fontFamily: "var(--font-mono)", marginBottom: 10 }}>{revealError}</p>
-              )}
+              {submitError && <p style={{ fontSize: 12, color: "#FF5B45", fontFamily: "var(--font-mono)", marginBottom: 10 }}>{submitError}</p>}
               {words.length === 0 ? (
-                <button onClick={onBack} style={{ width: "100%", padding: "clamp(13px,2.5vw,16px)", borderRadius: 14, border: "none", background: "#2F2517", color: "#9A8C77", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: "pointer" }}>
-                  Back to lobby
-                </button>
+                <button onClick={onBack} style={{ width: "100%", padding: "clamp(13px,2.5vw,16px)", borderRadius: 14, border: "none", background: "#2F2517", color: "#9A8C77", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: "pointer" }}>Back to lobby</button>
               ) : (
-                <button
-                  onClick={doReveal}
-                  disabled={revealing || commitPhase === "committing"}
-                  style={{ width: "100%", padding: "clamp(13px,2.5vw,16px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", boxShadow: (revealing || commitPhase === "committing") ? "none" : "0 5px 0 #A9C931", cursor: (revealing || commitPhase === "committing") ? "wait" : "pointer", opacity: (revealing || commitPhase === "committing") ? 0.7 : 1 }}>
-                  {revealing
-                    ? (revealProgress ?? "Working…")
-                    : commitPhase === "committing"
-                    ? "Locking in…"
-                    : `Reveal ${words.length} word${words.length !== 1 ? "s" : ""} →`}
+                <button onClick={doSubmit} disabled={submitting}
+                  style={{ width: "100%", padding: "clamp(13px,2.5vw,16px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", boxShadow: submitting ? "none" : "0 5px 0 #A9C931", cursor: submitting ? "wait" : "pointer", opacity: submitting ? 0.7 : 1 }}>
+                  {submitting ? (submitProgress ?? "Working…") : `Submit ${words.length} word${words.length !== 1 ? "s" : ""} →`}
                 </button>
               )}
-              {(revealing || commitPhase === "committing") && (
-                <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", marginTop: 10 }}>Keep this tab open</p>
-              )}
+              {submitting && <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", marginTop: 10 }}>Keep this tab open</p>}
             </div>
           )}
         </div>
 
         {/* RIGHT: found words */}
-        {words.length > 0 && (phase === "active" || timeUp) && (
+        {words.length > 0 && (
           <div style={{ flex: "1 1 220px", minWidth: 0, background: "#241C13", border: LINE, borderRadius: 18, padding: "clamp(12px,3vw,18px)", alignSelf: "flex-start" }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 10 }}>Found words</div>
             {[...words].reverse().map(({ word, pts }) => (
