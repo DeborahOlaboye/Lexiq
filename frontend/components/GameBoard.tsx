@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount, useReadContract } from "wagmi";
 import { writeContract, waitForTransactionReceipt } from "@wagmi/core";
 import { keccak256, encodePacked } from "viem";
@@ -38,7 +38,9 @@ function canBuild(word: string, letters: string) {
   return true;
 }
 
-type WordEntry = { word: string; salt: `0x${string}`; pts: number };
+// "committed" = tx confirmed on-chain, "pending" = tx in flight, "failed" = tx rejected
+type WordStatus = "pending" | "committed" | "failed";
+type WordEntry = { word: string; salt: `0x${string}`; pts: number; status: WordStatus };
 type Pop = { id: number; text: string };
 
 export default function GameBoard({
@@ -58,10 +60,13 @@ export default function GameBoard({
   const [phase, setPhase] = useState<"active" | "done">("active");
   const [pops, setPops] = useState<Pop[]>([]);
   const [popId, setPopId] = useState(0);
-  // end-of-game submit state
   const [submitting, setSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Queue of words waiting to be committed on-chain
+  const commitQueueRef = useRef<WordEntry[]>([]);
+  const isCommittingRef = useRef(false);
 
   const { data: round, refetch } = useReadContract({
     address: contract, abi: LEXIQ_ABI, functionName: "getRound",
@@ -93,6 +98,37 @@ export default function GameBoard({
     return () => clearInterval(id);
   }, [phase, round]);
 
+  // Drain the commit queue one word at a time in the background.
+  // Each word must confirm before the next is sent (maintains correct slot order).
+  function drainQueue(overrideRoundId?: bigint) {
+    const rid = overrideRoundId ?? roundId;
+    if (isCommittingRef.current || !rid) return;
+    const next = commitQueueRef.current[0];
+    if (!next) return;
+
+    isCommittingRef.current = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (writeContract as any)(wagmiConfig, {
+      address: contract, abi: LEXIQ_ABI, functionName: "commitWord",
+      args: [rid, hashWord(next.word, next.salt)],
+      ...celoFee(),
+    })
+      .then((hash: `0x${string}`) => waitForTransactionReceipt(wagmiConfig, { hash }))
+      .then(() => {
+        commitQueueRef.current = commitQueueRef.current.slice(1);
+        setWords((prev) => prev.map((w) => w.word === next.word ? { ...w, status: "committed" } : w));
+        isCommittingRef.current = false;
+        drainQueue(rid); // process next in queue
+      })
+      .catch(() => {
+        // Mark as failed — don't remove from queue so reveal knows to skip it
+        commitQueueRef.current = commitQueueRef.current.slice(1);
+        setWords((prev) => prev.map((w) => w.word === next.word ? { ...w, status: "failed" } : w));
+        isCommittingRef.current = false;
+        drainQueue(rid);
+      });
+  }
+
   const letterStr = letters
     ? (letters as readonly `0x${string}`[])
         .map((b) => String.fromCharCode(parseInt(b.slice(2), 16)))
@@ -102,45 +138,56 @@ export default function GameBoard({
   const myScore = words.reduce((s, w) => s + w.pts, 0);
   const best = myHigh ? Number(myHigh) : 0;
 
-  // Words accumulate in local state only — zero gas during gameplay.
-  // All commits + reveal happen in one shot at the buzzer.
   const submitWord = useCallback(() => {
     if (!roundId || phase !== "active" || timeLeft === 0) return;
     const word = input.trim().toUpperCase();
     if (word.length < 2 || !canBuild(word, letterStr) || words.find((w) => w.word === word)) return;
     const salt = randomSalt();
     const pts = scoreWord(word);
-    setWords((prev) => [...prev, { word, salt, pts }]);
+    const entry: WordEntry = { word, salt, pts, status: "pending" };
+
+    setWords((prev) => [...prev, entry]);
     setInput("");
+
+    // Queue the commit and start draining if idle
+    commitQueueRef.current = [...commitQueueRef.current, entry];
+    drainQueue(roundId);
 
     const id = popId + 1;
     setPopId(id);
     setPops((p) => [...p, { id, text: "+" + pts }]);
     setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 950);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundId, phase, timeLeft, input, words, letterStr, popId]);
 
-  // At time-up: commit all word hashes sequentially, then reveal in one call.
-  async function doCommitAndReveal() {
+  // After time is up: wait for any in-flight commits, then reveal.
+  async function doReveal() {
     if (!roundId || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
+
     try {
-      for (let i = 0; i < words.length; i++) {
-        const w = words[i];
-        setSubmitProgress(`Committing ${i + 1} / ${words.length}…`);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const hash = await (writeContract as any)(wagmiConfig, {
-          address: contract, abi: LEXIQ_ABI, functionName: "commitWord",
-          args: [roundId, hashWord(w.word, w.salt)],
-          ...celoFee(),
+      // Wait for all pending commits to settle
+      if (commitQueueRef.current.length > 0 || isCommittingRef.current) {
+        setSubmitProgress("Waiting for pending commits…");
+        await new Promise<void>((resolve) => {
+          const check = setInterval(() => {
+            if (commitQueueRef.current.length === 0 && !isCommittingRef.current) {
+              clearInterval(check);
+              resolve();
+            }
+          }, 500);
         });
-        await waitForTransactionReceipt(wagmiConfig, { hash });
       }
-      setSubmitProgress("Revealing…");
+
+      // Only reveal words that were successfully committed
+      const committed = words.filter((w) => w.status === "committed");
+      setSubmitProgress(`Revealing ${committed.length} word${committed.length !== 1 ? "s" : ""}…`);
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const revealHash = await (writeContract as any)(wagmiConfig, {
         address: contract, abi: LEXIQ_ABI, functionName: "revealWords",
-        args: [roundId, words.map((w) => w.word), words.map((w) => w.salt)],
+        args: [roundId, committed.map((w) => w.word), committed.map((w) => w.salt)],
         ...celoFee(),
       });
       await waitForTransactionReceipt(wagmiConfig, { hash: revealHash });
@@ -204,23 +251,21 @@ export default function GameBoard({
   const availCounts = getLetterCounts(letterStr);
   const isNewBest = finalScore > best && best > 0;
   const sortedWords = [...words].sort((a, b) => b.pts - a.pts);
+  const committedCount = words.filter((w) => w.status === "committed").length;
+  const pendingCount = words.filter((w) => w.status === "pending").length;
 
   /* ── RESULTS SCREEN ── */
   if (state === 1) {
     return (
       <div className="animate-view-in" style={{ width: "min(560px, 100%)", margin: "0 auto", paddingTop: "clamp(12px,3vw,24px)" }}>
         <div className="relative rounded-[22px] overflow-hidden" style={{ background: "#1E1710", border: LINE }}>
-          {/* Confetti */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
             {CONFETTI.map((c, i) => (
-              <span
-                key={i}
-                className="absolute top-0 w-[8px] h-[8px] confetti-piece"
+              <span key={i} className="absolute top-0 w-[8px] h-[8px] confetti-piece"
                 style={{ left: c.left, "--dur": c.dur, "--delay": c.delay, background: c.color, borderRadius: c.round ? "50%" : "2px" } as React.CSSProperties}
               />
             ))}
           </div>
-
           <div className="relative flex flex-col items-center text-center" style={{ padding: "clamp(24px,5vw,44px)" }}>
             <div className="flex flex-wrap gap-[8px] justify-center mb-4">
               <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 16px", borderRadius: 20, background: "#241C13", border: LINE, fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, letterSpacing: "0.12em", color: "#F5EFE2", textTransform: "uppercase" }}>
@@ -232,11 +277,7 @@ export default function GameBoard({
                 </div>
               )}
             </div>
-
-            <div
-              key={finalScore}
-              style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(72px,16vw,96px)", color: "#CFE94B", lineHeight: 1, animation: "popScore .5s cubic-bezier(.2,1.5,.4,1)" }}
-            >
+            <div key={finalScore} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(72px,16vw,96px)", color: "#CFE94B", lineHeight: 1, animation: "popScore .5s cubic-bezier(.2,1.5,.4,1)" }}>
               {finalScore}
             </div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, color: "#F5EFE2", marginTop: 4 }}>points</div>
@@ -245,11 +286,10 @@ export default function GameBoard({
                 Beat your old best of {best} by <b style={{ color: "#FF5B45" }}>+{finalScore - best}</b>
               </div>
             )}
-
             <div style={{ display: "flex", gap: 10, marginTop: 20, width: "100%" }}>
               <div style={{ flex: 1, background: "#241C13", borderRadius: 14, padding: 14, border: LINE }}>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase" }}>Words</div>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, color: "#F5EFE2", marginTop: 2 }}>{words.length}</div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, color: "#F5EFE2", marginTop: 2 }}>{committedCount}</div>
               </div>
               {sortedWords.length > 0 && (
                 <div style={{ flex: 1.8, background: "#241C13", borderRadius: 14, padding: 14, border: LINE, textAlign: "left" }}>
@@ -261,51 +301,30 @@ export default function GameBoard({
                 </div>
               )}
             </div>
-
             {stake > 0n && (
-              <div
-                style={{
-                  width: "100%", marginTop: 12, borderRadius: 14, padding: 14,
-                  background: finalScore >= 10 ? "rgba(207,233,75,.10)" : "rgba(255,91,69,.10)",
-                  border: finalScore >= 10 ? "1px solid rgba(207,233,75,.35)" : "1px solid rgba(255,91,69,.35)",
-                }}
-              >
+              <div style={{ width: "100%", marginTop: 12, borderRadius: 14, padding: 14, background: finalScore >= 10 ? "rgba(207,233,75,.10)" : "rgba(255,91,69,.10)", border: finalScore >= 10 ? "1px solid rgba(207,233,75,.35)" : "1px solid rgba(255,91,69,.35)" }}>
                 <span style={{ fontSize: 13, color: "#F5EFE2" }}>
                   {finalScore >= 10 ? "✓ Stake returned" : "✗ Score under 10 — stake forfeited"}
                 </span>
               </div>
             )}
-
-            {words.length > 0 && (
+            {sortedWords.length > 0 && (
               <div style={{ width: "100%", marginTop: 14, display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
                 {sortedWords.map(({ word, pts }) => (
-                  <span
-                    key={word}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 10, background: "#241C13", border: LINE, fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, letterSpacing: "0.04em", color: "#F5EFE2" }}
-                  >
+                  <span key={word} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 10, background: "#241C13", border: LINE, fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, letterSpacing: "0.04em", color: "#F5EFE2" }}>
                     {word} <b style={{ color: pts >= 8 ? "#FF5B45" : "#CFE94B" }}>+{pts}</b>
                   </span>
                 ))}
               </div>
             )}
-
-            <button
-              onClick={onBack}
-              style={{ width: "100%", marginTop: 20, padding: "clamp(13px,2.5vw,16px)", borderRadius: 15, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", boxShadow: "0 6px 0 #A9C931", border: "none", cursor: "pointer" }}
-            >
+            <button onClick={onBack} style={{ width: "100%", marginTop: 20, padding: "clamp(13px,2.5vw,16px)", borderRadius: 15, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", boxShadow: "0 6px 0 #A9C931", border: "none", cursor: "pointer" }}>
               Play again
             </button>
             <div style={{ display: "flex", gap: 10, width: "100%", marginTop: 10 }}>
-              <button
-                onClick={() => shareResult(finalScore)}
-                style={{ flex: 1, padding: "clamp(11px,2vw,13px)", borderRadius: 14, background: "none", border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
-              >
+              <button onClick={() => shareResult(finalScore)} style={{ flex: 1, padding: "clamp(11px,2vw,13px)", borderRadius: 14, background: "none", border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
                 Share result
               </button>
-              <button
-                onClick={onLeaderboard}
-                style={{ flex: 1, padding: "clamp(11px,2vw,13px)", borderRadius: 14, background: "none", border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
-              >
+              <button onClick={onLeaderboard} style={{ flex: 1, padding: "clamp(11px,2vw,13px)", borderRadius: 14, background: "none", border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
                 Leaderboard
               </button>
             </div>
@@ -318,7 +337,6 @@ export default function GameBoard({
   /* ── ACTIVE RACE LAYOUT ── */
   return (
     <div style={{ paddingTop: "clamp(8px,2vw,16px)" }}>
-
       <div className="flex items-center justify-between mb-3">
         <button onClick={onBack} style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77", background: "none", border: "none", cursor: "pointer", padding: 0 }}>‹ Back</button>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557" }}>Round #{roundId.toString()}</span>
@@ -332,25 +350,19 @@ export default function GameBoard({
           {/* Stat strip */}
           <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
             {[
-              {
-                label: "Score",
-                val: (
-                  <span
-                    key={displayScore}
-                    style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#CFE94B", lineHeight: 1.05, display: "inline-block", animation: displayScore > 0 ? "popScore .42s cubic-bezier(.2,1.5,.4,1)" : "none" }}
-                  >
-                    {displayScore}
-                  </span>
-                ),
-              },
-              {
-                label: "Words",
-                val: <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#F5EFE2", lineHeight: 1.05 }}>{words.length}</span>,
-              },
-              {
-                label: "Time",
-                val: <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "clamp(22px,4.5vw,28px)", lineHeight: 1.12, color: timerColor }}>{timeStr}</span>,
-              },
+              { label: "Score", val: (
+                <span key={displayScore} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#CFE94B", lineHeight: 1.05, display: "inline-block", animation: displayScore > 0 ? "popScore .42s cubic-bezier(.2,1.5,.4,1)" : "none" }}>
+                  {displayScore}
+                </span>
+              )},
+              { label: "Words", val: (
+                <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#F5EFE2", lineHeight: 1.05 }}>
+                  {committedCount}{pendingCount > 0 && <span style={{ fontSize: "0.55em", color: "#9A8C77", marginLeft: 3 }}>+{pendingCount}</span>}
+                </span>
+              )},
+              { label: "Time", val: (
+                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "clamp(22px,4.5vw,28px)", lineHeight: 1.12, color: timerColor }}>{timeStr}</span>
+              )},
             ].map(({ label, val }) => (
               <div key={label} style={{ flex: 1, background: "#241C13", borderRadius: 15, padding: "clamp(9px,2vw,12px)", textAlign: "center", border: LINE }}>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.12em", color: "#9A8C77", textTransform: "uppercase" }}>{label}</div>
@@ -377,21 +389,8 @@ export default function GameBoard({
               {letterStr.split("").map((l, i) => {
                 const isUsed = (usedCounts[l] || 0) >= (availCounts[l] || 0) && (usedCounts[l] || 0) > 0;
                 return (
-                  <button
-                    key={i}
-                    onClick={() => tapTile(l)}
-                    disabled={isUsed || !isActive}
-                    style={{
-                      width: "clamp(38px,8vw,46px)", height: "clamp(44px,9vw,54px)",
-                      borderRadius: 9, background: "#F3ECDB", border: "none",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: "var(--font-display)", fontWeight: 800,
-                      fontSize: "clamp(22px,5vw,27px)", color: "#2A2017",
-                      cursor: isUsed || !isActive ? "default" : "pointer",
-                      opacity: isUsed ? 0.3 : 1,
-                      boxShadow: isUsed ? "inset 0 -3px 0 #CFC1A6" : "inset 0 -3px 0 #CFC1A6, 0 4px 10px rgba(0,0,0,.3)",
-                      transition: "opacity 0.15s",
-                    }}
+                  <button key={i} onClick={() => tapTile(l)} disabled={isUsed || !isActive}
+                    style={{ width: "clamp(38px,8vw,46px)", height: "clamp(44px,9vw,54px)", borderRadius: 9, background: "#F3ECDB", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,27px)", color: "#2A2017", cursor: isUsed || !isActive ? "default" : "pointer", opacity: isUsed ? 0.3 : 1, boxShadow: isUsed ? "inset 0 -3px 0 #CFC1A6" : "inset 0 -3px 0 #CFC1A6, 0 4px 10px rgba(0,0,0,.3)", transition: "opacity 0.15s" }}
                   >
                     {l}
                   </button>
@@ -405,92 +404,52 @@ export default function GameBoard({
             <div style={{ position: "relative", marginBottom: 12 }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 9 }}>
                 <input
-                  value={input}
-                  onChange={handleInput}
+                  value={input} onChange={handleInput}
                   onKeyDown={(e) => e.key === "Enter" && submitWord()}
-                  placeholder="Build a word…"
-                  autoFocus
-                  style={{
-                    flex: 1, minWidth: 0, background: "#1E1710", borderRadius: 13,
-                    padding: "clamp(11px,2vw,14px) clamp(12px,2vw,16px)",
-                    fontFamily: "var(--font-display)", fontWeight: 800,
-                    fontSize: "clamp(16px,3vw,18px)", letterSpacing: "0.14em",
-                    color: "#F5EFE2", textTransform: "uppercase", outline: "none",
-                    border: input.length >= 2 && canBuild(input, letterStr) ? "1px solid #CFE94B" : LINE2,
-                  }}
+                  placeholder="Build a word…" autoFocus
+                  style={{ flex: 1, minWidth: 0, background: "#1E1710", borderRadius: 13, padding: "clamp(11px,2vw,14px) clamp(12px,2vw,16px)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", letterSpacing: "0.14em", color: "#F5EFE2", textTransform: "uppercase", outline: "none", border: input.length >= 2 && canBuild(input, letterStr) ? "1px solid #CFE94B" : LINE2 }}
                 />
-                <button
-                  onClick={() => setInput((p) => p.slice(0, -1))}
-                  style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}
-                >
+                <button onClick={() => setInput((p) => p.slice(0, -1))}
+                  style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}>
                   ⌫
                 </button>
               </div>
-              <button
-                onClick={submitWord}
+              <button onClick={submitWord}
                 disabled={input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input)}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none",
-                  background: "#CFE94B", color: "#15110D",
-                  fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)",
-                  cursor: "pointer",
-                  opacity: (input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input)) ? 0.4 : 1,
-                  boxShadow: "0 5px 0 #A9C931", transition: "opacity 0.15s",
-                }}
-              >
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: "pointer", opacity: (input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input)) ? 0.4 : 1, boxShadow: "0 5px 0 #A9C931", transition: "opacity 0.15s" }}>
                 {input.length >= 2 && canBuild(input, letterStr) && scoreWord(input) > 0
                   ? `Submit  +${scoreWord(input)}`
                   : "Submit"}
               </button>
-
               {pops.map((p) => (
-                <span
-                  key={p.id}
-                  className="animate-float-up absolute pointer-events-none"
-                  style={{ left: "50%", top: 30, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 38, color: "#CFE94B", textShadow: "0 3px 12px rgba(0,0,0,.5)" }}
-                >
+                <span key={p.id} className="animate-float-up absolute pointer-events-none"
+                  style={{ left: "50%", top: 30, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 38, color: "#CFE94B", textShadow: "0 3px 12px rgba(0,0,0,.5)" }}>
                   {p.text}
                 </span>
               ))}
             </div>
           )}
 
-          {/* Time up — commit + reveal */}
+          {/* Time up — reveal */}
           {timeUp && state === 0 && (
             <div style={{ background: "#241C13", borderRadius: 20, padding: "clamp(18px,4vw,24px)", textAlign: "center", border: LINE }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: "0.18em", color: "#FF5B45", marginBottom: 8 }}>TIME!</div>
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(52px,12vw,72px)", color: "#CFE94B", lineHeight: 1 }}>{myScore}</div>
               <div style={{ color: "#CBC0AE", fontSize: 14, marginTop: 6, marginBottom: 18 }}>
-                {words.length} word{words.length !== 1 ? "s" : ""} ready to submit
+                {committedCount} word{committedCount !== 1 ? "s" : ""} confirmed
+                {pendingCount > 0 && <span style={{ color: "#F4C84B" }}> · {pendingCount} syncing…</span>}
               </div>
-
               {submitError && (
                 <p style={{ fontSize: 12, color: "#FF5B45", fontFamily: "var(--font-mono)", marginBottom: 10 }}>{submitError}</p>
               )}
-
               <button
-                onClick={doCommitAndReveal}
+                onClick={doReveal}
                 disabled={submitting}
-                style={{
-                  width: "100%", padding: "clamp(13px,2.5vw,16px)", borderRadius: 14, border: "none",
-                  background: "#CFE94B", color: "#15110D",
-                  fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)",
-                  boxShadow: submitting ? "none" : "0 5px 0 #A9C931",
-                  cursor: submitting ? "wait" : "pointer", opacity: submitting ? 0.7 : 1,
-                }}
-              >
-                {submitting
-                  ? (submitProgress ?? "Working…")
-                  : words.length > 0
-                  ? `Submit ${words.length} word${words.length !== 1 ? "s" : ""} & reveal →`
-                  : "End round"}
+                style={{ width: "100%", padding: "clamp(13px,2.5vw,16px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", boxShadow: submitting ? "none" : "0 5px 0 #A9C931", cursor: submitting ? "wait" : "pointer", opacity: submitting ? 0.7 : 1 }}>
+                {submitting ? (submitProgress ?? "Working…") : committedCount > 0 ? `Reveal ${committedCount} word${committedCount !== 1 ? "s" : ""} →` : "End round"}
               </button>
-
               {submitting && (
-                <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", marginTop: 10 }}>
-                  Keep this tab open while transactions confirm
-                </p>
+                <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", marginTop: 10 }}>Keep this tab open</p>
               )}
             </div>
           )}
@@ -500,9 +459,13 @@ export default function GameBoard({
         {words.length > 0 && isActive && (
           <div style={{ flex: "1 1 220px", minWidth: 0, background: "#241C13", border: LINE, borderRadius: 18, padding: "clamp(12px,3vw,18px)", alignSelf: "flex-start" }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 10 }}>Found words</div>
-            {[...words].reverse().map(({ word, pts }) => (
-              <div key={word} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: LINE }}>
-                <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, letterSpacing: "0.04em", color: "#F5EFE2" }}>{word}</span>
+            {[...words].reverse().map(({ word, pts, status }) => (
+              <div key={word} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: LINE, opacity: status === "failed" ? 0.45 : 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, letterSpacing: "0.04em", color: "#F5EFE2" }}>{word}</span>
+                  {status === "pending" && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#F4C84B", display: "inline-block", animation: "blink 1.4s infinite" }} />}
+                  {status === "failed"  && <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#FF5B45" }}>✗</span>}
+                </div>
                 <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: pts >= 8 ? "#FF5B45" : "#CFE94B" }}>+{pts}</span>
               </div>
             ))}
