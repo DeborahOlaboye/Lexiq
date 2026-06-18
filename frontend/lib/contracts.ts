@@ -1,9 +1,10 @@
 export const USDM_ADDRESS = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as const;
-export const LEXIQ_ADDRESS = "0x836ee478e4Cd79D4C3b8ac8E93439B4F703A2c09" as `0x${string}`;
+export const LEXIQ_ADDRESS = "0xC67D94330F9f4e1DFb99eD647Bcc250aff638aF0" as `0x${string}`;
 
 export const LEXIQ_ABI = [
   { name: "startRound", type: "function", stateMutability: "nonpayable", inputs: [{ name: "stakeAmount", type: "uint256" }], outputs: [{ name: "roundId", type: "uint256" }] },
   { name: "commitWord", type: "function", stateMutability: "nonpayable", inputs: [{ name: "roundId", type: "uint256" }, { name: "wordHash", type: "bytes32" }], outputs: [] },
+  { name: "commitWords", type: "function", stateMutability: "nonpayable", inputs: [{ name: "roundId", type: "uint256" }, { name: "wordHashes", type: "bytes32[]" }], outputs: [] },
   { name: "revealWords", type: "function", stateMutability: "nonpayable", inputs: [{ name: "roundId", type: "uint256" }, { name: "words", type: "string[]" }, { name: "salts", type: "bytes32[]" }], outputs: [] },
   { name: "getLetters", type: "function", stateMutability: "view", inputs: [{ name: "roundId", type: "uint256" }], outputs: [{ name: "letters", type: "bytes1[7]" }] },
   {

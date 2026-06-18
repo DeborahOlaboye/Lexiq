@@ -11,11 +11,12 @@ const config: HardhatUserConfig = {
     celo: { url: "https://forno.celo.org", accounts: [PRIVATE_KEY], chainId: 42220 },
   },
   etherscan: {
-    apiKey: { celo: process.env.CELOSCAN_API_KEY ?? "" },
+    apiKey: process.env.CELOSCAN_API_KEY ?? "",
     customChains: [{
       network: "celo", chainId: 42220,
       urls: { apiURL: "https://api.celoscan.io/api", browserURL: "https://celoscan.io" },
     }],
   },
+  sourcify: { enabled: false },
 };
 export default config;
