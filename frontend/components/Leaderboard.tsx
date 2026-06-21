@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAccount, useReadContract, usePublicClient } from "wagmi";
-import { parseAbiItem } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
 
 const LINE = "1px solid var(--line)";
@@ -36,37 +35,43 @@ export default function Leaderboard() {
     if (!publicClient) return;
     setLoading(true);
     try {
-      // Pull all RoundFinished events to discover players
-      const logs = await publicClient.getLogs({
-        address: contract,
-        event: parseAbiItem("event RoundFinished(uint256 indexed roundId, address indexed player, uint8 finalScore)"),
-        fromBlock: 0n,
+      // How many rounds exist total?
+      const totalCount = await publicClient.readContract({
+        address: contract, abi: LEXIQ_ABI, functionName: "totalRounds",
+      });
+      const count = Number(totalCount as bigint);
+      if (count === 0) { setRows([]); return; }
+
+      // Read last 200 rounds to keep the multicall reasonable
+      const start = Math.max(0, count - 200);
+      const ids = Array.from({ length: count - start }, (_, i) => BigInt(start + i));
+
+      const roundResults = await publicClient.multicall({
+        contracts: ids.map((id) => ({
+          address: contract, abi: LEXIQ_ABI,
+          functionName: "getRound" as const, args: [id] as const,
+        })),
       });
 
-      // Unique player addresses
+      // Collect unique players from finished rounds (state === 1)
       const seen = new Set<string>();
       const players: `0x${string}`[] = [];
-      for (const log of logs) {
-        const p = log.args.player;
-        if (p && !seen.has(p.toLowerCase())) {
-          seen.add(p.toLowerCase());
-          players.push(p);
+      for (const r of roundResults) {
+        if (r.status !== "success") continue;
+        const [player, , , , , state] = r.result as readonly [string, string, number, number, number, number, bigint];
+        if (Number(state) === 1 && player && !seen.has(player.toLowerCase())) {
+          seen.add(player.toLowerCase());
+          players.push(player as `0x${string}`);
         }
       }
 
-      if (players.length === 0) {
-        setRows([]);
-        setLoading(false);
-        return;
-      }
+      if (players.length === 0) { setRows([]); return; }
 
       // Batch-read highScore for every unique player
       const scores = await publicClient.multicall({
         contracts: players.map((p) => ({
-          address: contract,
-          abi: LEXIQ_ABI,
-          functionName: "highScore" as const,
-          args: [p] as const,
+          address: contract, abi: LEXIQ_ABI,
+          functionName: "highScore" as const, args: [p] as const,
         })),
       });
 
