@@ -84,6 +84,18 @@ export default function GameBoard({
         .join("")
     : "";
 
+  // Reset all transient state when a new round begins
+  useEffect(() => {
+    setPhase("active");
+    setTimeLeft(90);
+    setWords([]);
+    setInput("");
+    setSubmitting(false);
+    setSubmitProgress(null);
+    setSubmitError(null);
+    setPops([]);
+  }, [roundId]);
+
   useEffect(() => {
     if (!round) return;
     if ((round as readonly unknown[])[5] === 1) setPhase("done");
