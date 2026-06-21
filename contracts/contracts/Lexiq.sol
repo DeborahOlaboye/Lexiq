@@ -80,9 +80,10 @@ contract Lexiq is Ownable, ReentrancyGuard {
         require(r.player == msg.sender, "Not your round");
         require(r.state == RoundState.ACTIVE, "Already finished");
         require(words.length == salts.length, "Length mismatch");
+        bytes1[7] memory roundLetters = _getLetters(r.letterSeed);
         for (uint8 i = 0; i < words.length && i < r.commitCount; i++) {
             bytes32 expected = keccak256(abi.encodePacked(words[i], salts[i]));
-            if (expected == r.commits[i].hash && !r.commits[i].revealed) {
+            if (expected == r.commits[i].hash && !r.commits[i].revealed && _wordUsesValidLetters(words[i], roundLetters)) {
                 uint8 pts = _scoreWord(uint8(bytes(words[i]).length));
                 r.commits[i].score = pts; r.commits[i].revealed = true;
                 r.totalScore += pts;
@@ -103,12 +104,30 @@ contract Lexiq is Ownable, ReentrancyGuard {
     }
 
     function getLetters(uint256 roundId) external view returns (bytes1[7] memory letters) {
-        bytes32 seed = rounds[roundId].letterSeed;
-        bytes memory freq = "AAABBBCCDDDEEEEEEFFGGGHHIIIIJKLLLLMMNNNNNOOOOOOPPQRRRRRSSSSSTTTTTTUUUVVWWXYYZ";
+        return _getLetters(rounds[roundId].letterSeed);
+    }
+
+    function _getLetters(bytes32 seed) internal pure returns (bytes1[7] memory letters) {
+        bytes memory freq = "AAAAAAAAABBCCDDDDEEEEEEEEEEEEFFGGGHHIIIIIIIIIJKLLLLMMNNNNNNOOOOOOOOPPQRRRRRRSSSSTTTTTTUUUUVVWWXYYZ";
         for (uint8 i = 0; i < 7; i++) {
             uint8 idx = uint8(uint256(keccak256(abi.encodePacked(seed, i))) % freq.length);
             letters[i] = freq[idx];
         }
+    }
+
+    function _wordUsesValidLetters(string memory word, bytes1[7] memory letters) internal pure returns (bool) {
+        bytes memory wb = bytes(word);
+        if (wb.length < 2 || wb.length > 7) return false;
+        uint8[26] memory avail;
+        for (uint8 i = 0; i < 7; i++) avail[uint8(letters[i]) - 65]++;
+        for (uint8 i = 0; i < wb.length; i++) {
+            uint8 c = uint8(wb[i]);
+            if (c < 65 || c > 90) return false; // must be A–Z uppercase
+            uint8 idx = c - 65;
+            if (avail[idx] == 0) return false;
+            avail[idx]--;
+        }
+        return true;
     }
 
     function getRound(uint256 roundId) external view returns (

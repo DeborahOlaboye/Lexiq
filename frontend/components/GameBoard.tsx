@@ -6,6 +6,7 @@ import { keccak256, encodePacked } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, scoreWord } from "@/lib/contracts";
 import { celoFee } from "@/lib/minipay";
 import { wagmiConfig } from "@/lib/wagmi";
+import { isValidWord } from "@/lib/dictionary";
 
 const LINE = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -149,7 +150,7 @@ export default function GameBoard({
   const submitWord = useCallback(() => {
     if (!isActive || !roundId) return;
     const word = input.trim().toUpperCase();
-    if (word.length < 2 || !canBuild(word, letterStr) || words.find((w) => w.word === word)) return;
+    if (word.length < 2 || !canBuild(word, letterStr) || words.find((w) => w.word === word) || !isValidWord(word)) return;
     const salt = randomSalt();
     const pts = scoreWord(word);
     setWords((prev) => [...prev, { word, salt, pts }]);
@@ -324,15 +325,19 @@ export default function GameBoard({
                   }}
                   onKeyDown={(e) => e.key === "Enter" && submitWord()}
                   placeholder="Build a word…" autoFocus
-                  style={{ flex: 1, minWidth: 0, background: "#1E1710", borderRadius: 13, padding: "clamp(11px,2vw,14px) clamp(12px,2vw,16px)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", letterSpacing: "0.14em", color: "#F5EFE2", textTransform: "uppercase", outline: "none", border: input.length >= 2 && canBuild(input, letterStr) ? "1px solid #CFE94B" : LINE2 }}
+                  style={{ flex: 1, minWidth: 0, background: "#1E1710", borderRadius: 13, padding: "clamp(11px,2vw,14px) clamp(12px,2vw,16px)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", letterSpacing: "0.14em", color: "#F5EFE2", textTransform: "uppercase", outline: "none", border: input.length >= 2 && canBuild(input, letterStr) && isValidWord(input) ? "1px solid #CFE94B" : input.length >= 2 && canBuild(input, letterStr) && !isValidWord(input) ? "1px solid rgba(255,91,69,.6)" : LINE2 }}
                 />
                 <button onClick={() => setInput((p) => p.slice(0, -1))}
                   style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}>⌫</button>
               </div>
               <button onClick={submitWord}
-                disabled={input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input)}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: "pointer", opacity: (input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input)) ? 0.4 : 1, boxShadow: "0 5px 0 #A9C931", transition: "opacity 0.15s" }}>
-                {input.length >= 2 && canBuild(input, letterStr) && scoreWord(input) > 0 ? `Submit  +${scoreWord(input)}` : "Submit"}
+                disabled={input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input) || !isValidWord(input)}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: "pointer", opacity: (input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input) || !isValidWord(input)) ? 0.4 : 1, boxShadow: "0 5px 0 #A9C931", transition: "opacity 0.15s" }}>
+                {input.length >= 2 && canBuild(input, letterStr) && !isValidWord(input)
+                  ? "Not a word"
+                  : input.length >= 2 && canBuild(input, letterStr) && scoreWord(input) > 0
+                  ? `Submit  +${scoreWord(input)}`
+                  : "Submit"}
               </button>
               {pops.map((p) => (
                 <span key={p.id} className="animate-float-up absolute pointer-events-none"
