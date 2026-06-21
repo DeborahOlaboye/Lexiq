@@ -110,11 +110,7 @@ export default function Leaderboard() {
           <button onClick={fetchLeaderboard} style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557", background: "none", border: "none", cursor: "pointer" }}>↻</button>
         </div>
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(32px,8vw,44px)", color: "#CFE94B", lineHeight: 1, marginBottom: 4 }}>{prizeFormatted}</div>
-        <div style={{ fontSize: 12, color: "#CBC0AE" }}>USDM · top scorers split it</div>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 12, fontFamily: "var(--font-mono)", fontSize: 12, color: "#F5EFE2", background: "#1E1710", padding: "6px 14px", borderRadius: 20, border: LINE }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF5B45", display: "inline-block", animation: "blink 1.4s infinite" }} />
-          Resets every Sunday midnight UTC
-        </div>
+        <div style={{ fontSize: 12, color: "#CBC0AE" }}>USDM</div>
       </div>
 
       {/* Your stats */}
@@ -179,9 +175,6 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      <div style={{ textAlign: "center", paddingTop: 4 }}>
-        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", margin: 0 }}>Rankings reset every Sunday at midnight UTC</p>
-      </div>
     </div>
   );
 }
