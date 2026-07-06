@@ -396,6 +396,8 @@ export default function GameBoard({
                 />
                 <motion.button
                   onClick={() => setInput((p) => p.slice(0, -1))}
+                  animate={input.length > 0 ? { opacity: [0.7, 1, 0.7] } : { opacity: 0.4 }}
+                  transition={input.length > 0 ? { duration: 1.6, repeat: Infinity, ease: "easeInOut" } : {}}
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.88 }}
                   style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}>⌫</motion.button>
