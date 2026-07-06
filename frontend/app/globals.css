@@ -58,12 +58,36 @@
   100% { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes heroIn {
+  0%   { opacity: 0; transform: translateY(32px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes badgeIn {
+  0%   { opacity: 0; transform: scale(0.65) rotate(var(--r, 0deg)); }
+  100% { opacity: 1; transform: scale(1) rotate(var(--r, 0deg)); }
+}
+
+@keyframes timerWarn {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.1); }
+}
+
+@keyframes glowLime {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(207, 233, 75, 0); }
+  50%       { box-shadow: 0 0 22px 4px rgba(207, 233, 75, 0.18); }
+}
+
 @layer utilities {
-  .animate-floaty    { animation: floaty var(--dur, 4s) ease-in-out var(--delay, 0s) infinite; }
-  .animate-tile-in   { animation: tileIn 0.5s ease-out both; }
-  .animate-pop-score { animation: popScore 0.42s cubic-bezier(0.2, 1.5, 0.4, 1); }
-  .animate-float-up  { animation: floatUp 0.95s ease-out forwards; }
-  .animate-blink     { animation: blink 1.4s infinite; }
-  .animate-view-in   { animation: viewIn 0.4s ease both; }
-  .confetti-piece    { animation: confetti var(--dur, 2.4s) linear var(--delay, 0s) infinite; }
+  .animate-floaty      { animation: floaty var(--dur, 4s) ease-in-out var(--delay, 0s) infinite; }
+  .animate-tile-in     { animation: tileIn 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+  .animate-pop-score   { animation: popScore 0.42s cubic-bezier(0.2, 1.5, 0.4, 1); }
+  .animate-float-up    { animation: floatUp 0.95s ease-out forwards; }
+  .animate-blink       { animation: blink 1.4s infinite; }
+  .animate-view-in     { animation: viewIn 0.4s ease both; }
+  .animate-hero-in     { animation: heroIn 0.65s cubic-bezier(0.2, 1, 0.4, 1) both; }
+  .animate-badge-in    { animation: badgeIn 0.55s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+  .animate-timer-warn  { animation: timerWarn 0.65s ease-in-out infinite; }
+  .animate-glow-lime   { animation: glowLime 2.2s ease-in-out infinite; }
+  .confetti-piece      { animation: confetti var(--dur, 2.4s) linear var(--delay, 0s) infinite; }
 }
