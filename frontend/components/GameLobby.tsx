@@ -195,12 +195,14 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
         <motion.div {...fadeUp(0.35)}>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 9 }}>Recent rounds</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {[...myRounds].reverse().slice(0, 6).map((id) => (
+            {[...myRounds].reverse().slice(0, 6).map((id, i) => (
               <motion.button
                 key={id.toString()}
                 onClick={() => onEnterGame(id)}
-                whileHover={{ scale: 1.06, y: -2 }}
-                whileTap={{ scale: 0.94 }}
+                animate={{ y: [0, -4, 0] }}
+                transition={{ duration: 2.6 + i * 0.3, repeat: Infinity, ease: "easeInOut", delay: i * 0.25 }}
+                whileHover={{ scale: 1.1, y: -6 }}
+                whileTap={{ scale: 0.9 }}
                 style={{ padding: "7px 13px", borderRadius: 10, background: "#241C13", fontFamily: "var(--font-mono)", fontSize: 12, color: "#CBC0AE", border: LINE, cursor: "pointer" }}
               >
                 #{id.toString()}
