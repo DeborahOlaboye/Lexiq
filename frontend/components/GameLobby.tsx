@@ -230,7 +230,13 @@ function StatCard({ label, value, unit, lime, glow, delay = 0 }: { label: string
       }}
     >
       <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase" }}>{label}</div>
-      <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,3.5vw,22px)", marginTop: 4, color: lime ? "#CFE94B" : "#F5EFE2" }}>{value}</div>
+      <motion.div
+        animate={lime
+          ? { scale: [1, 1.07, 1], textShadow: ["0 0 0 rgba(207,233,75,0)", "0 0 14px rgba(207,233,75,0.55)", "0 0 0 rgba(207,233,75,0)"] }
+          : { opacity: [0.75, 1, 0.75] }}
+        transition={{ duration: lime ? 2.4 : 3.2, repeat: Infinity, ease: "easeInOut", delay }}
+        style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,3.5vw,22px)", marginTop: 4, color: lime ? "#CFE94B" : "#F5EFE2" }}
+      >{value}</motion.div>
       {unit && <div style={{ fontSize: 11, color: "#6E6557" }}>{unit}</div>}
     </motion.div>
   );
