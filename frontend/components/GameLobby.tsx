@@ -100,7 +100,16 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
         <motion.button
           onClick={handleStart}
           disabled={busy || !!stakeError}
-          whileHover={!busy && !stakeError ? { scale: 1.02, y: -2 } : undefined}
+          animate={!busy && !stakeError ? {
+            boxShadow: [
+              "0 6px 0 #A9C931",
+              "0 6px 24px rgba(207,233,75,0.6)",
+              "0 6px 0 #A9C931",
+            ],
+            y: [0, -3, 0],
+          } : { boxShadow: "0 6px 0 #A9C931", y: 0 }}
+          transition={!busy && !stakeError ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" } : {}}
+          whileHover={!busy && !stakeError ? { scale: 1.03, y: -4 } : undefined}
           whileTap={!busy && !stakeError ? { scale: 0.97 } : undefined}
           style={{
             display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
@@ -111,7 +120,6 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
             fontSize: "clamp(16px,3vw,18px)",
             cursor: busy || !!stakeError ? "not-allowed" : "pointer",
             opacity: busy || !!stakeError ? 0.4 : 1,
-            boxShadow: busy ? "none" : "0 6px 0 #A9C931",
           }}
         >
           <span style={{ fontSize: 13 }}>▶</span>
