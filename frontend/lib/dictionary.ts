@@ -1,12 +1,14 @@
-import rawWords from "an-array-of-english-words";
+let cache: Map<string, boolean> = new Map();
 
-// Set of valid uppercase English words, 2–7 letters
-const WORDS: Set<string> = new Set(
-  (rawWords as string[])
-    .filter((w) => w.length >= 2 && w.length <= 7)
-    .map((w) => w.toUpperCase())
-);
-
-export function isValidWord(word: string): boolean {
-  return WORDS.has(word.toUpperCase());
+export async function isValidWord(word: string): Promise<boolean> {
+  const key = word.toUpperCase();
+  if (cache.has(key)) return cache.get(key)!;
+  try {
+    const res = await fetch(`/api/validate?w=${encodeURIComponent(key)}`);
+    const { valid } = await res.json();
+    cache.set(key, valid);
+    return valid;
+  } catch {
+    return true; // fail open: don't block play if API is down
+  }
 }

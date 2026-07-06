@@ -15,6 +15,7 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
   const [stakeError, setStakeError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [pendingStake, setPendingStake] = useState(0n);
+  const [showStake, setShowStake] = useState(false);
 
   const { data: prizePool } = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "weeklyPrizePool" });
   const { data: myRounds } = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "getPlayerRounds", args: address ? [address] : undefined });
@@ -70,36 +71,18 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
 
       {/* Hero start card */}
       <div style={{ background: "#241C13", borderRadius: 22, padding: "clamp(18px,4vw,26px)", border: LINE }}>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#9A8C77", textTransform: "uppercase" }}>New round</div>
-        <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,4vw,30px)", letterSpacing: "-0.02em", marginTop: 8, marginBottom: 4 }}>Ready to race?</div>
-        <div style={{ fontSize: 14, color: "#CBC0AE" }}>7 letters · 90 seconds · longer words win</div>
 
-        {/* Stake input */}
-        <div style={{ marginTop: 18 }}>
-          <div style={{ fontSize: 13, color: "#CBC0AE", marginBottom: 8 }}>Optional stake</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1E1710", borderRadius: 12, padding: "12px 14px", border: LINE }}>
-            <input
-              value={stake}
-              onChange={(e) => { setStake(e.target.value); validateStake(e.target.value); }}
-              placeholder="0 = free to play"
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              style={{ flex: 1, background: "transparent", fontFamily: "var(--font-mono)", fontSize: 14, color: "#F5EFE2", outline: "none", border: "none" }}
-            />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "#CBC0AE", marginLeft: 8 }}>USDM</span>
-          </div>
-          {stakeError
-            ? <p style={{ fontSize: 11, color: "#FF5B45", marginTop: 6, marginBottom: 0 }}>{stakeError}</p>
-            : <p style={{ fontSize: 11, color: "#6E6557", marginTop: 6, marginBottom: 0 }}>Score 10+ pts to get your stake back (1% fee)</p>
-          }
+        {/* Title row with FREE badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,4vw,30px)", letterSpacing: "-0.02em" }}>Ready to race?</div>
+          <span style={{ flexShrink: 0, padding: "3px 9px", borderRadius: 8, background: "rgba(207,233,75,.15)", border: "1px solid rgba(207,233,75,.4)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 11, color: "#CFE94B", letterSpacing: "0.1em" }}>FREE</span>
         </div>
+        <div style={{ fontSize: 14, color: "#CBC0AE", marginBottom: 20 }}>7 letters · 90 seconds · longer words score higher</div>
 
+        {/* Free play CTA */}
         {status && (
-          <p style={{ fontSize: 12, color: "#CFE94B", fontFamily: "var(--font-mono)", marginTop: 12, animation: "blink 1.4s infinite" }}>{status}</p>
+          <p style={{ fontSize: 12, color: "#CFE94B", fontFamily: "var(--font-mono)", marginBottom: 10, animation: "blink 1.4s infinite" }}>{status}</p>
         )}
-
         <button
           onClick={handleStart}
           disabled={busy || !!stakeError}
@@ -110,7 +93,6 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
             background: "#CFE94B", color: "#15110D",
             fontFamily: "var(--font-display)", fontWeight: 800,
             fontSize: "clamp(16px,3vw,18px)",
-            marginTop: 18,
             cursor: busy || !!stakeError ? "not-allowed" : "pointer",
             opacity: busy || !!stakeError ? 0.4 : 1,
             boxShadow: busy ? "none" : "0 6px 0 #A9C931",
@@ -118,8 +100,43 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
           }}
         >
           <span style={{ fontSize: 13 }}>▶</span>
-          {busy ? (status ?? "Working…") : "Start round"}
+          {busy ? (status ?? "Working…") : showStake && stakeNum > 0 ? `Play · Stake ${stakeNum} USDM` : "Play for Free"}
         </button>
+
+        {/* Optional stake toggle */}
+        <div style={{ marginTop: 14 }}>
+          <button
+            onClick={() => { setShowStake((v) => !v); if (showStake) { setStake(""); setStakeError(null); } }}
+            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+          >
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557" }}>
+              {showStake ? "▾ Hide stake" : "▸ Stake USDM for a bonus"}
+            </span>
+          </button>
+
+          {showStake && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1E1710", borderRadius: 12, padding: "12px 14px", border: LINE }}>
+                <input
+                  value={stake}
+                  onChange={(e) => { setStake(e.target.value); validateStake(e.target.value); }}
+                  placeholder="e.g. 0.5"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  autoFocus
+                  style={{ flex: 1, background: "transparent", fontFamily: "var(--font-mono)", fontSize: 14, color: "#F5EFE2", outline: "none", border: "none" }}
+                />
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "#CBC0AE", marginLeft: 8 }}>USDM</span>
+              </div>
+              {stakeError
+                ? <p style={{ fontSize: 11, color: "#FF5B45", marginTop: 6, marginBottom: 0 }}>{stakeError}</p>
+                : <p style={{ fontSize: 11, color: "#6E6557", marginTop: 6, marginBottom: 0 }}>Score 10+ pts → stake returned minus 1% fee</p>
+              }
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stat grid — auto-fit 4-col on desktop, 2-col on mobile */}

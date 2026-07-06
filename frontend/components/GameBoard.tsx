@@ -62,6 +62,7 @@ export default function GameBoard({
   const [submitting, setSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [wordValid, setWordValid] = useState<"valid" | "invalid" | "unchecked">("unchecked");
 
   const { data: round, refetch } = useReadContract({
     address: contract, abi: LEXIQ_ABI, functionName: "getRound",
@@ -94,7 +95,20 @@ export default function GameBoard({
     setSubmitProgress(null);
     setSubmitError(null);
     setPops([]);
+    setWordValid("unchecked");
   }, [roundId]);
+
+  // Debounced async dictionary check whenever input changes
+  useEffect(() => {
+    const w = input.trim().toUpperCase();
+    if (w.length < 2 || !canBuild(w, letterStr)) { setWordValid("unchecked"); return; }
+    setWordValid("unchecked");
+    const t = setTimeout(async () => {
+      const ok = await isValidWord(w);
+      setWordValid(ok ? "valid" : "invalid");
+    }, 250);
+    return () => clearTimeout(t);
+  }, [input, letterStr]);
 
   useEffect(() => {
     if (!round) return;
@@ -162,7 +176,7 @@ export default function GameBoard({
   const submitWord = useCallback(() => {
     if (!isActive || !roundId) return;
     const word = input.trim().toUpperCase();
-    if (word.length < 2 || !canBuild(word, letterStr) || words.find((w) => w.word === word) || !isValidWord(word)) return;
+    if (word.length < 2 || !canBuild(word, letterStr) || words.find((w) => w.word === word) || wordValid !== "valid") return;
     const salt = randomSalt();
     const pts = scoreWord(word);
     setWords((prev) => [...prev, { word, salt, pts }]);
@@ -172,7 +186,7 @@ export default function GameBoard({
     setPops((p) => [...p, { id, text: "+" + pts }]);
     setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 950);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, roundId, input, words, letterStr, popId]);
+  }, [isActive, roundId, input, words, letterStr, popId, wordValid]);
 
   function tapTile(l: string) {
     if (!isActive) return;
@@ -337,15 +351,15 @@ export default function GameBoard({
                   }}
                   onKeyDown={(e) => e.key === "Enter" && submitWord()}
                   placeholder="Build a word…" autoFocus
-                  style={{ flex: 1, minWidth: 0, background: "#1E1710", borderRadius: 13, padding: "clamp(11px,2vw,14px) clamp(12px,2vw,16px)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", letterSpacing: "0.14em", color: "#F5EFE2", textTransform: "uppercase", outline: "none", border: input.length >= 2 && canBuild(input, letterStr) && isValidWord(input) ? "1px solid #CFE94B" : input.length >= 2 && canBuild(input, letterStr) && !isValidWord(input) ? "1px solid rgba(255,91,69,.6)" : LINE2 }}
+                  style={{ flex: 1, minWidth: 0, background: "#1E1710", borderRadius: 13, padding: "clamp(11px,2vw,14px) clamp(12px,2vw,16px)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", letterSpacing: "0.14em", color: "#F5EFE2", textTransform: "uppercase", outline: "none", border: wordValid === "valid" ? "1px solid #CFE94B" : wordValid === "invalid" ? "1px solid rgba(255,91,69,.6)" : LINE2 }}
                 />
                 <button onClick={() => setInput((p) => p.slice(0, -1))}
                   style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}>⌫</button>
               </div>
               <button onClick={submitWord}
-                disabled={input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input) || !isValidWord(input)}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: "pointer", opacity: (input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input) || !isValidWord(input)) ? 0.4 : 1, boxShadow: "0 5px 0 #A9C931", transition: "opacity 0.15s" }}>
-                {input.length >= 2 && canBuild(input, letterStr) && !isValidWord(input)
+                disabled={input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input) || wordValid !== "valid"}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: "pointer", opacity: (input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input) || wordValid !== "valid") ? 0.4 : 1, boxShadow: "0 5px 0 #A9C931", transition: "opacity 0.15s" }}>
+                {wordValid === "invalid"
                   ? "Not a word"
                   : input.length >= 2 && canBuild(input, letterStr) && scoreWord(input) > 0
                   ? `Submit  +${scoreWord(input)}`
