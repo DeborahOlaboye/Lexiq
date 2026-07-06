@@ -18,14 +18,14 @@ const LINE2 = "1px solid var(--line2)";
 const fadeUp  = (delay = 0) => ({
   initial:    { opacity: 0, y: 28 },
   animate:    { opacity: 1, y: 0  },
-  transition: { duration: 0.6, ease: [0.2, 1, 0.4, 1], delay },
+  transition: { duration: 0.6, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay },
 });
 
 const inView  = (delay = 0) => ({
   initial:    { opacity: 0, y: 22 },
   whileInView:{ opacity: 1, y: 0  },
   viewport:   { once: false, amount: 0.15 },
-  transition: { duration: 0.55, ease: [0.2, 1, 0.4, 1], delay },
+  transition: { duration: 0.55, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay },
 });
 
 const SCORING_ROWS = [
@@ -106,24 +106,24 @@ export default function Landing() {
               <motion.div key={l}
                 initial={{ opacity: 0, y: 20, rotate: -10 }}
                 animate={{ opacity: 1, y: 0, rotate: 0 }}
-                transition={{ duration: 0.5, ease: [0.2, 1.4, 0.4, 1], delay: 0.1 + i * 0.07 }}
+                transition={{ duration: 0.5, ease: [0.2, 1.4, 0.4, 1] as [number, number, number, number], delay: 0.1 + i * 0.07 }}
                 className="animate-floaty"
                 style={{ "--r": r, "--dur": dur, "--delay": delay, width: "clamp(36px,6vw,54px)", height: "clamp(42px,7vw,62px)", borderRadius: 9, background: "#F3ECDB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(20px,3.5vw,32px)", color: "#2A2017", boxShadow: "inset 0 -4px 0 #CFC1A6, 0 8px 18px rgba(0,0,0,.35)" } as React.CSSProperties}>
                 {l}
               </motion.div>
             ))}
           </div>
-          <motion.div initial={{ opacity: 0, scale: 0.6, rotate: 10 }} animate={{ opacity: 1, scale: 1, rotate: 5 }} transition={{ duration: 0.5, ease: [0.2, 1.6, 0.4, 1], delay: 0.4 }}
+          <motion.div initial={{ opacity: 0, scale: 0.6, rotate: 10 }} animate={{ opacity: 1, scale: 1, rotate: 5 }} transition={{ duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number, number, number, number], delay: 0.4 }}
             style={{ position: "absolute", top: "8%", right: "4%", background: "#FF5B45", color: "white", padding: "13px 18px", borderRadius: 14, transform: "rotate(5deg)", boxShadow: "0 10px 26px rgba(255,91,69,.4)" }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, opacity: 0.85, letterSpacing: "0.1em" }}>RETAINS</div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 30, lineHeight: 1 }}>+11</div>
           </motion.div>
-          <motion.div initial={{ opacity: 0, scale: 0.6, rotate: -8 }} animate={{ opacity: 1, scale: 1, rotate: -4 }} transition={{ duration: 0.5, ease: [0.2, 1.6, 0.4, 1], delay: 0.52 }}
+          <motion.div initial={{ opacity: 0, scale: 0.6, rotate: -8 }} animate={{ opacity: 1, scale: 1, rotate: -4 }} transition={{ duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number, number, number, number], delay: 0.52 }}
             style={{ position: "absolute", bottom: "10%", left: "4%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13, transform: "rotate(-4deg)" }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", letterSpacing: "0.1em" }}>TIME</div>
             <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 26, color: "#F5EFE2", lineHeight: 1 }}>01:30</div>
           </motion.div>
-          <motion.div initial={{ opacity: 0, scale: 0.6, rotate: 6 }} animate={{ opacity: 1, scale: 1, rotate: 3 }} transition={{ duration: 0.5, ease: [0.2, 1.6, 0.4, 1], delay: 0.62 }}
+          <motion.div initial={{ opacity: 0, scale: 0.6, rotate: 6 }} animate={{ opacity: 1, scale: 1, rotate: 3 }} transition={{ duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number, number, number, number], delay: 0.62 }}
             style={{ position: "absolute", bottom: "24%", right: "8%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13, transform: "rotate(3deg)" }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", letterSpacing: "0.1em" }}>YOUR BEST</div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, color: "#CFE94B", lineHeight: 1 }}>47</div>
@@ -189,12 +189,12 @@ export default function Landing() {
                 {jackpot ? (
                   <motion.div
                     initial={{ width: 0 }} whileInView={{ width: "100%" }} viewport={{ once: false, amount: 0.5 }}
-                    transition={{ duration: 0.7, ease: [0.2, 1, 0.4, 1], delay: 0.15 + i * 0.07 }}
+                    transition={{ duration: 0.7, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay: 0.15 + i * 0.07 }}
                     style={{ height: 38, flex: 1, borderRadius: 8, background: bar, display: "flex", alignItems: "center", paddingLeft: 14, fontFamily: "var(--font-display)", fontWeight: 800, color: "white", fontSize: 14, letterSpacing: "0.08em", overflow: "hidden" }}>JACKPOT</motion.div>
                 ) : (
                   <motion.div
                     initial={{ width: 0 }} whileInView={{ width: w }} viewport={{ once: false, amount: 0.5 }}
-                    transition={{ duration: 0.6, ease: [0.2, 1, 0.4, 1], delay: 0.2 + i * 0.07 }}
+                    transition={{ duration: 0.6, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay: 0.2 + i * 0.07 }}
                     style={{ height: 30, borderRadius: 8, background: bar, flexShrink: 0 }} />
                 )}
                 <span style={{ fontFamily: "var(--font-display)", fontWeight: jackpot ? 800 : 700, fontSize: jackpot ? 18 : 15, flexShrink: 0, color: jackpot ? "#FF5B45" : "#CBC0AE" }}>{pts}</span>
