@@ -399,9 +399,11 @@ export default function GameBoard({
                   <motion.button
                     onClick={submitWord}
                     disabled={submitDisabled}
+                    animate={!submitDisabled ? { boxShadow: ["0 5px 0 #A9C931", "0 5px 22px rgba(207,233,75,0.55)", "0 5px 0 #A9C931"] } : { boxShadow: "none" }}
+                    transition={!submitDisabled ? { duration: 1.8, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }}
                     whileHover={!submitDisabled ? { scale: 1.02, y: -2 } : undefined}
                     whileTap={!submitDisabled ? { scale: 0.97 } : undefined}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: submitDisabled ? "default" : "pointer", opacity: submitDisabled ? 0.4 : 1, boxShadow: submitDisabled ? "none" : "0 5px 0 #A9C931" }}>
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: submitDisabled ? "default" : "pointer", opacity: submitDisabled ? 0.4 : 1 }}>
                     {wordValid === "invalid"
                       ? "Not a word"
                       : input.length >= 2 && canBuild(input, letterStr) && scoreWord(input) > 0
