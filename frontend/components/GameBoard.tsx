@@ -345,19 +345,29 @@ export default function GameBoard({
                 const isUsed = (usedCounts[l] || 0) >= (availCounts[l] || 0) && (usedCounts[l] || 0) > 0;
                 const disabled = isUsed || !isActive;
                 return (
-                  <motion.button
+                  // outer: continuous bob float
+                  <motion.div
                     key={i}
-                    onClick={() => tapTile(l)}
-                    disabled={disabled}
-                    initial={{ opacity: 0, y: 14, rotate: -8 }}
-                    animate={{ opacity: disabled ? 0.3 : 1, y: 0, rotate: 0 }}
-                    transition={{ duration: 0.45, ease: [0.2, 1.4, 0.4, 1], delay: i * 0.06 }}
-                    whileHover={!disabled ? { scale: 1.12, y: -4 } : undefined}
-                    whileTap={!disabled ? { scale: 0.88 } : undefined}
-                    style={{ width: "clamp(38px,8vw,46px)", height: "clamp(44px,9vw,54px)", borderRadius: 9, background: "#F3ECDB", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,27px)", color: "#2A2017", cursor: disabled ? "default" : "pointer", boxShadow: disabled ? "inset 0 -3px 0 #CFC1A6" : "inset 0 -3px 0 #CFC1A6, 0 4px 10px rgba(0,0,0,.3)" }}
+                    animate={{ y: disabled ? 0 : [0, -6, 0] }}
+                    transition={disabled
+                      ? { duration: 0.3 }
+                      : { duration: 2.2 + i * 0.28, repeat: Infinity, ease: "easeInOut", delay: i * 0.21 }}
+                    style={{ display: "inline-flex" }}
                   >
-                    {l}
-                  </motion.button>
+                    {/* inner: entrance + tap */}
+                    <motion.button
+                      onClick={() => tapTile(l)}
+                      disabled={disabled}
+                      initial={{ opacity: 0, scale: 0.72, rotate: -10 }}
+                      animate={{ opacity: disabled ? 0.3 : 1, scale: 1, rotate: 0 }}
+                      transition={{ duration: 0.4, ease: [0.2, 1.4, 0.4, 1], delay: i * 0.07 }}
+                      whileHover={!disabled ? { scale: 1.15 } : undefined}
+                      whileTap={!disabled ? { scale: 0.84 } : undefined}
+                      style={{ width: "clamp(38px,8vw,46px)", height: "clamp(44px,9vw,54px)", borderRadius: 9, background: "#F3ECDB", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,27px)", color: "#2A2017", cursor: disabled ? "default" : "pointer", boxShadow: disabled ? "inset 0 -3px 0 #CFC1A6" : "inset 0 -3px 0 #CFC1A6, 0 4px 10px rgba(0,0,0,.3)" }}
+                    >
+                      {l}
+                    </motion.button>
+                  </motion.div>
                 );
               })}
             </div>
