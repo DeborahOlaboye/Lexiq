@@ -309,11 +309,11 @@ export default function GameBoard({
               { label: "Score", val: <span key={displayScore} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#CFE94B", lineHeight: 1.05, display: "inline-block", animation: displayScore > 0 ? "popScore .42s cubic-bezier(.2,1.5,.4,1)" : "none" }}>{displayScore}</span> },
               { label: "Words", val: <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#F5EFE2", lineHeight: 1.05 }}>{words.length}</span> },
               { label: "Time",  val: <motion.span
-                  animate={phase === "active" && timeLeft <= 10 && timeLeft > 0
-                    ? { scale: [1, 1.12, 1] }
+                  animate={phase === "active" && timeLeft > 0
+                    ? { scale: timeLeft <= 10 ? [1, 1.14, 1] : [1, 1.04, 1] }
                     : { scale: 1 }}
-                  transition={phase === "active" && timeLeft <= 10 && timeLeft > 0
-                    ? { duration: 0.65, repeat: Infinity, ease: "easeInOut" }
+                  transition={phase === "active" && timeLeft > 0
+                    ? { duration: timeLeft <= 10 ? 0.6 : 1.8, repeat: Infinity, ease: "easeInOut" }
                     : { duration: 0.2 }}
                   style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "clamp(22px,4.5vw,28px)", lineHeight: 1.12, color: timerColor, display: "inline-block" }}>
                   {timeStr}
