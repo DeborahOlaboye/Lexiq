@@ -66,23 +66,27 @@ export default function Landing() {
         {/* Copy */}
         <div>
           <div
-            className="inline-flex items-center gap-2"
-            style={{ padding: "7px 13px", borderRadius: 20, border: LINE2, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#CFE94B" }}
+            className="animate-hero-in inline-flex items-center gap-2"
+            style={{ padding: "7px 13px", borderRadius: 20, border: LINE2, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#CFE94B", animationDelay: "0s" }}
           >
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#CFE94B", display: "inline-block", animation: "blink 1.4s infinite" }} />
             On-chain word race · Celo
           </div>
           <h1
-            style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(40px,8vw,64px)", lineHeight: 0.96, letterSpacing: "-0.025em", marginTop: 20, marginBottom: 0, color: "#F5EFE2" }}
+            className="animate-hero-in"
+            style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(40px,8vw,64px)", lineHeight: 0.96, letterSpacing: "-0.025em", marginTop: 20, marginBottom: 0, color: "#F5EFE2", animationDelay: "0.1s" }}
           >
             Seven letters.<br />Ninety seconds.<br />
             <span style={{ color: "#CFE94B" }}>One shot.</span>
           </h1>
-          <p style={{ fontSize: "clamp(15px,2vw,18px)", lineHeight: 1.55, color: "#CBC0AE", maxWidth: 430, marginTop: 20, marginBottom: 0 }}>
+          <p
+            className="animate-hero-in"
+            style={{ fontSize: "clamp(15px,2vw,18px)", lineHeight: 1.55, color: "#CBC0AE", maxWidth: 430, marginTop: 20, marginBottom: 0, animationDelay: "0.22s" }}
+          >
             Build as many words as you can from 7 random letters. Longer words score more. Stake USDM, beat your best,
             and climb the weekly prize board.
           </p>
-          <div className="flex flex-wrap gap-[14px]" style={{ marginTop: "clamp(20px,3vw,30px)" }}>
+          <div className="animate-hero-in flex flex-wrap gap-[14px]" style={{ marginTop: "clamp(20px,3vw,30px)", animationDelay: "0.34s" }}>
             <button
               onClick={handleConnect}
               disabled={isPending}
@@ -97,7 +101,7 @@ export default function Landing() {
               How it works
             </a>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", columnGap: 22, rowGap: 4, marginTop: 20, fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77" }}>
+          <div className="animate-hero-in" style={{ display: "flex", flexWrap: "wrap", columnGap: 22, rowGap: 4, marginTop: 20, fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77", animationDelay: "0.44s" }}>
             <span>↳ Settled on Celo</span>
             <span>· USDM</span>
             <span>· No sign-up</span>
@@ -108,10 +112,10 @@ export default function Landing() {
         {/* Floating tiles art */}
         <div style={{ position: "relative", minHeight: "clamp(200px,40vw,380px)" }}>
           <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", display: "flex", gap: 7 }}>
-            {HERO_TILES.map(({ l, r, dur, delay }) => (
+            {HERO_TILES.map(({ l, r, dur, delay }, i) => (
               <div
                 key={l}
-                className="animate-floaty"
+                className="animate-floaty animate-tile-in"
                 style={{
                   "--r": r, "--dur": dur, "--delay": delay,
                   width: "clamp(36px,6vw,54px)", height: "clamp(42px,7vw,62px)",
@@ -120,21 +124,31 @@ export default function Landing() {
                   fontFamily: "var(--font-display)", fontWeight: 800,
                   fontSize: "clamp(20px,3.5vw,32px)", color: "#2A2017",
                   boxShadow: "inset 0 -4px 0 #CFC1A6, 0 8px 18px rgba(0,0,0,.35)",
+                  animationDelay: `${0.1 + i * 0.07}s, ${0.1 + i * 0.07}s`,
                 } as React.CSSProperties}
               >
                 {l}
               </div>
             ))}
           </div>
-          <div style={{ position: "absolute", top: "8%", right: "4%", background: "#FF5B45", color: "white", padding: "13px 18px", borderRadius: 14, transform: "rotate(5deg)", boxShadow: "0 10px 26px rgba(255,91,69,.4)" }}>
+          <div
+            className="animate-badge-in"
+            style={{ "--r": "5deg", position: "absolute", top: "8%", right: "4%", background: "#FF5B45", color: "white", padding: "13px 18px", borderRadius: 14, transform: "rotate(5deg)", boxShadow: "0 10px 26px rgba(255,91,69,.4)", animationDelay: "0.4s" } as React.CSSProperties}
+          >
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, opacity: 0.85, letterSpacing: "0.1em" }}>RETAINS</div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 30, lineHeight: 1 }}>+11</div>
           </div>
-          <div style={{ position: "absolute", bottom: "10%", left: "4%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13, transform: "rotate(-4deg)" }}>
+          <div
+            className="animate-badge-in"
+            style={{ "--r": "-4deg", position: "absolute", bottom: "10%", left: "4%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13, transform: "rotate(-4deg)", animationDelay: "0.52s" } as React.CSSProperties}
+          >
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", letterSpacing: "0.1em" }}>TIME</div>
             <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 26, color: "#F5EFE2", lineHeight: 1 }}>01:30</div>
           </div>
-          <div style={{ position: "absolute", bottom: "24%", right: "8%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13, transform: "rotate(3deg)" }}>
+          <div
+            className="animate-badge-in"
+            style={{ "--r": "3deg", position: "absolute", bottom: "24%", right: "8%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13, transform: "rotate(3deg)", animationDelay: "0.62s" } as React.CSSProperties}
+          >
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", letterSpacing: "0.1em" }}>YOUR BEST</div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, color: "#CFE94B", lineHeight: 1 }}>47</div>
           </div>
