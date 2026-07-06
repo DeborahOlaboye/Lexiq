@@ -306,7 +306,14 @@ export default function GameBoard({
           {/* Stat strip */}
           <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
             {[
-              { label: "Score", val: <span key={displayScore} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#CFE94B", lineHeight: 1.05, display: "inline-block", animation: displayScore > 0 ? "popScore .42s cubic-bezier(.2,1.5,.4,1)" : "none" }}>{displayScore}</span> },
+              { label: "Score", val: <motion.span
+                  key={displayScore}
+                  initial={displayScore > 0 ? { scale: 1.4 } : { scale: 1 }}
+                  animate={displayScore > 0 ? { scale: [1, 1.06, 1] } : { scale: 1 }}
+                  transition={displayScore > 0 ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" } : {}}
+                  style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#CFE94B", lineHeight: 1.05, display: "inline-block" }}>
+                  {displayScore}
+                </motion.span> },
               { label: "Words", val: <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#F5EFE2", lineHeight: 1.05 }}>{words.length}</span> },
               { label: "Time",  val: <motion.span
                   animate={phase === "active" && timeLeft > 0
