@@ -4,9 +4,16 @@ import { useAccount, useReadContract, useWriteContract, useWaitForTransactionRec
 import { parseUnits } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ERC20_ABI, USDM_ADDRESS } from "@/lib/contracts";
 import { celoFee } from "@/lib/minipay";
+import { motion, AnimatePresence } from "framer-motion";
 
 const MIN_STAKE = 0.01;
 const LINE = "1px solid var(--line)";
+
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 18 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.45, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay },
+});
 
 export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigint) => void }) {
   const { address } = useAccount();
@@ -70,12 +77,19 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
     <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: "clamp(8px,2vw,16px)" }}>
 
       {/* Hero start card */}
-      <div className="animate-view-in" style={{ background: "#241C13", borderRadius: 22, padding: "clamp(18px,4vw,26px)", border: LINE }}>
+      <motion.div {...fadeUp(0)} style={{ background: "#241C13", borderRadius: 22, padding: "clamp(18px,4vw,26px)", border: LINE }}>
 
         {/* Title row with FREE badge */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,4vw,30px)", letterSpacing: "-0.02em" }}>Ready to race?</div>
-          <span style={{ flexShrink: 0, padding: "3px 9px", borderRadius: 8, background: "rgba(207,233,75,.15)", border: "1px solid rgba(207,233,75,.4)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 11, color: "#CFE94B", letterSpacing: "0.1em" }}>FREE</span>
+          <motion.span
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: 0.15, ease: [0.2, 1.6, 0.4, 1] }}
+            style={{ flexShrink: 0, padding: "3px 9px", borderRadius: 8, background: "rgba(207,233,75,.15)", border: "1px solid rgba(207,233,75,.4)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 11, color: "#CFE94B", letterSpacing: "0.1em" }}
+          >
+            FREE
+          </motion.span>
         </div>
         <div style={{ fontSize: 14, color: "#CBC0AE", marginBottom: 20 }}>7 letters · 90 seconds · longer words score higher</div>
 
@@ -83,9 +97,11 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
         {status && (
           <p style={{ fontSize: 12, color: "#CFE94B", fontFamily: "var(--font-mono)", marginBottom: 10, animation: "blink 1.4s infinite" }}>{status}</p>
         )}
-        <button
+        <motion.button
           onClick={handleStart}
           disabled={busy || !!stakeError}
+          whileHover={!busy && !stakeError ? { scale: 1.02, y: -2 } : undefined}
+          whileTap={!busy && !stakeError ? { scale: 0.97 } : undefined}
           style={{
             display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
             width: "100%", padding: "clamp(14px,3vw,17px)",
@@ -96,56 +112,64 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
             cursor: busy || !!stakeError ? "not-allowed" : "pointer",
             opacity: busy || !!stakeError ? 0.4 : 1,
             boxShadow: busy ? "none" : "0 6px 0 #A9C931",
-            transition: "opacity 0.15s",
           }}
         >
           <span style={{ fontSize: 13 }}>▶</span>
           {busy ? (status ?? "Working…") : showStake && stakeNum > 0 ? `Play · Stake ${stakeNum} USDM` : "Play for Free"}
-        </button>
+        </motion.button>
 
         {/* Optional stake toggle */}
         <div style={{ marginTop: 14 }}>
-          <button
+          <motion.button
             onClick={() => { setShowStake((v) => !v); if (showStake) { setStake(""); setStakeError(null); } }}
+            whileHover={{ opacity: 0.8 }}
             style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
           >
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557" }}>
               {showStake ? "▾ Hide stake" : "▸ Stake USDM for a bonus"}
             </span>
-          </button>
+          </motion.button>
 
-          {showStake && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1E1710", borderRadius: 12, padding: "12px 14px", border: LINE }}>
-                <input
-                  value={stake}
-                  onChange={(e) => { setStake(e.target.value); validateStake(e.target.value); }}
-                  placeholder="e.g. 0.5"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  inputMode="decimal"
-                  autoFocus
-                  style={{ flex: 1, background: "transparent", fontFamily: "var(--font-mono)", fontSize: 14, color: "#F5EFE2", outline: "none", border: "none" }}
-                />
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "#CBC0AE", marginLeft: 8 }}>USDM</span>
-              </div>
-              {stakeError
-                ? <p style={{ fontSize: 11, color: "#FF5B45", marginTop: 6, marginBottom: 0 }}>{stakeError}</p>
-                : <p style={{ fontSize: 11, color: "#6E6557", marginTop: 6, marginBottom: 0 }}>Score 10+ pts → stake returned minus 1% fee</p>
-              }
-            </div>
-          )}
+          <AnimatePresence>
+            {showStake && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.28, ease: [0.2, 1, 0.4, 1] }}
+                style={{ overflow: "hidden", marginTop: 10 }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1E1710", borderRadius: 12, padding: "12px 14px", border: LINE }}>
+                  <input
+                    value={stake}
+                    onChange={(e) => { setStake(e.target.value); validateStake(e.target.value); }}
+                    placeholder="e.g. 0.5"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    autoFocus
+                    style={{ flex: 1, background: "transparent", fontFamily: "var(--font-mono)", fontSize: 14, color: "#F5EFE2", outline: "none", border: "none" }}
+                  />
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "#CBC0AE", marginLeft: 8 }}>USDM</span>
+                </div>
+                {stakeError
+                  ? <p style={{ fontSize: 11, color: "#FF5B45", marginTop: 6, marginBottom: 0 }}>{stakeError}</p>
+                  : <p style={{ fontSize: 11, color: "#6E6557", marginTop: 6, marginBottom: 0 }}>Score 10+ pts → stake returned minus 1% fee</p>
+                }
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Stat grid — auto-fit 4-col on desktop, 2-col on mobile */}
+      {/* Stat grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 11 }}>
         {[
-          { label: "Prize pool", value: prizeFormatted, unit: "USDM", lime: true,  glow: true,  delay: 0.05 },
-          { label: "Your best",  value: myHigh?.toString() ?? "—",   unit: "pts",  lime: false, glow: false, delay: 0.12 },
-          { label: "Total score",value: myTotal?.toString() ?? "—",               lime: false, glow: false, delay: 0.19 },
-          { label: "Rounds",     value: played?.toString() ?? "—",                lime: false, glow: false, delay: 0.26 },
+          { label: "Prize pool", value: prizeFormatted, unit: "USDM", lime: true,  glow: true,  delay: 0.08 },
+          { label: "Your best",  value: myHigh?.toString() ?? "—",   unit: "pts",  lime: false, glow: false, delay: 0.15 },
+          { label: "Total score",value: myTotal?.toString() ?? "—",               lime: false, glow: false, delay: 0.22 },
+          { label: "Rounds",     value: played?.toString() ?? "—",                lime: false, glow: false, delay: 0.29 },
         ].map(({ label, value, unit, lime, glow, delay }) => (
           <StatCard key={label} label={label} value={value} unit={unit} lime={lime} glow={glow} delay={delay} />
         ))}
@@ -153,20 +177,22 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
 
       {/* Recent rounds */}
       {myRounds && myRounds.length > 0 && (
-        <div>
+        <motion.div {...fadeUp(0.35)}>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 9 }}>Recent rounds</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {[...myRounds].reverse().slice(0, 6).map((id) => (
-              <button
+              <motion.button
                 key={id.toString()}
                 onClick={() => onEnterGame(id)}
+                whileHover={{ scale: 1.06, y: -2 }}
+                whileTap={{ scale: 0.94 }}
                 style={{ padding: "7px 13px", borderRadius: 10, background: "#241C13", fontFamily: "var(--font-mono)", fontSize: 12, color: "#CBC0AE", border: LINE, cursor: "pointer" }}
               >
                 #{id.toString()}
-              </button>
+              </motion.button>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );
@@ -174,13 +200,21 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
 
 function StatCard({ label, value, unit, lime, glow, delay = 0 }: { label: string; value: string; unit?: string; lime?: boolean; glow?: boolean; delay?: number }) {
   return (
-    <div
-      className={`animate-view-in${glow ? " animate-glow-lime" : ""}`}
-      style={{ background: "#241C13", borderRadius: 16, padding: "clamp(12px,2.5vw,16px)", border: "1px solid var(--line)", animationDelay: `${delay}s` }}
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.2, 1, 0.4, 1], delay }}
+      style={{
+        background: "#241C13",
+        borderRadius: 16,
+        padding: "clamp(12px,2.5vw,16px)",
+        border: "1px solid var(--line)",
+        animation: glow ? "glowLime 2.2s ease-in-out infinite" : undefined,
+      }}
     >
       <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase" }}>{label}</div>
       <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,3.5vw,22px)", marginTop: 4, color: lime ? "#CFE94B" : "#F5EFE2" }}>{value}</div>
       {unit && <div style={{ fontSize: 11, color: "#6E6557" }}>{unit}</div>}
-    </div>
+    </motion.div>
   );
 }
