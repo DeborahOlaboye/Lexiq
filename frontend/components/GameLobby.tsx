@@ -70,7 +70,7 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
     <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: "clamp(8px,2vw,16px)" }}>
 
       {/* Hero start card */}
-      <div style={{ background: "#241C13", borderRadius: 22, padding: "clamp(18px,4vw,26px)", border: LINE }}>
+      <div className="animate-view-in" style={{ background: "#241C13", borderRadius: 22, padding: "clamp(18px,4vw,26px)", border: LINE }}>
 
         {/* Title row with FREE badge */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
@@ -141,10 +141,14 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
 
       {/* Stat grid — auto-fit 4-col on desktop, 2-col on mobile */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 11 }}>
-        <StatCard label="Prize pool" value={prizeFormatted} unit="USDM" lime />
-        <StatCard label="Your best" value={myHigh?.toString() ?? "—"} unit="pts" />
-        <StatCard label="Total score" value={myTotal?.toString() ?? "—"} />
-        <StatCard label="Rounds" value={played?.toString() ?? "—"} />
+        {[
+          { label: "Prize pool", value: prizeFormatted, unit: "USDM", lime: true,  glow: true,  delay: 0.05 },
+          { label: "Your best",  value: myHigh?.toString() ?? "—",   unit: "pts",  lime: false, glow: false, delay: 0.12 },
+          { label: "Total score",value: myTotal?.toString() ?? "—",               lime: false, glow: false, delay: 0.19 },
+          { label: "Rounds",     value: played?.toString() ?? "—",                lime: false, glow: false, delay: 0.26 },
+        ].map(({ label, value, unit, lime, glow, delay }) => (
+          <StatCard key={label} label={label} value={value} unit={unit} lime={lime} glow={glow} delay={delay} />
+        ))}
       </div>
 
       {/* Recent rounds */}
@@ -168,9 +172,12 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
   );
 }
 
-function StatCard({ label, value, unit, lime }: { label: string; value: string; unit?: string; lime?: boolean }) {
+function StatCard({ label, value, unit, lime, glow, delay = 0 }: { label: string; value: string; unit?: string; lime?: boolean; glow?: boolean; delay?: number }) {
   return (
-    <div style={{ background: "#241C13", borderRadius: 16, padding: "clamp(12px,2.5vw,16px)", border: "1px solid var(--line)" }}>
+    <div
+      className={`animate-view-in${glow ? " animate-glow-lime" : ""}`}
+      style={{ background: "#241C13", borderRadius: 16, padding: "clamp(12px,2.5vw,16px)", border: "1px solid var(--line)", animationDelay: `${delay}s` }}
+    >
       <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase" }}>{label}</div>
       <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,3.5vw,22px)", marginTop: 4, color: lime ? "#CFE94B" : "#F5EFE2" }}>{value}</div>
       {unit && <div style={{ fontSize: 11, color: "#6E6557" }}>{unit}</div>}
