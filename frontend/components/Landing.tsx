@@ -113,18 +113,27 @@ export default function Landing() {
               </motion.div>
             ))}
           </div>
-          <motion.div initial={{ opacity: 0, scale: 0.6, rotate: 10 }} animate={{ opacity: 1, scale: 1, rotate: 5 }} transition={{ duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number, number, number, number], delay: 0.4 }}
-            style={{ position: "absolute", top: "8%", right: "4%", background: "#FF5B45", color: "white", padding: "13px 18px", borderRadius: 14, transform: "rotate(5deg)", boxShadow: "0 10px 26px rgba(255,91,69,.4)" }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.6, rotate: 10 }}
+            animate={{ opacity: 1, scale: 1, rotate: 5, y: [0, -12, 0] }}
+            transition={{ opacity: { duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number,number,number,number], delay: 0.4 }, scale: { duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number,number,number,number], delay: 0.4 }, rotate: { duration: 0.5, delay: 0.4 }, y: { duration: 3.6, repeat: Infinity, ease: "easeInOut", delay: 1.0 } }}
+            style={{ position: "absolute", top: "8%", right: "4%", background: "#FF5B45", color: "white", padding: "13px 18px", borderRadius: 14, boxShadow: "0 10px 26px rgba(255,91,69,.4)" }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, opacity: 0.85, letterSpacing: "0.1em" }}>RETAINS</div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 30, lineHeight: 1 }}>+11</div>
           </motion.div>
-          <motion.div initial={{ opacity: 0, scale: 0.6, rotate: -8 }} animate={{ opacity: 1, scale: 1, rotate: -4 }} transition={{ duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number, number, number, number], delay: 0.52 }}
-            style={{ position: "absolute", bottom: "10%", left: "4%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13, transform: "rotate(-4deg)" }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.6, rotate: -8 }}
+            animate={{ opacity: 1, scale: 1, rotate: -4, y: [0, -9, 0] }}
+            transition={{ opacity: { duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number,number,number,number], delay: 0.52 }, scale: { duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number,number,number,number], delay: 0.52 }, rotate: { duration: 0.5, delay: 0.52 }, y: { duration: 4.2, repeat: Infinity, ease: "easeInOut", delay: 1.2 } }}
+            style={{ position: "absolute", bottom: "10%", left: "4%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13 }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", letterSpacing: "0.1em" }}>TIME</div>
             <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 26, color: "#F5EFE2", lineHeight: 1 }}>01:30</div>
           </motion.div>
-          <motion.div initial={{ opacity: 0, scale: 0.6, rotate: 6 }} animate={{ opacity: 1, scale: 1, rotate: 3 }} transition={{ duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number, number, number, number], delay: 0.62 }}
-            style={{ position: "absolute", bottom: "24%", right: "8%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13, transform: "rotate(3deg)" }}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.6, rotate: 6 }}
+            animate={{ opacity: 1, scale: 1, rotate: 3, y: [0, -14, 0] }}
+            transition={{ opacity: { duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number,number,number,number], delay: 0.62 }, scale: { duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number,number,number,number], delay: 0.62 }, rotate: { duration: 0.5, delay: 0.62 }, y: { duration: 3.9, repeat: Infinity, ease: "easeInOut", delay: 1.4 } }}
+            style={{ position: "absolute", bottom: "24%", right: "8%", background: "#241C13", border: LINE, padding: "11px 16px", borderRadius: 13 }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", letterSpacing: "0.1em" }}>YOUR BEST</div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 26, color: "#CFE94B", lineHeight: 1 }}>47</div>
           </motion.div>
