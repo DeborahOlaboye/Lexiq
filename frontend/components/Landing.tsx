@@ -161,7 +161,13 @@ export default function Landing() {
             { val: "USDM",   label: "weekly prize pool", lime: false },
           ].map(({ val, label, lime }, i) => (
             <motion.div key={val} {...inView(i * 0.1)}>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,34px)", lineHeight: 1, color: lime ? "#CFE94B" : "#F5EFE2" }}>{val}</div>
+              <motion.div
+                animate={lime
+                  ? { scale: [1, 1.08, 1], textShadow: ["0 0 0px rgba(207,233,75,0)", "0 0 18px rgba(207,233,75,0.7)", "0 0 0px rgba(207,233,75,0)"] }
+                  : { opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: lime ? 2.4 : 3.0 + i * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 }}
+                style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,34px)", lineHeight: 1, color: lime ? "#CFE94B" : "#F5EFE2" }}
+              >{val}</motion.div>
               <div style={{ fontSize: 13, color: "#9A8C77", marginTop: 5 }}>{label}</div>
             </motion.div>
           ))}
