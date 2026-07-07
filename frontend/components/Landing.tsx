@@ -214,7 +214,8 @@ export default function Landing() {
                 {jackpot ? (
                   <motion.div
                     initial={{ width: 0 }} whileInView={{ width: "100%" }} viewport={{ once: false, amount: 0.5 }}
-                    transition={{ duration: 0.7, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay: 0.15 + i * 0.07 }}
+                    animate={{ boxShadow: ["0 0 0 0 rgba(255,91,69,0)", "0 0 18px 4px rgba(255,91,69,0.5)", "0 0 0 0 rgba(255,91,69,0)"] }}
+                    transition={{ width: { duration: 0.7, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay: 0.15 + i * 0.07 }, boxShadow: { duration: 2.0, repeat: Infinity, ease: "easeInOut" } }}
                     style={{ height: 38, flex: 1, borderRadius: 8, background: bar, display: "flex", alignItems: "center", paddingLeft: 14, fontFamily: "var(--font-display)", fontWeight: 800, color: "white", fontSize: 14, letterSpacing: "0.08em", overflow: "hidden" }}>JACKPOT</motion.div>
                 ) : (
                   <motion.div
@@ -249,9 +250,13 @@ export default function Landing() {
           style={{ marginTop: 18, background: "#1E1710", borderRadius: 20, padding: "clamp(20px,3vw,30px)", border: LINE, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
           <div>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#9A8C77", textTransform: "uppercase" }}>This week&apos;s prize pool</div>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(32px,6vw,46px)", color: "#CFE94B", lineHeight: 1, marginTop: 8 }}>
+            <motion.div
+              animate={{ scale: [1, 1.04, 1], textShadow: ["0 0 0 rgba(207,233,75,0)", "0 0 22px rgba(207,233,75,0.7)", "0 0 0 rgba(207,233,75,0)"] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+              style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(32px,6vw,46px)", color: "#CFE94B", lineHeight: 1, marginTop: 8 }}
+            >
               128.40{" "}<span style={{ fontSize: "clamp(16px,2.5vw,22px)", color: "#CBC0AE", fontWeight: 700 }}>USDM</span>
-            </div>
+            </motion.div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77" }}>Resets in</div>
