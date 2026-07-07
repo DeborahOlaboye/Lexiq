@@ -184,9 +184,13 @@ export default function Landing() {
             { n: "02", title: "Spell against the clock", body: "Tap tiles or type. Each word is committed on-chain as you go. Longer words are worth far more." },
             { n: "03", title: "Reveal & score",          body: "At the buzzer your words reveal and tally. Beat 10 points to keep your stake — or feed the pool." },
           ].map(({ n, title, body }, i) => (
-            <motion.div key={n} {...inView(0.18 + i * 0.12)} whileHover={{ y: -4, transition: { duration: 0.2 } }}
+            <motion.div key={n} {...inView(0.18 + i * 0.12)} whileHover={{ y: -6, transition: { duration: 0.2 } }}
               style={{ background: "#241C13", borderRadius: 20, padding: "clamp(18px,3vw,28px)", border: LINE }}>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "#CFE94B", letterSpacing: "0.1em" }}>{n}</div>
+              <motion.div
+                animate={{ opacity: [0.6, 1, 0.6], scale: [1, 1.1, 1] }}
+                transition={{ duration: 2.8 + i * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.5 }}
+                style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "#CFE94B", letterSpacing: "0.1em" }}
+              >{n}</motion.div>
               <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(17px,2.5vw,22px)", marginTop: 14, marginBottom: 8 }}>{title}</div>
               <p style={{ color: "#CBC0AE", fontSize: 15, lineHeight: 1.5, margin: 0 }}>{body}</p>
             </motion.div>
