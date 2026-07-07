@@ -52,7 +52,11 @@ export default function Landing() {
       <nav style={{ position: "sticky", top: 0, zIndex: 40, backdropFilter: "blur(10px)", background: "rgba(21,17,13,.72)", borderBottom: LINE }}>
         <div className="flex items-center justify-between" style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "0 clamp(18px,5vw,40px)", height: 60 }}>
           <div className="flex items-center gap-[11px]">
-            <div style={{ width: 28, height: 32, borderRadius: 6, background: "#F3ECDB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "#2A2017", boxShadow: "inset 0 -2px 0 #CFC1A6" }}>L</div>
+            <motion.div
+              animate={{ y: [0, -3, 0] }}
+              transition={{ duration: 3.0, repeat: Infinity, ease: "easeInOut" }}
+              style={{ width: 28, height: 32, borderRadius: 6, background: "#F3ECDB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "#2A2017", boxShadow: "inset 0 -2px 0 #CFC1A6" }}
+            >L</motion.div>
             <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, color: "#F5EFE2" }}>Lexiq</span>
           </div>
           <motion.button onClick={handleConnect} disabled={isPending} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
@@ -239,7 +243,11 @@ export default function Landing() {
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,2.5vw,26px)", marginTop: 12, marginBottom: 8 }}>Just for the high score</div>
             <p style={{ color: "#CBC0AE", fontSize: 15, lineHeight: 1.5, margin: 0 }}>Skip the stake entirely. Chase your personal best and climb the board on pure skill.</p>
           </motion.div>
-          <motion.div {...inView(0.1)} whileHover={{ y: -3, transition: { duration: 0.2 } }}
+          <motion.div
+            {...inView(0.1)}
+            animate={{ boxShadow: ["0 0 0 0 rgba(255,91,69,0)", "0 0 22px 4px rgba(255,91,69,0.25)", "0 0 0 0 rgba(255,91,69,0)"] }}
+            transition={{ boxShadow: { duration: 2.8, repeat: Infinity, ease: "easeInOut" } }}
+            whileHover={{ y: -3, transition: { duration: 0.2 } }}
             style={{ borderRadius: 20, padding: "clamp(20px,3vw,30px)", background: "linear-gradient(135deg,rgba(255,91,69,.16),rgba(207,233,75,.10))", border: "1px solid rgba(255,91,69,.35)" }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#FF5B45", textTransform: "uppercase" }}>Stake to sweat</div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,2.5vw,26px)", marginTop: 12, marginBottom: 8 }}>Score 10+ or lose it</div>
