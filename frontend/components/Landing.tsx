@@ -84,8 +84,14 @@ export default function Landing() {
           </motion.p>
 
           <motion.div {...fadeUp(0.34)} className="flex flex-wrap gap-[14px]" style={{ marginTop: "clamp(20px,3vw,30px)" }}>
-            <motion.button onClick={handleConnect} disabled={isPending} whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }}
-              style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,26px)", borderRadius: 14, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", boxShadow: "0 6px 0 #A9C931", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}>
+            <motion.button
+              onClick={handleConnect}
+              disabled={isPending}
+              animate={!isPending ? { boxShadow: ["0 6px 0 #A9C931", "0 6px 28px rgba(207,233,75,0.65)", "0 6px 0 #A9C931"], y: [0, -3, 0] } : {}}
+              transition={!isPending ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" } : {}}
+              whileHover={!isPending ? { scale: 1.04, y: -4 } : undefined}
+              whileTap={!isPending ? { scale: 0.97 } : undefined}
+              style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,26px)", borderRadius: 14, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}>
               {isPending ? "Connecting…" : "Connect Wallet"}
             </motion.button>
             <motion.a href="#how" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
