@@ -270,7 +270,13 @@ export default function Landing() {
         <motion.div {...inView(0)} style={{ background: "#CFE94B", borderRadius: 26, padding: "clamp(36px,6vw,54px) clamp(24px,4vw,44px)", textAlign: "center" }}>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(30px,6vw,46px)", letterSpacing: "-0.02em", color: "#15110D", margin: "0 0 12px" }}>Got 90 seconds?</h2>
           <p style={{ color: "#3c4416", fontSize: "clamp(14px,2vw,17px)", margin: "0 0 26px" }}>Connect your wallet — it works the same on your phone and your laptop.</p>
-          <motion.button onClick={handleConnect} disabled={isPending} whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.96 }}
+          <motion.button
+            onClick={handleConnect}
+            disabled={isPending}
+            animate={!isPending ? { boxShadow: ["0 0 0 0 rgba(207,233,75,0)", "0 0 32px 8px rgba(207,233,75,0.4)", "0 0 0 0 rgba(207,233,75,0)"], y: [0, -4, 0] } : {}}
+            transition={!isPending ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" } : {}}
+            whileHover={!isPending ? { scale: 1.05, y: -5 } : undefined}
+            whileTap={!isPending ? { scale: 0.96 } : undefined}
             style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "clamp(13px,2vw,17px) clamp(26px,4vw,34px)", borderRadius: 14, background: "#15110D", color: "#CFE94B", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,18px)", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}>
             {isPending ? "Connecting…" : "Connect Wallet"}
           </motion.button>
