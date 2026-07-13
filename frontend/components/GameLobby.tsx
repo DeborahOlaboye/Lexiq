@@ -5,6 +5,7 @@ import { parseUnits } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ERC20_ABI, USDM_ADDRESS } from "@/lib/contracts";
 import { celoFee } from "@/lib/minipay";
 import { motion, AnimatePresence } from "framer-motion";
+import { useStreak } from "@/hooks/useStreak";
 
 const MIN_STAKE = 0.01;
 const LINE = "1px solid var(--line)";
@@ -18,6 +19,7 @@ const fadeUp = (delay = 0) => ({
 export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigint) => void }) {
   const { address } = useAccount();
   const contract = LEXIQ_ADDRESS;
+  const { streak, longestStreak, lastPlayedToday } = useStreak();
   const [stake, setStake] = useState("");
   const [stakeError, setStakeError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -75,6 +77,40 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: "clamp(8px,2vw,16px)" }}>
+
+      {/* Streak banner */}
+      <AnimatePresence>
+        {streak > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.4, ease: [0.2, 1, 0.4, 1] as [number,number,number,number] }}
+            style={{ borderRadius: 16, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10,
+              background: lastPlayedToday ? "rgba(207,233,75,.08)" : "rgba(255,91,69,.08)",
+              border: lastPlayedToday ? "1px solid rgba(207,233,75,.3)" : "1px solid rgba(255,91,69,.3)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <motion.span animate={{ scale: [1, 1.35, 1] }} transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }} style={{ fontSize: 22 }}>🔥</motion.span>
+              <div>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: lastPlayedToday ? "#CFE94B" : "#FF5B45" }}>
+                  {streak}-day streak{streak >= 7 ? " 🏆" : ""}
+                </div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", marginTop: 2 }}>
+                  {lastPlayedToday ? `Kept alive · best ever: ${longestStreak} days` : "⚠ Play today to keep your streak!"}
+                </div>
+              </div>
+            </div>
+            {!lastPlayedToday && (
+              <motion.span animate={{ opacity: [0.6, 1, 0.6] }} transition={{ duration: 1.4, repeat: Infinity }}
+                style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45" }}>
+                Play now →
+              </motion.span>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hero start card */}
       <motion.div {...fadeUp(0)} style={{ background: "#241C13", borderRadius: 22, padding: "clamp(18px,4vw,26px)", border: LINE }}>

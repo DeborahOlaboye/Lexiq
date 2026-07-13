@@ -8,6 +8,7 @@ import GameLobby from "@/components/GameLobby";
 import GameBoard from "@/components/GameBoard";
 import GuestBoard from "@/components/GuestBoard";
 import Leaderboard from "@/components/Leaderboard";
+import StreakBadge from "@/components/StreakBadge";
 
 type View = "lobby" | "game" | "leaderboard";
 
@@ -62,6 +63,7 @@ export default function Home() {
             <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "#F5EFE2" }}>Lexiq</span>
           </button>
           <div className="flex items-center gap-2 min-w-0">
+            <StreakBadge />
             {address && (
               <span className="hidden sm:block truncate" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", padding: "5px 11px", border: LINE, borderRadius: 9 }}>
                 {address.slice(0, 6)}…{address.slice(-4)}
