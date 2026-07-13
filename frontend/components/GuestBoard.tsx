@@ -225,7 +225,7 @@ export default function GuestBoard({ onBack }: { onBack: () => void }) {
           {/* Input */}
           {isActive && (
             <div style={{ position: "relative", marginBottom: 12 }}>
-              <div style={{ display: "flex", gap: 8, marginBottom: 9 }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
                 <input
                   value={input}
                   onChange={(e) => {
@@ -242,6 +242,20 @@ export default function GuestBoard({ onBack }: { onBack: () => void }) {
                   whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
                   style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}>⌫</motion.button>
               </div>
+              <AnimatePresence mode="wait">
+                {input.length >= 2 && wordValid !== "unchecked" && (
+                  <motion.div
+                    key={wordValid}
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18 }}
+                    style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginBottom: 6, paddingLeft: 4, color: wordValid === "valid" ? "#CFE94B" : "#FF5B45" }}
+                  >
+                    {wordValid === "valid" ? "✓ Valid word" : "✗ Not in dictionary"}
+                  </motion.div>
+                )}
+              </AnimatePresence>
               {(() => {
                 const submitDisabled = input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input) || wordValid !== "valid";
                 return (
