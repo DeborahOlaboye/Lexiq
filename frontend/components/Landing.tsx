@@ -37,7 +37,7 @@ const SCORING_ROWS = [
   { label: "7 L+", pts: "11 pts", w: "100%", bar: "#FF5B45",             jackpot: true  },
 ];
 
-export default function Landing() {
+export default function Landing({ onGuestPlay }: { onGuestPlay?: () => void }) {
   const { connect, connectors, isPending } = useConnect();
 
   function handleConnect() {
@@ -98,10 +98,18 @@ export default function Landing() {
               style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,26px)", borderRadius: 14, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}>
               {isPending ? "Connecting…" : "Connect Wallet"}
             </motion.button>
-            <motion.a href="#how" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              style={{ display: "inline-flex", alignItems: "center", padding: "clamp(12px,2vw,16px) clamp(20px,3vw,24px)", borderRadius: 14, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(15px,2vw,17px)", textDecoration: "none" }}>
-              How it works
-            </motion.a>
+            {onGuestPlay && (
+              <motion.button onClick={onGuestPlay} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,24px)", borderRadius: 14, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(15px,2vw,17px)", background: "none", cursor: "pointer" }}>
+                Try without wallet
+              </motion.button>
+            )}
+            {!onGuestPlay && (
+              <motion.a href="#how" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                style={{ display: "inline-flex", alignItems: "center", padding: "clamp(12px,2vw,16px) clamp(20px,3vw,24px)", borderRadius: 14, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(15px,2vw,17px)", textDecoration: "none" }}>
+                How it works
+              </motion.a>
+            )}
           </motion.div>
 
           <motion.div {...fadeUp(0.44)} style={{ display: "flex", flexWrap: "wrap", columnGap: 22, rowGap: 4, marginTop: 20, fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77" }}>
