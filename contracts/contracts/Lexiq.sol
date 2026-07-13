@@ -10,16 +10,21 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract Lexiq is Ownable, ReentrancyGuard {
     IERC20 public immutable usdm;
 
-    uint32 public constant ROUND_DURATION  = 90;
+    uint32 public constant ROUND_DURATION  = 90; // used for legacy; new rounds use difficulty
     uint8  public constant MAX_WORDS       = 15;
     uint8  public constant STAKE_THRESHOLD = 10;
+
+    // Difficulty: 0 = Easy (120s), 1 = Normal (90s), 2 = Hard (60s)
+    uint8  public constant DIFFICULTY_EASY   = 0;
+    uint8  public constant DIFFICULTY_NORMAL = 1;
+    uint8  public constant DIFFICULTY_HARD   = 2;
 
     enum RoundState { ACTIVE, FINISHED }
     struct WordCommit { bytes32 hash; bool revealed; uint8 score; }
     struct Round {
         address player; bytes32 letterSeed; uint32 startedAt;
         WordCommit[15] commits; uint8 commitCount; uint8 totalScore;
-        RoundState state; uint256 stake;
+        RoundState state; uint256 stake; uint8 difficulty;
     }
 
     uint256 private _roundCounter;
@@ -32,6 +37,7 @@ contract Lexiq is Ownable, ReentrancyGuard {
     uint256 public platformFeeBalance;
 
     event RoundStarted(uint256 indexed roundId, address indexed player, bytes32 letterSeed);
+    event ChallengeStarted(uint256 indexed challengeRoundId, uint256 indexed originalRoundId, address indexed challenger);
     event WordCommitted(uint256 indexed roundId, uint8 slot);
     event WordRevealed(uint256 indexed roundId, string word, uint8 score);
     event RoundFinished(uint256 indexed roundId, address indexed player, uint8 finalScore);
@@ -39,22 +45,45 @@ contract Lexiq is Ownable, ReentrancyGuard {
 
     constructor(address _usdm) Ownable(msg.sender) { usdm = IERC20(_usdm); }
 
-    function startRound(uint256 stakeAmount) external nonReentrant returns (uint256 roundId) {
+    function startRound(uint256 stakeAmount, uint8 difficulty) external nonReentrant returns (uint256 roundId) {
+        require(difficulty <= DIFFICULTY_HARD, "Invalid difficulty");
+        if (stakeAmount > 0) require(usdm.transferFrom(msg.sender, address(this), stakeAmount), "Stake failed");
+        roundId = _roundCounter++;
+        Round storage r = rounds[roundId];
+        r.player = msg.sender; r.startedAt = uint32(block.timestamp);
+        r.stake = stakeAmount; r.state = RoundState.ACTIVE; r.difficulty = difficulty;
+        r.letterSeed = keccak256(abi.encodePacked(block.prevrandao, msg.sender, roundId, block.timestamp));
+        playerRounds[msg.sender].push(roundId); gamesPlayed[msg.sender]++;
+        emit RoundStarted(roundId, msg.sender, r.letterSeed);
+    }
+
+    function _roundDuration(uint8 difficulty) internal pure returns (uint32) {
+        if (difficulty == DIFFICULTY_EASY) return 120;
+        if (difficulty == DIFFICULTY_HARD) return 60;
+        return 90;
+    }
+
+    /// @notice Start a round using the same 7 letters as an existing finished round.
+    ///         Lets a friend accept a challenge and race on identical letters.
+    function startChallenge(uint256 originalRoundId, uint256 stakeAmount) external nonReentrant returns (uint256 roundId) {
+        Round storage orig = rounds[originalRoundId];
+        require(orig.state == RoundState.FINISHED, "Original not finished");
         if (stakeAmount > 0) require(usdm.transferFrom(msg.sender, address(this), stakeAmount), "Stake failed");
         roundId = _roundCounter++;
         Round storage r = rounds[roundId];
         r.player = msg.sender; r.startedAt = uint32(block.timestamp);
         r.stake = stakeAmount; r.state = RoundState.ACTIVE;
-        r.letterSeed = keccak256(abi.encodePacked(block.prevrandao, msg.sender, roundId, block.timestamp));
+        r.letterSeed = orig.letterSeed; // same letters as the challenge source
         playerRounds[msg.sender].push(roundId); gamesPlayed[msg.sender]++;
         emit RoundStarted(roundId, msg.sender, r.letterSeed);
+        emit ChallengeStarted(roundId, originalRoundId, msg.sender);
     }
 
     function commitWord(uint256 roundId, bytes32 wordHash) external {
         Round storage r = rounds[roundId];
         require(r.player == msg.sender, "Not your round");
         require(r.state == RoundState.ACTIVE, "Not active");
-        require(block.timestamp < r.startedAt + ROUND_DURATION, "Time up");
+        require(block.timestamp < r.startedAt + _roundDuration(r.difficulty), "Time up");
         require(r.commitCount < MAX_WORDS, "Max words reached");
         r.commits[r.commitCount] = WordCommit({ hash: wordHash, revealed: false, score: 0 });
         r.commitCount++;
@@ -132,10 +161,10 @@ contract Lexiq is Ownable, ReentrancyGuard {
 
     function getRound(uint256 roundId) external view returns (
         address player, bytes32 letterSeed, uint32 startedAt,
-        uint8 commitCount, uint8 totalScore_, RoundState state, uint256 stake
+        uint8 commitCount, uint8 totalScore_, RoundState state, uint256 stake, uint8 difficulty_
     ) {
         Round storage r = rounds[roundId];
-        return (r.player, r.letterSeed, r.startedAt, r.commitCount, r.totalScore, r.state, r.stake);
+        return (r.player, r.letterSeed, r.startedAt, r.commitCount, r.totalScore, r.state, r.stake, r.difficulty);
     }
 
     function getPlayerRounds(address p) external view returns (uint256[] memory) { return playerRounds[p]; }
