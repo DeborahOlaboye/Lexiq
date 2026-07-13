@@ -2,7 +2,8 @@ export const USDM_ADDRESS = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as cons
 export const LEXIQ_ADDRESS = "0x0f4B0Ef7357775b2661CE2Dd9078bd32029b78d6" as `0x${string}`;
 
 export const LEXIQ_ABI = [
-  { name: "startRound", type: "function", stateMutability: "nonpayable", inputs: [{ name: "stakeAmount", type: "uint256" }], outputs: [{ name: "roundId", type: "uint256" }] },
+  { name: "startRound", type: "function", stateMutability: "nonpayable", inputs: [{ name: "stakeAmount", type: "uint256" }, { name: "difficulty", type: "uint8" }], outputs: [{ name: "roundId", type: "uint256" }] },
+  { name: "startChallenge", type: "function", stateMutability: "nonpayable", inputs: [{ name: "originalRoundId", type: "uint256" }, { name: "stakeAmount", type: "uint256" }], outputs: [{ name: "roundId", type: "uint256" }] },
   { name: "commitWord", type: "function", stateMutability: "nonpayable", inputs: [{ name: "roundId", type: "uint256" }, { name: "wordHash", type: "bytes32" }], outputs: [] },
   { name: "commitWords", type: "function", stateMutability: "nonpayable", inputs: [{ name: "roundId", type: "uint256" }, { name: "wordHashes", type: "bytes32[]" }], outputs: [] },
   { name: "revealWords", type: "function", stateMutability: "nonpayable", inputs: [{ name: "roundId", type: "uint256" }, { name: "words", type: "string[]" }, { name: "salts", type: "bytes32[]" }], outputs: [] },
@@ -15,6 +16,7 @@ export const LEXIQ_ABI = [
       { name: "startedAt", type: "uint32" }, { name: "commitCount", type: "uint8" },
       { name: "totalScore_", type: "uint8" }, { name: "state", type: "uint8" },
       { name: "stake", type: "uint256" },
+      { name: "difficulty_", type: "uint8" },
     ],
   },
   { name: "getPlayerRounds", type: "function", stateMutability: "view", inputs: [{ name: "p", type: "address" }], outputs: [{ name: "", type: "uint256[]" }] },

@@ -58,7 +58,7 @@ export default function Leaderboard() {
       const players: `0x${string}`[] = [];
       for (const r of roundResults) {
         if (r.status !== "success") continue;
-        const [player, , , , , state] = r.result as readonly [string, string, number, number, number, number, bigint];
+        const [player, , , , , state] = r.result as unknown as [string, string, number, number, number, number, bigint, number];
         if (Number(state) === 1 && player && !seen.has(player.toLowerCase())) {
           seen.add(player.toLowerCase());
           players.push(player as `0x${string}`);

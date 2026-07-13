@@ -6,7 +6,7 @@ import { keccak256, encodePacked } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, scoreWord } from "@/lib/contracts";
 import { celoFee } from "@/lib/minipay";
 import { wagmiConfig } from "@/lib/wagmi";
-import { isValidWord } from "@/lib/dictionary";
+import { isValidWord, validateWords } from "@/lib/dictionary";
 import { motion, AnimatePresence } from "framer-motion";
 
 const LINE = "1px solid var(--line)";
@@ -132,9 +132,23 @@ export default function GameBoard({
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // Re-validate every word against the dictionary before touching the chain.
+      // This catches anything that slipped in while the debounce was in-flight.
+      setSubmitProgress("Checking words…");
+      const validSet = await validateWords(words.map((w) => w.word));
+      const validWords = words.filter((w) => validSet.has(w.word.toUpperCase()));
+      if (validWords.length === 0) {
+        setSubmitError("No valid dictionary words to submit.");
+        setSubmitProgress(null);
+        setSubmitting(false);
+        return;
+      }
+      // Use only validated words from here on
+      const wordsToSubmit = validWords;
+
       // Step 1 — commit all hashes in one tx (no time restriction on new contract)
-      setSubmitProgress(`Committing ${words.length} word${words.length !== 1 ? "s" : ""}…`);
-      const hashes = words.map((w) => hashWord(w.word, w.salt));
+      setSubmitProgress(`Committing ${wordsToSubmit.length} word${wordsToSubmit.length !== 1 ? "s" : ""}…`);
+      const hashes = wordsToSubmit.map((w) => hashWord(w.word, w.salt));
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const commitHash = await (writeContract as any)(wagmiConfig, {
         address: contract, abi: LEXIQ_ABI, functionName: "commitWords",
@@ -148,7 +162,7 @@ export default function GameBoard({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const revealHash = await (writeContract as any)(wagmiConfig, {
         address: contract, abi: LEXIQ_ABI, functionName: "revealWords",
-        args: [roundId, words.map((w) => w.word), words.map((w) => w.salt)],
+        args: [roundId, wordsToSubmit.map((w) => w.word), wordsToSubmit.map((w) => w.salt)],
         ...celoFee(),
       });
       await waitForTransactionReceipt(wagmiConfig, { hash: revealHash });
@@ -217,8 +231,8 @@ export default function GameBoard({
     </div>
   );
 
-  const [,, , , finalScore, state, stake] = round as [
-    `0x${string}`, `0x${string}`, number, number, number, number, bigint
+  const [,, , , finalScore, state, stake] = round as unknown as [
+    `0x${string}`, `0x${string}`, number, number, number, number, bigint, number
   ];
   const isNewBest = finalScore > best && best > 0;
   const sortedWords = [...words].sort((a, b) => b.pts - a.pts);
