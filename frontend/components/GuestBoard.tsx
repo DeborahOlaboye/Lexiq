@@ -5,6 +5,10 @@ import { isValidWord } from "@/lib/dictionary";
 import { scoreWord } from "@/lib/contracts";
 import { generateGuestLetters } from "@/lib/guestLetters";
 import { useConnect } from "wagmi";
+import { getGuestId, getStoredUsername, displayName } from "@/lib/player";
+import { usePlayerStreak, submitScore } from "@/hooks/usePlayerStreak";
+import Leaderboard from "./Leaderboard";
+import UsernamePrompt from "./UsernamePrompt";
 
 const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -20,6 +24,7 @@ const CONFETTI = [
 
 type WordEntry = { word: string; pts: number };
 type Pop = { id: number; text: string };
+type GuestView = "game" | "leaderboard";
 
 function getLetterCounts(str: string) {
   const m: Record<string, number> = {};
@@ -34,8 +39,11 @@ function canBuild(word: string, letters: string) {
 
 export default function GuestBoard({ onBack }: { onBack: () => void }) {
   const { connect, connectors, isPending } = useConnect();
-  const letterStr = useRef(generateGuestLetters()).current;
+  const letterStr  = useRef(generateGuestLetters()).current;
+  const guestId    = useRef(typeof window !== "undefined" ? getGuestId() : "").current;
+  const streakData = usePlayerStreak(guestId || undefined);
 
+  const [view, setView]       = useState<GuestView>("game");
   const [input, setInput]     = useState("");
   const [words, setWords]     = useState<WordEntry[]>([]);
   const [timeLeft, setTimeLeft] = useState(90);
@@ -43,6 +51,8 @@ export default function GuestBoard({ onBack }: { onBack: () => void }) {
   const [pops, setPops]       = useState<Pop[]>([]);
   const [popId, setPopId]     = useState(0);
   const [wordValid, setWordValid] = useState<"valid" | "invalid" | "unchecked">("unchecked");
+  const [submitted, setSubmitted] = useState(false);
+  const [, forceRender]       = useState(0);
 
   // countdown
   useEffect(() => {
@@ -55,6 +65,14 @@ export default function GuestBoard({ onBack }: { onBack: () => void }) {
     }, 1000);
     return () => clearInterval(id);
   }, [phase]);
+
+  // submit score to KV when game ends
+  useEffect(() => {
+    if (phase !== "done" || submitted || !guestId) return;
+    const myScore = words.reduce((s, w) => s + w.pts, 0);
+    setSubmitted(true);
+    submitScore({ playerId: guestId, username: getStoredUsername() ?? displayName(), score: myScore });
+  }, [phase]); // eslint-disable-line
 
   // debounced dict check
   useEffect(() => {
@@ -101,16 +119,14 @@ export default function GuestBoard({ onBack }: { onBack: () => void }) {
   }
 
   const sortedWords = [...words].sort((a, b) => b.pts - a.pts);
+  const { streak, longestStreak, lastPlayedToday } = streakData;
 
   /* ── RESULTS ── */
   if (phase === "done") {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.2, 1, 0.4, 1] as [number,number,number,number] }}
-        style={{ width: "min(560px, 100%)", margin: "0 auto", paddingTop: "clamp(12px,3vw,24px)" }}
-      >
+      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.2, 1, 0.4, 1] as [number, number, number, number] }}
+        style={{ width: "min(560px, 100%)", margin: "0 auto", paddingTop: "clamp(12px,3vw,24px)" }}>
         <div className="relative rounded-[22px] overflow-hidden" style={{ background: "#1E1710", border: LINE }}>
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
             {CONFETTI.map((c, i) => (
@@ -122,14 +138,19 @@ export default function GuestBoard({ onBack }: { onBack: () => void }) {
             <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 16px", borderRadius: 20, background: "#241C13", border: LINE, fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, letterSpacing: "0.12em", color: "#F5EFE2", textTransform: "uppercase", marginBottom: 16 }}>
               Guest Round Complete
             </div>
-            <motion.div
-              key={myScore}
-              initial={{ scale: 1.4 }}
-              animate={{ scale: [1, 1.06, 1] }}
+            <motion.div key={myScore} initial={{ scale: 1.4 }} animate={{ scale: [1, 1.06, 1] }}
               transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
               style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(72px,16vw,96px)", color: "#CFE94B", lineHeight: 1 }}
             >{myScore}</motion.div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, color: "#F5EFE2", marginTop: 4 }}>points</div>
+
+            {/* Streak badge on results */}
+            {streak > 0 && (
+              <div style={{ marginTop: 14, padding: "10px 18px", borderRadius: 12, background: lastPlayedToday ? "rgba(207,233,75,.08)" : "rgba(255,91,69,.08)", border: lastPlayedToday ? "1px solid rgba(207,233,75,.3)" : "1px solid rgba(255,91,69,.3)", display: "flex", alignItems: "center", gap: 8 }}>
+                <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }}>🔥</motion.span>
+                <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: lastPlayedToday ? "#CFE94B" : "#FF5B45" }}>{streak}-day streak</span>
+              </div>
+            )}
 
             {sortedWords.length > 0 && (
               <div style={{ width: "100%", marginTop: 14, display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
@@ -143,29 +164,23 @@ export default function GuestBoard({ onBack }: { onBack: () => void }) {
 
             {/* Connect wallet CTA */}
             <div style={{ width: "100%", marginTop: 22, borderRadius: 18, padding: "clamp(18px,4vw,24px)", background: "rgba(207,233,75,.07)", border: "1px solid rgba(207,233,75,.25)" }}>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, color: "#F5EFE2", marginBottom: 6 }}>Save your score on-chain</div>
-              <p style={{ fontSize: 13, color: "#9A8C77", margin: "0 0 16px" }}>Connect a wallet to record scores, build a daily streak, and compete on the leaderboard.</p>
-              <motion.button
-                onClick={handleConnect}
-                disabled={isPending}
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, color: "#F5EFE2", marginBottom: 6 }}>Unlock full Lexiq</div>
+              <p style={{ fontSize: 13, color: "#9A8C77", margin: "0 0 16px" }}>Connect a wallet to stake USDM, build a shared streak, and earn weekly prizes.</p>
+              <motion.button onClick={handleConnect} disabled={isPending}
                 animate={{ boxShadow: ["0 6px 0 #A9C931", "0 6px 24px rgba(207,233,75,0.55)", "0 6px 0 #A9C931"] }}
                 transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.97 }}
-                style={{ width: "100%", padding: "clamp(13px,2.5vw,15px)", borderRadius: 13, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1 }}
-              >
+                whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.97 }}
+                style={{ width: "100%", padding: "clamp(13px,2.5vw,15px)", borderRadius: 13, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1 }}>
                 {isPending ? "Connecting…" : "Connect Wallet"}
               </motion.button>
             </div>
 
             <div style={{ display: "flex", gap: 10, width: "100%", marginTop: 10 }}>
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                onClick={onBack}
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onBack}
                 style={{ flex: 1, padding: "clamp(11px,2vw,13px)", borderRadius: 14, background: "none", border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
                 ← Back
               </motion.button>
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                onClick={() => window.location.reload()}
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => window.location.reload()}
                 style={{ flex: 1, padding: "clamp(11px,2vw,13px)", borderRadius: 14, background: "none", border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
                 Play again
               </motion.button>
@@ -179,129 +194,166 @@ export default function GuestBoard({ onBack }: { onBack: () => void }) {
   /* ── ACTIVE GUEST RACE ── */
   return (
     <div style={{ paddingTop: "clamp(8px,2vw,16px)" }}>
-      <div className="flex items-center justify-between mb-3">
-        <motion.button onClick={onBack} whileHover={{ opacity: 0.7 }} style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77", background: "none", border: "none", cursor: "pointer", padding: 0 }}>‹ Back</motion.button>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "3px 10px", borderRadius: 8, border: LINE, background: "rgba(255,91,69,.08)" }}>Guest · Not saved on-chain</span>
+      {/* Top bar */}
+      <div className="flex items-center justify-between mb-3" style={{ flexWrap: "wrap", gap: 8 }}>
+        <motion.button onClick={onBack} whileHover={{ opacity: 0.7 }}
+          style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77", background: "none", border: "none", cursor: "pointer", padding: 0 }}>‹ Back</motion.button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <UsernamePrompt onSet={() => forceRender(n => n + 1)} />
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "3px 10px", borderRadius: 8, border: LINE, background: "rgba(255,91,69,.08)", flexShrink: 0 }}>
+            Guest · Not on-chain
+          </span>
+        </div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
-        <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+      {/* Streak banner */}
+      <AnimatePresence>
+        {streak > 0 && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.2, 1, 0.4, 1] as [number, number, number, number] }}
+            style={{ marginBottom: 12, borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8,
+              background: lastPlayedToday ? "rgba(207,233,75,.07)" : "rgba(255,91,69,.07)",
+              border: lastPlayedToday ? "1px solid rgba(207,233,75,.25)" : "1px solid rgba(255,91,69,.25)" }}>
+            <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1.8, repeat: Infinity }}>🔥</motion.span>
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: lastPlayedToday ? "#CFE94B" : "#FF5B45" }}>
+              {streak}-day streak
+            </span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", marginLeft: 4 }}>
+              · best: {longestStreak}
+            </span>
+            {!lastPlayedToday && (
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#FF5B45", marginLeft: "auto" }}>play today to keep it!</span>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Stat strip */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-            {[
-              { label: "Score", val: <motion.span key={myScore} initial={myScore > 0 ? { scale: 1.4 } : { scale: 1 }} animate={myScore > 0 ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={myScore > 0 ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" } : {}} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#CFE94B", lineHeight: 1.05, display: "inline-block" }}>{myScore}</motion.span> },
-              { label: "Words", val: <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#F5EFE2", lineHeight: 1.05 }}>{words.length}</span> },
-              { label: "Time",  val: <motion.span animate={timeLeft > 0 ? { scale: timeLeft <= 10 ? [1, 1.14, 1] : [1, 1.04, 1] } : { scale: 1 }} transition={timeLeft > 0 ? { duration: timeLeft <= 10 ? 0.6 : 1.8, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }} style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "clamp(22px,4.5vw,28px)", lineHeight: 1.12, color: timerColor, display: "inline-block" }}>{timeStr}</motion.span> },
-            ].map(({ label, val }) => (
-              <div key={label} style={{ flex: 1, background: "#241C13", borderRadius: 15, padding: "clamp(9px,2vw,12px)", textAlign: "center", border: LINE }}>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.12em", color: "#9A8C77", textTransform: "uppercase" }}>{label}</div>
-                {val}
-              </div>
-            ))}
-          </div>
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "#2F2517", borderRadius: 12, padding: 4 }}>
+        {(["game", "leaderboard"] as GuestView[]).map((v) => (
+          <button key={v} onClick={() => setView(v)}
+            style={{ flex: 1, padding: "9px 0", borderRadius: 9, border: "none", background: view === v ? "#CFE94B" : "transparent", color: view === v ? "#15110D" : "#9A8C77", fontFamily: "var(--font-display)", fontWeight: view === v ? 800 : 700, fontSize: 14, cursor: "pointer", transition: "background 0.15s, color 0.15s" }}>
+            {v === "game" ? "Race" : "Rankings"}
+          </button>
+        ))}
+      </div>
 
-          {/* Letter tiles */}
-          <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap", marginBottom: 12 }}>
-            {letterStr.split("").map((l, i) => {
-              const isUsed = (usedCounts[l] || 0) >= (availCounts[l] || 0) && (usedCounts[l] || 0) > 0;
-              const disabled = isUsed || !isActive;
-              return (
-                <motion.div key={i} animate={{ y: disabled ? 0 : [0, -6, 0] }} transition={disabled ? { duration: 0.3 } : { duration: 2.2 + i * 0.28, repeat: Infinity, ease: "easeInOut", delay: i * 0.21 }} style={{ display: "inline-flex" }}>
-                  <motion.button onClick={() => tapTile(l)} disabled={disabled}
-                    initial={{ opacity: 0, scale: 0.72, rotate: -10 }}
-                    animate={{ opacity: disabled ? 0.3 : 1, scale: 1, rotate: 0 }}
-                    transition={{ duration: 0.4, ease: [0.2, 1.4, 0.4, 1] as [number,number,number,number], delay: i * 0.07 }}
-                    whileHover={!disabled ? { scale: 1.15 } : undefined}
-                    whileTap={!disabled ? { scale: 0.84 } : undefined}
-                    style={{ width: "clamp(38px,8vw,46px)", height: "clamp(44px,9vw,54px)", borderRadius: 9, background: "#F3ECDB", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,27px)", color: "#2A2017", cursor: disabled ? "default" : "pointer", boxShadow: disabled ? "inset 0 -3px 0 #CFC1A6" : "inset 0 -3px 0 #CFC1A6, 0 4px 10px rgba(0,0,0,.3)" }}>
-                    {l}
-                  </motion.button>
-                </motion.div>
-              );
-            })}
-          </div>
+      {view === "leaderboard" && <Leaderboard isGuest />}
 
-          {/* Input */}
-          {isActive && (
-            <div style={{ position: "relative", marginBottom: 12 }}>
-              <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                <input
-                  value={input}
-                  onChange={(e) => {
-                    const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, "");
-                    if (val === "" || canBuild(val, letterStr)) setInput(val);
-                  }}
-                  onKeyDown={(e) => e.key === "Enter" && submitWord()}
-                  placeholder="Build a word…" autoFocus
-                  style={{ flex: 1, minWidth: 0, background: "#1E1710", borderRadius: 13, padding: "clamp(11px,2vw,14px) clamp(12px,2vw,16px)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", letterSpacing: "0.14em", color: "#F5EFE2", textTransform: "uppercase", outline: "none", border: wordValid === "valid" ? "1px solid #CFE94B" : wordValid === "invalid" ? "1px solid rgba(255,91,69,.6)" : LINE2 }}
-                />
-                <motion.button onClick={() => setInput((p) => p.slice(0, -1))}
-                  animate={input.length > 0 ? { opacity: [0.7, 1, 0.7] } : { opacity: 0.4 }}
-                  transition={input.length > 0 ? { duration: 1.6, repeat: Infinity, ease: "easeInOut" } : {}}
-                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
-                  style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}>⌫</motion.button>
-              </div>
-              <AnimatePresence mode="wait">
-                {input.length >= 2 && wordValid !== "unchecked" && (
-                  <motion.div
-                    key={wordValid}
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.18 }}
-                    style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginBottom: 6, paddingLeft: 4, color: wordValid === "valid" ? "#CFE94B" : "#FF5B45" }}
-                  >
-                    {wordValid === "valid" ? "✓ Valid word" : "✗ Not in dictionary"}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              {(() => {
-                const submitDisabled = input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input) || wordValid !== "valid";
-                return (
-                  <motion.button onClick={submitWord} disabled={submitDisabled}
-                    animate={!submitDisabled ? { boxShadow: ["0 5px 0 #A9C931", "0 5px 22px rgba(207,233,75,0.55)", "0 5px 0 #A9C931"] } : { boxShadow: "none" }}
-                    transition={!submitDisabled ? { duration: 1.8, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }}
-                    whileHover={!submitDisabled ? { scale: 1.02, y: -2 } : undefined}
-                    whileTap={!submitDisabled ? { scale: 0.97 } : undefined}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: submitDisabled ? "default" : "pointer", opacity: submitDisabled ? 0.4 : 1 }}>
-                    {wordValid === "invalid" ? "Not a word" : input.length >= 2 && canBuild(input, letterStr) && scoreWord(input) > 0 ? `Submit  +${scoreWord(input)}` : "Submit"}
-                  </motion.button>
-                );
-              })()}
-              {pops.map((p) => (
-                <span key={p.id} className="animate-float-up absolute pointer-events-none"
-                  style={{ left: "50%", top: 30, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 38, color: "#CFE94B", textShadow: "0 3px 12px rgba(0,0,0,.5)" }}>
-                  {p.text}
-                </span>
+      {view === "game" && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
+          <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+
+            {/* Stat strip */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              {[
+                { label: "Score", val: <motion.span key={myScore} initial={myScore > 0 ? { scale: 1.4 } : { scale: 1 }} animate={myScore > 0 ? { scale: [1, 1.06, 1] } : { scale: 1 }} transition={myScore > 0 ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" } : {}} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#CFE94B", lineHeight: 1.05, display: "inline-block" }}>{myScore}</motion.span> },
+                { label: "Words", val: <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(24px,5vw,30px)", color: "#F5EFE2", lineHeight: 1.05 }}>{words.length}</span> },
+                { label: "Time",  val: <motion.span animate={timeLeft > 0 ? { scale: timeLeft <= 10 ? [1, 1.14, 1] : [1, 1.04, 1] } : { scale: 1 }} transition={timeLeft > 0 ? { duration: timeLeft <= 10 ? 0.6 : 1.8, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }} style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "clamp(22px,4.5vw,28px)", lineHeight: 1.12, color: timerColor, display: "inline-block" }}>{timeStr}</motion.span> },
+              ].map(({ label, val }) => (
+                <div key={label} style={{ flex: 1, background: "#241C13", borderRadius: 15, padding: "clamp(9px,2vw,12px)", textAlign: "center", border: LINE }}>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.12em", color: "#9A8C77", textTransform: "uppercase" }}>{label}</div>
+                  {val}
+                </div>
               ))}
             </div>
-          )}
-        </div>
 
-        {/* Found words */}
-        <AnimatePresence>
-          {words.length > 0 && (
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }}
-              style={{ flex: "1 1 220px", minWidth: 0, background: "#241C13", border: LINE, borderRadius: 18, padding: "clamp(12px,3vw,18px)", alignSelf: "flex-start" }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 10 }}>Found words</div>
-              <AnimatePresence initial={false}>
-                {[...words].reverse().map(({ word, pts }) => (
-                  <motion.div key={word} initial={{ opacity: 0, x: 16, height: 0 }} animate={{ opacity: 1, x: 0, height: "auto" }} exit={{ opacity: 0, x: -16, height: 0 }} transition={{ duration: 0.28, ease: [0.2, 1, 0.4, 1] as [number,number,number,number] }}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: LINE, overflow: "hidden" }}>
-                    <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, letterSpacing: "0.04em", color: "#F5EFE2" }}>{word}</span>
-                    <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: pts >= 8 ? "#FF5B45" : "#CFE94B" }}>+{pts}</span>
+            {/* Letter tiles */}
+            <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap", marginBottom: 12 }}>
+              {letterStr.split("").map((l, i) => {
+                const isUsed = (usedCounts[l] || 0) >= (availCounts[l] || 0) && (usedCounts[l] || 0) > 0;
+                const disabled = isUsed || !isActive;
+                return (
+                  <motion.div key={i} animate={{ y: disabled ? 0 : [0, -6, 0] }} transition={disabled ? { duration: 0.3 } : { duration: 2.2 + i * 0.28, repeat: Infinity, ease: "easeInOut", delay: i * 0.21 }} style={{ display: "inline-flex" }}>
+                    <motion.button onClick={() => tapTile(l)} disabled={disabled}
+                      initial={{ opacity: 0, scale: 0.72, rotate: -10 }}
+                      animate={{ opacity: disabled ? 0.3 : 1, scale: 1, rotate: 0 }}
+                      transition={{ duration: 0.4, ease: [0.2, 1.4, 0.4, 1] as [number,number,number,number], delay: i * 0.07 }}
+                      whileHover={!disabled ? { scale: 1.15 } : undefined}
+                      whileTap={!disabled ? { scale: 0.84 } : undefined}
+                      style={{ width: "clamp(38px,8vw,46px)", height: "clamp(44px,9vw,54px)", borderRadius: 9, background: "#F3ECDB", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,27px)", color: "#2A2017", cursor: disabled ? "default" : "pointer", boxShadow: disabled ? "inset 0 -3px 0 #CFC1A6" : "inset 0 -3px 0 #CFC1A6, 0 4px 10px rgba(0,0,0,.3)" }}>
+                      {l}
+                    </motion.button>
                   </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Input */}
+            {isActive && (
+              <div style={{ position: "relative", marginBottom: 12 }}>
+                <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                  <input
+                    value={input}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, "");
+                      if (val === "" || canBuild(val, letterStr)) setInput(val);
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && submitWord()}
+                    placeholder="Build a word…" autoFocus
+                    style={{ flex: 1, minWidth: 0, background: "#1E1710", borderRadius: 13, padding: "clamp(11px,2vw,14px) clamp(12px,2vw,16px)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", letterSpacing: "0.14em", color: "#F5EFE2", textTransform: "uppercase", outline: "none", border: wordValid === "valid" ? "1px solid #CFE94B" : wordValid === "invalid" ? "1px solid rgba(255,91,69,.6)" : LINE2 }}
+                  />
+                  <motion.button onClick={() => setInput((p) => p.slice(0, -1))}
+                    animate={input.length > 0 ? { opacity: [0.7, 1, 0.7] } : { opacity: 0.4 }}
+                    transition={input.length > 0 ? { duration: 1.6, repeat: Infinity, ease: "easeInOut" } : {}}
+                    whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.88 }}
+                    style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}>⌫</motion.button>
+                </div>
+                <AnimatePresence mode="wait">
+                  {input.length >= 2 && wordValid !== "unchecked" && (
+                    <motion.div key={wordValid} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }}
+                      style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginBottom: 6, paddingLeft: 4, color: wordValid === "valid" ? "#CFE94B" : "#FF5B45" }}>
+                      {wordValid === "valid" ? "✓ Valid word" : "✗ Not in dictionary"}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                {(() => {
+                  const submitDisabled = input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input) || wordValid !== "valid";
+                  return (
+                    <motion.button onClick={submitWord} disabled={submitDisabled}
+                      animate={!submitDisabled ? { boxShadow: ["0 5px 0 #A9C931", "0 5px 22px rgba(207,233,75,0.55)", "0 5px 0 #A9C931"] } : { boxShadow: "none" }}
+                      transition={!submitDisabled ? { duration: 1.8, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }}
+                      whileHover={!submitDisabled ? { scale: 1.02, y: -2 } : undefined}
+                      whileTap={!submitDisabled ? { scale: 0.97 } : undefined}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: submitDisabled ? "default" : "pointer", opacity: submitDisabled ? 0.4 : 1 }}>
+                      {wordValid === "invalid" ? "Not a word" : input.length >= 2 && canBuild(input, letterStr) && scoreWord(input) > 0 ? `Submit  +${scoreWord(input)}` : "Submit"}
+                    </motion.button>
+                  );
+                })()}
+                {pops.map((p) => (
+                  <span key={p.id} className="animate-float-up absolute pointer-events-none"
+                    style={{ left: "50%", top: 30, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 38, color: "#CFE94B", textShadow: "0 3px 12px rgba(0,0,0,.5)" }}>
+                    {p.text}
+                  </span>
                 ))}
-              </AnimatePresence>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, paddingTop: 6, borderTop: LINE2 }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77" }}>TOTAL</span>
-                <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "#CFE94B" }}>{myScore}</span>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            )}
+          </div>
+
+          {/* Found words */}
+          <AnimatePresence>
+            {words.length > 0 && (
+              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }}
+                style={{ flex: "1 1 220px", minWidth: 0, background: "#241C13", border: LINE, borderRadius: 18, padding: "clamp(12px,3vw,18px)", alignSelf: "flex-start" }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 10 }}>Found words</div>
+                <AnimatePresence initial={false}>
+                  {[...words].reverse().map(({ word, pts }) => (
+                    <motion.div key={word} initial={{ opacity: 0, x: 16, height: 0 }} animate={{ opacity: 1, x: 0, height: "auto" }} exit={{ opacity: 0, x: -16, height: 0 }} transition={{ duration: 0.28, ease: [0.2, 1, 0.4, 1] as [number,number,number,number] }}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: LINE, overflow: "hidden" }}>
+                      <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, letterSpacing: "0.04em", color: "#F5EFE2" }}>{word}</span>
+                      <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: pts >= 8 ? "#FF5B45" : "#CFE94B" }}>+{pts}</span>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, paddingTop: 6, borderTop: LINE2 }}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77" }}>TOTAL</span>
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "#CFE94B" }}>{myScore}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }
