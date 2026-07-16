@@ -8,6 +8,8 @@ import { celoFee } from "@/lib/minipay";
 import { wagmiConfig } from "@/lib/wagmi";
 import { isValidWord, validateWords } from "@/lib/dictionary";
 import { motion, AnimatePresence } from "framer-motion";
+import { getStoredUsername, displayName } from "@/lib/player";
+import { submitScore } from "@/hooks/usePlayerStreak";
 
 const LINE = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -167,6 +169,9 @@ export default function GameBoard({
       });
       await waitForTransactionReceipt(wagmiConfig, { hash: revealHash });
       setSubmitProgress(null);
+      // Submit to shared leaderboard (username, score)
+      const finalPts = validWords.reduce((s, w) => s + w.pts, 0);
+      if (address) submitScore({ playerId: address, username: getStoredUsername() ?? displayName(address), score: finalPts });
       setTimeout(() => refetch(), 1000);
     } catch {
       setSubmitError("Transaction failed — tap to retry.");
