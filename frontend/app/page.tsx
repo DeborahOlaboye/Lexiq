@@ -7,6 +7,7 @@ import Landing from "@/components/Landing";
 import GameLobby from "@/components/GameLobby";
 import GameBoard from "@/components/GameBoard";
 import GuestBoard from "@/components/GuestBoard";
+import GuestLobby from "@/components/GuestLobby";
 import Leaderboard from "@/components/Leaderboard";
 import StreakBadge from "@/components/StreakBadge";
 import UsernamePrompt from "@/components/UsernamePrompt";
@@ -24,25 +25,57 @@ export default function Home() {
   const [view, setView] = useState<View>("lobby");
   const [activeRoundId, setActiveRoundId] = useState<bigint | null>(null);
   const [guestMode, setGuestMode] = useState(false);
+  const [guestView, setGuestView] = useState<"lobby" | "game" | "leaderboard">("lobby");
+  const [guestDifficulty, setGuestDifficulty] = useState<0|1|2>(1);
 
-  // Guest mode — show game layout without wallet
+  // Guest mode — full app shell, no wallet required
   if (!isConnected && guestMode) {
     return (
       <div className="min-h-dvh bg-ink text-cream font-ui flex flex-col">
         <header style={{ position: "sticky", top: 0, zIndex: 40, backdropFilter: "blur(10px)", background: "rgba(21,17,13,.72)", borderBottom: LINE }}>
           <div className="flex items-center justify-between gap-3" style={{ width: "min(960px, 100%)", margin: "0 auto", padding: "0 clamp(16px,4vw,24px)", height: 58 }}>
-            <button onClick={() => setGuestMode(false)} className="flex items-center gap-[10px]" style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
-              <div style={{ width: 24, height: 28, borderRadius: 5, background: "#F3ECDB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#2A2017", boxShadow: "inset 0 -2px 0 #CFC1A6" }}>L</div>
+            <button onClick={() => setGuestView("lobby")} className="flex items-center gap-[10px]" style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+              <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 3.0, repeat: Infinity, ease: "easeInOut" }}
+                style={{ width: 24, height: 28, borderRadius: 5, background: "#F3ECDB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#2A2017", boxShadow: "inset 0 -2px 0 #CFC1A6" }}>L</motion.div>
               <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "#F5EFE2" }}>Lexiq</span>
             </button>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", padding: "4px 11px", border: LINE, borderRadius: 8 }}>Guest mode</span>
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:block"><UsernamePrompt /></div>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "4px 10px", border: LINE, borderRadius: 8 }}>Guest</span>
+              <button onClick={() => setGuestMode(false)} style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "5px 11px", border: LINE, borderRadius: 9, background: "none", cursor: "pointer" }}>
+                Connect wallet
+              </button>
+            </div>
           </div>
         </header>
-        <main style={{ flex: 1, paddingBottom: 40 }}>
-          <div style={{ width: "min(960px, 100%)", margin: "0 auto", padding: "clamp(16px,4vw,24px)" }}>
-            <GuestBoard onBack={() => setGuestMode(false)} />
+
+        <main style={{ flex: 1, overflowY: "auto", paddingBottom: 90 }}>
+          <div key={guestView} className="animate-view-in"
+            style={{ width: guestView === "game" ? "min(960px, 100%)" : "min(680px, 100%)", margin: "0 auto", padding: "clamp(16px,4vw,24px)" }}>
+            {guestView === "lobby" && (
+              <GuestLobby onPlay={(diff) => { setGuestDifficulty(diff); setGuestView("game"); }} />
+            )}
+            {guestView === "game" && (
+              <GuestBoard
+                difficulty={guestDifficulty}
+                onBack={() => setGuestView("lobby")}
+                onLeaderboard={() => setGuestView("leaderboard")}
+              />
+            )}
+            {guestView === "leaderboard" && <Leaderboard isGuest />}
           </div>
         </main>
+
+        <nav style={{ position: "sticky", bottom: 0, zIndex: 30, padding: "10px clamp(16px,4vw,24px) 14px", background: "linear-gradient(to top, #15110D 62%, transparent)" }}>
+          <div style={{ width: "min(440px, 100%)", margin: "0 auto", background: "#2F2517", border: LINE2, borderRadius: 16, padding: 6, display: "flex", gap: 4 }}>
+            {(["lobby", "game", "leaderboard"] as const).map((id) => (
+              <button key={id} onClick={() => setGuestView(id)}
+                style={{ flex: 1, textAlign: "center", padding: 12, borderRadius: 12, cursor: "pointer", border: "none", background: guestView === id ? "#CFE94B" : "transparent", color: guestView === id ? "#15110D" : "#9A8C77", fontFamily: "var(--font-display)", fontWeight: guestView === id ? 800 : 700, fontSize: 14, transition: "background 0.15s, color 0.15s" }}>
+                {id === "lobby" ? "Lobby" : id === "game" ? "Race" : "Rankings"}
+              </button>
+            ))}
+          </div>
+        </nav>
       </div>
     );
   }
