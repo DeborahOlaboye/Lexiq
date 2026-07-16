@@ -5,7 +5,8 @@ import { parseUnits } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ERC20_ABI, USDM_ADDRESS } from "@/lib/contracts";
 import { celoFee } from "@/lib/minipay";
 import { motion, AnimatePresence } from "framer-motion";
-import { useStreak } from "@/hooks/useStreak";
+import { usePlayerStreak } from "@/hooks/usePlayerStreak";
+import UsernamePrompt from "./UsernamePrompt";
 
 const MIN_STAKE = 0.01;
 const LINE = "1px solid var(--line)";
@@ -26,7 +27,7 @@ const fadeUp = (delay = 0) => ({
 export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigint) => void }) {
   const { address } = useAccount();
   const contract = LEXIQ_ADDRESS;
-  const { streak, longestStreak, lastPlayedToday } = useStreak();
+  const { streak, longestStreak, lastPlayedToday } = usePlayerStreak(address ?? undefined);
   const [stake, setStake]             = useState("");
   const [stakeError, setStakeError]   = useState<string | null>(null);
   const [status, setStatus]           = useState<string | null>(null);
@@ -144,6 +145,11 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
 
       {/* Hero start card */}
       <motion.div {...fadeUp(0)} style={{ background: "#241C13", borderRadius: 22, padding: "clamp(18px,4vw,26px)", border: LINE }}>
+
+        {/* Username prompt */}
+        <div style={{ marginBottom: 14 }}>
+          <UsernamePrompt />
+        </div>
 
         {/* Title row */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
