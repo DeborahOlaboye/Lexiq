@@ -1,9 +1,11 @@
 "use client";
 import { motion } from "framer-motion";
-import { useStreak } from "@/hooks/useStreak";
+import { useAccount } from "wagmi";
+import { usePlayerStreak } from "@/hooks/usePlayerStreak";
 
 export default function StreakBadge() {
-  const { streak, lastPlayedToday } = useStreak();
+  const { address } = useAccount();
+  const { streak, lastPlayedToday } = usePlayerStreak(address ?? undefined);
   if (streak === 0) return null;
 
   return (
@@ -18,10 +20,7 @@ export default function StreakBadge() {
         color: lastPlayedToday ? "#CFE94B" : "#FF5B45",
       }}
     >
-      <motion.span
-        animate={{ scale: [1, 1.3, 1] }}
-        transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-      >🔥</motion.span>
+      <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}>🔥</motion.span>
       {streak}
     </motion.div>
   );
