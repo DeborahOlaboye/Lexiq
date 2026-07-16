@@ -9,6 +9,7 @@ import GameBoard from "@/components/GameBoard";
 import GuestBoard from "@/components/GuestBoard";
 import Leaderboard from "@/components/Leaderboard";
 import StreakBadge from "@/components/StreakBadge";
+import UsernamePrompt from "@/components/UsernamePrompt";
 
 type View = "lobby" | "game" | "leaderboard";
 
@@ -64,11 +65,9 @@ export default function Home() {
           </button>
           <div className="flex items-center gap-2 min-w-0">
             <StreakBadge />
-            {address && (
-              <span className="hidden sm:block truncate" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", padding: "5px 11px", border: LINE, borderRadius: 9 }}>
-                {address.slice(0, 6)}…{address.slice(-4)}
-              </span>
-            )}
+            <div className="hidden sm:block">
+              <UsernamePrompt />
+            </div>
             <button onClick={() => disconnect()}
               style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "5px 11px", border: LINE, borderRadius: 9, background: "none", cursor: "pointer", transition: "color 0.15s, border-color 0.15s" }}
               onMouseEnter={(e) => { e.currentTarget.style.color = "#FF5B45"; e.currentTarget.style.borderColor = "rgba(255,91,69,.5)"; }}
