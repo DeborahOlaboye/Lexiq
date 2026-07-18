@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, useSetActiveWallet } from "@privy-io/wagmi";
 import { PrivyProvider, useWallets } from "@privy-io/react-auth";
@@ -7,19 +7,21 @@ import { useConnect, useAccount } from "wagmi";
 import { wagmiConfig } from "@/lib/wagmi";
 import { celo } from "wagmi/chains";
 
-const queryClient = new QueryClient();
-
 const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  // New QueryClient per component instance — avoids cross-request state leaks during SSR
+  const [queryClient] = useState(() => new QueryClient());
+
+  // QueryClientProvider MUST wrap WagmiProvider — @privy-io/wagmi calls useQuery internally
   const inner = (
-    <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <WagmiProvider config={wagmiConfig}>
         {privyAppId && <SyncPrivyToWagmi />}
         <MiniPayAutoConnect />
         {children}
-      </QueryClientProvider>
-    </WagmiProvider>
+      </WagmiProvider>
+    </QueryClientProvider>
   );
 
   if (!privyAppId) return inner;
