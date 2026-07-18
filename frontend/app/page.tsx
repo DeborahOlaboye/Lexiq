@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { useAccount, useDisconnect, useChainId, useSwitchChain } from "wagmi";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
+import { usePrivy, useLogin, useLogout } from "@privy-io/react-auth";
 import { celo } from "wagmi/chains";
 import { motion } from "framer-motion";
 import Landing from "@/components/Landing";
@@ -20,10 +21,13 @@ const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
 
 export default function Home() {
-  const { isConnected, address } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { ready, authenticated } = usePrivy();
+  const { login } = useLogin({ onComplete: () => { setGuestMode(false); setView("lobby"); } });
+  const { logout } = useLogout({ onSuccess: () => {} });
+  const { address } = useAccount();
   const chainId = useChainId();
   const { switchChain, isPending: switching } = useSwitchChain();
+  const isConnected = ready && authenticated;
   const [view, setView] = useState<View>("lobby");
   const [activeRoundId, setActiveRoundId] = useState<bigint | null>(null);
   const [guestMode, setGuestMode] = useState(false);
@@ -53,8 +57,8 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <div className="hidden sm:block"><UsernamePrompt /></div>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "4px 10px", border: LINE, borderRadius: 8 }}>Guest</span>
-              <button onClick={() => setGuestMode(false)} style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "5px 11px", border: LINE, borderRadius: 9, background: "none", cursor: "pointer" }}>
-                Connect wallet
+              <button onClick={login} style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "5px 11px", border: LINE, borderRadius: 9, background: "none", cursor: "pointer" }}>
+                Sign In
               </button>
             </div>
           </div>
@@ -99,7 +103,7 @@ export default function Home() {
   }
 
   // Not connected (and not in guest mode) → landing
-  if (!isConnected) return <Landing onGuestPlay={handleGuestPlay} />;
+  if (!isConnected) return <Landing onGuestPlay={handleGuestPlay} onConnect={login} />;
 
   const isWrongChain = chainId !== celo.id;
 
@@ -127,11 +131,11 @@ export default function Home() {
             <div className="hidden sm:block">
               <UsernamePrompt />
             </div>
-            <button onClick={() => disconnect()}
+            <button onClick={() => logout()}
               style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "5px 11px", border: LINE, borderRadius: 9, background: "none", cursor: "pointer", transition: "color 0.15s, border-color 0.15s" }}
               onMouseEnter={(e) => { e.currentTarget.style.color = "#FF5B45"; e.currentTarget.style.borderColor = "rgba(255,91,69,.5)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = "#6E6557"; e.currentTarget.style.borderColor = "var(--line)"; }}>
-              Disconnect
+              Sign out
             </button>
           </div>
         </div>

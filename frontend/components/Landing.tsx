@@ -1,5 +1,4 @@
 "use client";
-import { useConnect } from "wagmi";
 import { motion } from "framer-motion";
 
 const HERO_TILES = [
@@ -38,12 +37,8 @@ const SCORING_ROWS = [
 ];
 
 export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () => void; onConnect?: () => void }) {
-  const { connect, connectors, isPending } = useConnect();
-
   function handleConnect() {
-    if (onConnect) { onConnect(); return; }
-    const connector = connectors[0];
-    if (connector) connect({ connector });
+    onConnect?.();
   }
 
   return (
@@ -67,9 +62,9 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
                 Play free
               </motion.button>
             )}
-            <motion.button onClick={handleConnect} disabled={isPending} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-              style={{ padding: "10px 20px", borderRadius: 11, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}>
-              {isPending ? "Connecting…" : "Sign In"}
+            <motion.button onClick={handleConnect} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+              style={{ padding: "10px 20px", borderRadius: 11, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, cursor: "pointer", border: "none" }}>
+              Sign In
             </motion.button>
           </div>
         </div>
@@ -109,11 +104,10 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
             )}
             <motion.button
               onClick={handleConnect}
-              disabled={isPending}
-              whileHover={!isPending ? { scale: 1.03 } : undefined}
-              whileTap={!isPending ? { scale: 0.97 } : undefined}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,24px)", borderRadius: 14, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(15px,2vw,17px)", background: "none", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1 }}>
-              {isPending ? "Connecting…" : "Sign In"}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,24px)", borderRadius: 14, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(15px,2vw,17px)", background: "none", cursor: "pointer" }}>
+              Sign In
             </motion.button>
           </motion.div>
 
@@ -325,11 +319,11 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
               </motion.button>
             )}
             <motion.button
-              onClick={handleConnect} disabled={isPending}
-              whileHover={!isPending ? { scale: 1.05 } : undefined}
-              whileTap={!isPending ? { scale: 0.96 } : undefined}
-              style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "clamp(13px,2vw,17px) clamp(26px,4vw,34px)", borderRadius: 14, border: "2px solid #15110D", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,18px)", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, background: "none" }}>
-              {isPending ? "Connecting…" : "Sign In"}
+              onClick={handleConnect}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.96 }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "clamp(13px,2vw,17px) clamp(26px,4vw,34px)", borderRadius: 14, border: "2px solid #15110D", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,18px)", cursor: "pointer", background: "none" }}>
+              Sign In
             </motion.button>
           </div>
         </motion.div>
