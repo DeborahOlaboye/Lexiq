@@ -30,7 +30,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <PrivyProvider
       appId={privyAppId}
       config={{
-        loginMethods: ["google", "twitter", "discord", "github", "email"],
+        loginMethods: ["google", "twitter", "discord", "github", "email", "farcaster", "telegram", "tiktok"],
         appearance: {
           theme: "dark",
           accentColor: "#CFE94B",
