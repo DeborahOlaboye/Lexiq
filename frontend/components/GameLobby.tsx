@@ -7,6 +7,7 @@ import { celoFee } from "@/lib/minipay";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlayerStreak } from "@/hooks/usePlayerStreak";
 import UsernamePrompt from "./UsernamePrompt";
+import { getXP, getLevel, getRankTitle, SKINS, getSelectedSkin, saveSkin } from "@/lib/player";
 
 const MIN_STAKE = 0.01;
 const LINE = "1px solid var(--line)";
@@ -29,6 +30,11 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
   const contract = LEXIQ_ADDRESS;
   const { streak, longestStreak, lastPlayedToday } = usePlayerStreak(address ?? undefined);
   const [stake, setStake]             = useState("");
+  const [selectedSkinId, setSelectedSkinId] = useState(() => typeof window !== "undefined" ? getSelectedSkin().id : "classic");
+  const xp       = typeof window !== "undefined" ? getXP() : 0;
+  const level    = getLevel(xp);
+  const rankTitle = getRankTitle(level);
+  const xpProgress = (xp % 60) / 60 * 100;
   const [stakeError, setStakeError]   = useState<string | null>(null);
   const [status, setStatus]           = useState<string | null>(null);
   const [pendingStake, setPendingStake] = useState(0n);
@@ -149,6 +155,45 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
         {/* Username prompt */}
         <div style={{ marginBottom: 14 }}>
           <UsernamePrompt />
+        </div>
+
+        {/* XP / Level bar */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: "#CFE94B" }}>Lv {level}</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", padding: "2px 8px", borderRadius: 6, border: "1px solid var(--line)", background: "#1E1710" }}>{rankTitle}</span>
+            </div>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557" }}>{xp % 60}/60 XP</span>
+          </div>
+          <div style={{ height: 6, borderRadius: 999, background: "#1E1710", overflow: "hidden", border: "1px solid var(--line)" }}>
+            <motion.div
+              initial={{ width: 0 }} animate={{ width: xpProgress + "%" }}
+              transition={{ duration: 0.7, ease: [0.2, 1, 0.4, 1] as [number,number,number,number] }}
+              style={{ height: "100%", borderRadius: 999, background: "linear-gradient(90deg, #CFE94B, #A9C931)" }} />
+          </div>
+        </div>
+
+        {/* Skin picker */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 8 }}>Tile skin</div>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+            {SKINS.map(s => {
+              const locked = level < s.minLevel;
+              const active = selectedSkinId === s.id;
+              return (
+                <motion.button key={s.id}
+                  onClick={() => { if (!locked) { saveSkin(s.id); setSelectedSkinId(s.id); } }}
+                  whileHover={!locked ? { scale: 1.08 } : undefined}
+                  whileTap={!locked ? { scale: 0.94 } : undefined}
+                  title={locked ? `Unlock at Lv ${s.minLevel}` : s.name}
+                  style={{ width: 36, height: 40, borderRadius: 8, background: s.bg, border: active ? `2px solid #CFE94B` : `2px solid transparent`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: s.ink, cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.35 : 1, boxShadow: `inset 0 -3px 0 ${s.edge}`, position: "relative" }}>
+                  L
+                  {locked && <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#9A8C77" }}>🔒</span>}
+                </motion.button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Title row */}

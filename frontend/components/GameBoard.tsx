@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAccount, useReadContract } from "wagmi";
 import { writeContract, waitForTransactionReceipt } from "@wagmi/core";
 import { keccak256, encodePacked } from "viem";
@@ -8,7 +8,7 @@ import { celoFee } from "@/lib/minipay";
 import { wagmiConfig } from "@/lib/wagmi";
 import { isValidWord, validateWords } from "@/lib/dictionary";
 import { motion, AnimatePresence } from "framer-motion";
-import { getStoredUsername, displayName } from "@/lib/player";
+import { getStoredUsername, displayName, getSelectedSkin, SKINS } from "@/lib/player";
 import { submitScore } from "@/hooks/usePlayerStreak";
 
 const LINE = "1px solid var(--line)";
@@ -66,6 +66,10 @@ export default function GameBoard({
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [wordValid, setWordValid] = useState<"valid" | "invalid" | "unchecked">("unchecked");
+  const [flashCombo, setFlashCombo] = useState(0);
+  const comboRef = useRef(0);
+  const lastWordAt = useRef(0);
+  const skin = useRef(typeof window !== "undefined" ? getSelectedSkin() : SKINS[0]).current;
 
   const { data: round, refetch } = useReadContract({
     address: contract, abi: LEXIQ_ABI, functionName: "getRound",
@@ -99,6 +103,9 @@ export default function GameBoard({
     setSubmitError(null);
     setPops([]);
     setWordValid("unchecked");
+    comboRef.current = 0;
+    lastWordAt.current = 0;
+    setFlashCombo(0);
   }, [roundId]);
 
   // Debounced async dictionary check whenever input changes
@@ -205,6 +212,15 @@ export default function GameBoard({
     setPopId(id);
     setPops((p) => [...p, { id, text: "+" + pts }]);
     setTimeout(() => setPops((p) => p.filter((x) => x.id !== id)), 950);
+    // Combo tracking
+    const now = Date.now();
+    const newCombo = lastWordAt.current > 0 && (now - lastWordAt.current) < 4500 ? comboRef.current + 1 : 1;
+    comboRef.current = newCombo;
+    lastWordAt.current = now;
+    if (newCombo >= 2) {
+      setFlashCombo(newCombo);
+      setTimeout(() => setFlashCombo(0), 1400);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, roundId, input, words, letterStr, popId, wordValid]);
 
@@ -311,7 +327,26 @@ export default function GameBoard({
 
   /* ── ACTIVE RACE ── */
   return (
-    <div style={{ paddingTop: "clamp(8px,2vw,16px)" }}>
+    <div style={{ paddingTop: "clamp(8px,2vw,16px)", position: "relative" }}>
+      {/* Combo flash */}
+      <AnimatePresence>
+        {flashCombo >= 2 && (
+          <motion.div
+            key={flashCombo + "-" + lastWordAt.current}
+            initial={{ opacity: 0, scale: 0.55, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: -24 }}
+            transition={{ duration: 0.3, ease: [0.2, 1.5, 0.4, 1] as [number,number,number,number] }}
+            style={{ position: "absolute", top: "clamp(50px,12vw,80px)", left: "50%", transform: "translateX(-50%)", zIndex: 50, pointerEvents: "none", textAlign: "center", whiteSpace: "nowrap" }}>
+            <motion.div
+              animate={{ textShadow: ["0 0 16px rgba(255,91,69,.6)", "0 0 40px rgba(255,91,69,.9)", "0 0 16px rgba(255,91,69,.6)"] }}
+              transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut" }}
+              style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(28px,6vw,38px)", color: "#FF5B45", letterSpacing: "0.05em" }}>
+              ×{flashCombo} ON FIRE 🔥
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="flex items-center justify-between mb-3">
         <button onClick={onBack} style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77", background: "none", border: "none", cursor: "pointer", padding: 0 }}>‹ Back</button>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557" }}>Round #{roundId.toString()}</span>
@@ -389,7 +424,7 @@ export default function GameBoard({
                       transition={{ duration: 0.4, ease: [0.2, 1.4, 0.4, 1], delay: i * 0.07 }}
                       whileHover={!disabled ? { scale: 1.15 } : undefined}
                       whileTap={!disabled ? { scale: 0.84 } : undefined}
-                      style={{ width: "clamp(38px,8vw,46px)", height: "clamp(44px,9vw,54px)", borderRadius: 9, background: "#F3ECDB", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,27px)", color: "#2A2017", cursor: disabled ? "default" : "pointer", boxShadow: disabled ? "inset 0 -3px 0 #CFC1A6" : "inset 0 -3px 0 #CFC1A6, 0 4px 10px rgba(0,0,0,.3)" }}
+                      style={{ width: "clamp(38px,8vw,46px)", height: "clamp(44px,9vw,54px)", borderRadius: 9, background: skin.bg, border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,27px)", color: skin.ink, cursor: disabled ? "default" : "pointer", boxShadow: disabled ? `inset 0 -3px 0 ${skin.edge}` : `inset 0 -3px 0 ${skin.edge}, 0 4px 10px rgba(0,0,0,.3)` }}
                     >
                       {l}
                     </motion.button>

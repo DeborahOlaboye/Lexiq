@@ -37,10 +37,11 @@ const SCORING_ROWS = [
   { label: "7 L+", pts: "11 pts", w: "100%", bar: "#FF5B45",             jackpot: true  },
 ];
 
-export default function Landing({ onGuestPlay }: { onGuestPlay?: () => void }) {
+export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () => void; onConnect?: () => void }) {
   const { connect, connectors, isPending } = useConnect();
 
   function handleConnect() {
+    if (onConnect) { onConnect(); return; }
     const connector = connectors[0];
     if (connector) connect({ connector });
   }
@@ -59,10 +60,18 @@ export default function Landing({ onGuestPlay }: { onGuestPlay?: () => void }) {
             >L</motion.div>
             <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, color: "#F5EFE2" }}>Lexiq</span>
           </div>
-          <motion.button onClick={handleConnect} disabled={isPending} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-            style={{ padding: "10px 20px", borderRadius: 11, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}>
-            {isPending ? "Connecting…" : "Connect Wallet"}
-          </motion.button>
+          <div className="flex items-center gap-2">
+            {onGuestPlay && (
+              <motion.button onClick={onGuestPlay} whileHover={{ opacity: 0.8 }} whileTap={{ scale: 0.97 }}
+                style={{ padding: "9px 16px", borderRadius: 10, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, background: "none", cursor: "pointer" }}>
+                Play free
+              </motion.button>
+            )}
+            <motion.button onClick={handleConnect} disabled={isPending} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+              style={{ padding: "10px 20px", borderRadius: 11, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}>
+              {isPending ? "Connecting…" : "Sign In"}
+            </motion.button>
+          </div>
         </div>
       </nav>
 
@@ -73,7 +82,8 @@ export default function Landing({ onGuestPlay }: { onGuestPlay?: () => void }) {
         <div>
           <motion.div {...fadeUp(0)} className="inline-flex items-center gap-2"
             style={{ padding: "7px 13px", borderRadius: 20, border: LINE2, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#CFE94B" }}>
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#CFE94B", display: "inline-block", animation: "blink 1.4s infinite" }} />
+            <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.4, repeat: Infinity }}
+              style={{ width: 7, height: 7, borderRadius: "50%", background: "#CFE94B", display: "inline-block" }} />
             On-chain word race · Celo
           </motion.div>
 
@@ -88,28 +98,23 @@ export default function Landing({ onGuestPlay }: { onGuestPlay?: () => void }) {
           </motion.p>
 
           <motion.div {...fadeUp(0.34)} className="flex flex-wrap gap-[14px]" style={{ marginTop: "clamp(20px,3vw,30px)" }}>
+            {onGuestPlay && (
+              <motion.button onClick={onGuestPlay}
+                animate={{ boxShadow: ["0 6px 0 #A9C931", "0 6px 28px rgba(207,233,75,0.65)", "0 6px 0 #A9C931"], y: [0, -3, 0] }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                whileHover={{ scale: 1.04, y: -4 }} whileTap={{ scale: 0.97 }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,26px)", borderRadius: 14, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", cursor: "pointer", border: "none" }}>
+                Play free
+              </motion.button>
+            )}
             <motion.button
               onClick={handleConnect}
               disabled={isPending}
-              animate={!isPending ? { boxShadow: ["0 6px 0 #A9C931", "0 6px 28px rgba(207,233,75,0.65)", "0 6px 0 #A9C931"], y: [0, -3, 0] } : {}}
-              transition={!isPending ? { duration: 2.2, repeat: Infinity, ease: "easeInOut" } : {}}
-              whileHover={!isPending ? { scale: 1.04, y: -4 } : undefined}
+              whileHover={!isPending ? { scale: 1.03 } : undefined}
               whileTap={!isPending ? { scale: 0.97 } : undefined}
-              style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,26px)", borderRadius: 14, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}>
-              {isPending ? "Connecting…" : "Connect Wallet"}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,24px)", borderRadius: 14, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(15px,2vw,17px)", background: "none", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1 }}>
+              {isPending ? "Connecting…" : "Sign In"}
             </motion.button>
-            {onGuestPlay && (
-              <motion.button onClick={onGuestPlay} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,24px)", borderRadius: 14, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(15px,2vw,17px)", background: "none", cursor: "pointer" }}>
-                Try without wallet
-              </motion.button>
-            )}
-            {!onGuestPlay && (
-              <motion.a href="#how" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                style={{ display: "inline-flex", alignItems: "center", padding: "clamp(12px,2vw,16px) clamp(20px,3vw,24px)", borderRadius: 14, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(15px,2vw,17px)", textDecoration: "none" }}>
-                How it works
-              </motion.a>
-            )}
           </motion.div>
 
           <motion.div {...fadeUp(0.44)} style={{ display: "flex", flexWrap: "wrap", columnGap: 22, rowGap: 4, marginTop: 20, fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77" }}>
@@ -210,6 +215,30 @@ export default function Landing({ onGuestPlay }: { onGuestPlay?: () => void }) {
         </div>
       </div>
 
+      {/* BUILT TO KEEP YOU SHARP */}
+      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(36px,6vw,56px) clamp(18px,5vw,40px) 20px" }}>
+        <motion.h2 {...inView(0)} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(26px,5vw,38px)", letterSpacing: "-0.02em", margin: "0 0 6px" }}>Built to keep you sharp</motion.h2>
+        <motion.p {...inView(0.08)} style={{ color: "#9A8C77", fontSize: 16, marginBottom: 36 }}>Free rounds, real opponents, and progress that actually adds up.</motion.p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16 }}>
+          {[
+            { icon: "⚔",  title: "Play vs anyone",  body: "Get matched with another player, same letters, same clock — whoever scores more wins.", iconColor: "#FF5B45" },
+            { icon: "▲",  title: "Level up",         body: "Every round earns XP. Climb levels to unlock new tile skins for your board.",             iconColor: "#CFE94B" },
+            { icon: "★",  title: "Season badges",    body: "Earn badges for combos, jackpot words, and weekly rankings before the season resets.",    iconColor: "#F4C84B" },
+            { icon: "↗",  title: "Share your score", body: "Every result becomes a shareable card — challenge friends to beat it.",                    iconColor: "#CBC0AE" },
+          ].map(({ icon, title, body, iconColor }, i) => (
+            <motion.div key={title} {...inView(0.06 + i * 0.08)} whileHover={{ y: -5, transition: { duration: 0.22 } }}
+              style={{ background: "#241C13", borderRadius: 20, padding: "clamp(18px,3vw,24px)", border: LINE }}>
+              <motion.div
+                animate={{ scale: [1, 1.15, 1] }}
+                transition={{ duration: 2.8 + i * 0.3, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
+                style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24, color: iconColor, marginBottom: 12 }}>{icon}</motion.div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(16px,2.2vw,19px)", marginBottom: 7 }}>{title}</div>
+              <p style={{ color: "#CBC0AE", fontSize: 14, lineHeight: 1.5, margin: 0 }}>{body}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
       {/* SCORING LADDER */}
       <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(36px,6vw,56px) clamp(18px,5vw,40px) 20px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "clamp(24px,5vw,40px)", alignItems: "center" }}>
@@ -285,17 +314,24 @@ export default function Landing({ onGuestPlay }: { onGuestPlay?: () => void }) {
       <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(36px,6vw,64px) clamp(18px,5vw,40px)" }}>
         <motion.div {...inView(0)} style={{ background: "#CFE94B", borderRadius: 26, padding: "clamp(36px,6vw,54px) clamp(24px,4vw,44px)", textAlign: "center" }}>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(30px,6vw,46px)", letterSpacing: "-0.02em", color: "#15110D", margin: "0 0 12px" }}>Got 90 seconds?</h2>
-          <p style={{ color: "#3c4416", fontSize: "clamp(14px,2vw,17px)", margin: "0 0 26px" }}>Connect your wallet — it works the same on your phone and your laptop.</p>
-          <motion.button
-            onClick={handleConnect}
-            disabled={isPending}
-            animate={!isPending ? { boxShadow: ["0 0 0 0 rgba(207,233,75,0)", "0 0 32px 8px rgba(207,233,75,0.4)", "0 0 0 0 rgba(207,233,75,0)"], y: [0, -4, 0] } : {}}
-            transition={!isPending ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" } : {}}
-            whileHover={!isPending ? { scale: 1.05, y: -5 } : undefined}
-            whileTap={!isPending ? { scale: 0.96 } : undefined}
-            style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "clamp(13px,2vw,17px) clamp(26px,4vw,34px)", borderRadius: 14, background: "#15110D", color: "#CFE94B", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,18px)", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, border: "none" }}>
-            {isPending ? "Connecting…" : "Connect Wallet"}
-          </motion.button>
+          <p style={{ color: "#3c4416", fontSize: "clamp(14px,2vw,17px)", margin: "0 0 26px" }}>No wallet needed to play — sign in only if you want to stake and climb the chain leaderboard.</p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            {onGuestPlay && (
+              <motion.button onClick={onGuestPlay} whileTap={{ scale: 0.97 }}
+                animate={{ boxShadow: ["0 0 0 0 rgba(21,17,13,0)", "0 0 22px 6px rgba(21,17,13,0.22)", "0 0 0 0 rgba(21,17,13,0)"], y: [0, -4, 0] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "clamp(13px,2vw,17px) clamp(26px,4vw,34px)", borderRadius: 14, background: "#15110D", color: "#CFE94B", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,18px)", cursor: "pointer", border: "none" }}>
+                Play free
+              </motion.button>
+            )}
+            <motion.button
+              onClick={handleConnect} disabled={isPending}
+              whileHover={!isPending ? { scale: 1.05 } : undefined}
+              whileTap={!isPending ? { scale: 0.96 } : undefined}
+              style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "clamp(13px,2vw,17px) clamp(26px,4vw,34px)", borderRadius: 14, border: "2px solid #15110D", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,18px)", cursor: isPending ? "wait" : "pointer", opacity: isPending ? 0.7 : 1, background: "none" }}>
+              {isPending ? "Connecting…" : "Sign In"}
+            </motion.button>
+          </div>
         </motion.div>
       </div>
 

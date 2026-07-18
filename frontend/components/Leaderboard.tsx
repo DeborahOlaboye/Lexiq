@@ -4,7 +4,7 @@ import { useAccount, useReadContract } from "wagmi";
 import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
 import { motion, AnimatePresence } from "framer-motion";
 import UsernamePrompt from "./UsernamePrompt";
-import { getStoredUsername, getGuestId } from "@/lib/player";
+import { getStoredUsername, getGuestId, getRankTitle, getLevel, ALL_BADGES, getBadges } from "@/lib/player";
 
 const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -35,6 +35,7 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
   const { data: played }  = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "gamesPlayed",args: address ? [address] : undefined });
 
   const myPlayerId = address ?? (typeof window !== "undefined" ? getGuestId() : "");
+  const myBadges   = typeof window !== "undefined" ? getBadges() : [];
 
   async function fetchLeaderboard() {
     setLoading(true);
@@ -100,6 +101,26 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
         </div>
       )}
 
+      {/* Your position card */}
+      {(() => {
+        const myRank = rows.findIndex(r => r.playerId === myPlayerId || r.playerId.toLowerCase() === (address ?? "").toLowerCase());
+        const myRow  = myRank >= 0 ? rows[myRank] : null;
+        if (!myRow) return null;
+        const level = getLevel(myRow.score);
+        const rank  = getRankTitle(level);
+        return (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
+            style={{ background: "rgba(207,233,75,.07)", border: "1px solid rgba(207,233,75,.28)", borderRadius: 18, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 30, color: "#CFE94B", width: 36, flexShrink: 0, textAlign: "center", lineHeight: 1 }}>#{myRank + 1}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "#F5EFE2", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{myRow.username} <span style={{ color: "#9A8C77", fontWeight: 600, fontSize: 12 }}>(you)</span></div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77" }}>{rank} · Lv {level}</div>
+            </div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#CFE94B", flexShrink: 0 }}>{myRow.score}</div>
+          </motion.div>
+        );
+      })()}
+
       {/* Leaderboard table */}
       <div style={{ background: "#241C13", borderRadius: 18, overflow: "hidden", border: LINE }}>
         <div style={{ padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: LINE }}>
@@ -137,13 +158,18 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
                   transition={{ duration: 0.25, delay: i * 0.04 }}
                   style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderBottom: i < rows.length - 1 ? LINE : undefined, background: isMe ? "rgba(207,233,75,.07)" : undefined }}>
                   <span style={{ width: 24, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: MEDALS[i] ?? "#9A8C77", flexShrink: 0 }}>{i + 1}</span>
-                  <span style={{ flex: 1, fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: isMe ? "#CFE94B" : "#CBC0AE", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {uname}{isMe ? " (you)" : ""}
-                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: isMe ? "#CFE94B" : "#CBC0AE", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {uname}{isMe ? " (you)" : ""}
+                    </div>
+                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557", marginTop: 1 }}>
+                      {getRankTitle(getLevel(score))}
+                    </div>
+                  </div>
                   <motion.span
                     animate={isMe ? { textShadow: ["0 0 0 rgba(207,233,75,0)", "0 0 10px rgba(207,233,75,0.5)", "0 0 0 rgba(207,233,75,0)"] } : {}}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                    style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: isMe ? "#CFE94B" : "#F5EFE2" }}>
+                    style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: isMe ? "#CFE94B" : "#F5EFE2", flexShrink: 0 }}>
                     {score}
                   </motion.span>
                 </motion.div>
@@ -151,6 +177,27 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
             })}
           </AnimatePresence>
         )}
+      </div>
+
+      {/* Season badges */}
+      <div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 9 }}>Season badges</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+          {ALL_BADGES.map(({ id, name, desc }) => {
+            const earned = myBadges.includes(id);
+            return (
+              <motion.div key={id}
+                animate={earned ? { boxShadow: ["0 0 0 rgba(244,200,75,0)", "0 0 14px rgba(244,200,75,.4)", "0 0 0 rgba(244,200,75,0)"] } : {}}
+                transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+                style={{ background: earned ? "rgba(244,200,75,.08)" : "#241C13", borderRadius: 14, padding: "12px 14px", border: earned ? "1px solid rgba(244,200,75,.35)" : LINE, opacity: earned ? 1 : 0.45 }}>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: earned ? "#F4C84B" : "#9A8C77", marginBottom: 3 }}>
+                  {earned ? "★ " : "○ "}{name}
+                </div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557", lineHeight: 1.4 }}>{desc}</div>
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Scoring guide */}

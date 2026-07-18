@@ -11,6 +11,8 @@ import GuestLobby from "@/components/GuestLobby";
 import Leaderboard from "@/components/Leaderboard";
 import StreakBadge from "@/components/StreakBadge";
 import UsernamePrompt from "@/components/UsernamePrompt";
+import UsernameSetup from "@/components/UsernameSetup";
+import { getStoredUsername, getRankTitle, getLevel, getXP } from "@/lib/player";
 
 type View = "lobby" | "game" | "leaderboard";
 
@@ -25,8 +27,17 @@ export default function Home() {
   const [view, setView] = useState<View>("lobby");
   const [activeRoundId, setActiveRoundId] = useState<bigint | null>(null);
   const [guestMode, setGuestMode] = useState(false);
-  const [guestView, setGuestView] = useState<"lobby" | "game" | "leaderboard">("lobby");
+  const [guestView, setGuestView] = useState<"setup" | "lobby" | "game" | "leaderboard">("lobby");
   const [guestDifficulty, setGuestDifficulty] = useState<0|1|2>(1);
+
+  function handleGuestPlay() {
+    setGuestMode(true);
+    if (!getStoredUsername()) {
+      setGuestView("setup");
+    } else {
+      setGuestView("lobby");
+    }
+  }
 
   // Guest mode — full app shell, no wallet required
   if (!isConnected && guestMode) {
@@ -49,10 +60,14 @@ export default function Home() {
           </div>
         </header>
 
+        {guestView === "setup" && (
+          <UsernameSetup onDone={() => setGuestView("lobby")} />
+        )}
+
         <main style={{ flex: 1, overflowY: "auto", paddingBottom: 90 }}>
           <div key={guestView} className="animate-view-in"
             style={{ width: guestView === "game" ? "min(960px, 100%)" : "min(680px, 100%)", margin: "0 auto", padding: "clamp(16px,4vw,24px)" }}>
-            {guestView === "lobby" && (
+            {(guestView === "lobby" || guestView === "setup") && (
               <GuestLobby onPlay={(diff) => { setGuestDifficulty(diff); setGuestView("game"); }} />
             )}
             {guestView === "game" && (
@@ -68,12 +83,15 @@ export default function Home() {
 
         <nav style={{ position: "sticky", bottom: 0, zIndex: 30, padding: "10px clamp(16px,4vw,24px) 14px", background: "linear-gradient(to top, #15110D 62%, transparent)" }}>
           <div style={{ width: "min(440px, 100%)", margin: "0 auto", background: "#2F2517", border: LINE2, borderRadius: 16, padding: 6, display: "flex", gap: 4 }}>
-            {(["lobby", "game", "leaderboard"] as const).map((id) => (
-              <button key={id} onClick={() => setGuestView(id)}
-                style={{ flex: 1, textAlign: "center", padding: 12, borderRadius: 12, cursor: "pointer", border: "none", background: guestView === id ? "#CFE94B" : "transparent", color: guestView === id ? "#15110D" : "#9A8C77", fontFamily: "var(--font-display)", fontWeight: guestView === id ? 800 : 700, fontSize: 14, transition: "background 0.15s, color 0.15s" }}>
-                {id === "lobby" ? "Lobby" : id === "game" ? "Race" : "Rankings"}
-              </button>
-            ))}
+            {(["lobby", "game", "leaderboard"] as const).map((id) => {
+              const active = id === "lobby" ? (guestView === "lobby" || guestView === "setup") : guestView === id;
+              return (
+                <button key={id} onClick={() => setGuestView(id)}
+                  style={{ flex: 1, textAlign: "center", padding: 12, borderRadius: 12, cursor: "pointer", border: "none", background: active ? "#CFE94B" : "transparent", color: active ? "#15110D" : "#9A8C77", fontFamily: "var(--font-display)", fontWeight: active ? 800 : 700, fontSize: 14, transition: "background 0.15s, color 0.15s" }}>
+                  {id === "lobby" ? "Lobby" : id === "game" ? "Race" : "Rankings"}
+                </button>
+              );
+            })}
           </div>
         </nav>
       </div>
@@ -81,7 +99,7 @@ export default function Home() {
   }
 
   // Not connected (and not in guest mode) → landing
-  if (!isConnected) return <Landing onGuestPlay={() => setGuestMode(true)} />;
+  if (!isConnected) return <Landing onGuestPlay={handleGuestPlay} />;
 
   const isWrongChain = chainId !== celo.id;
 
@@ -98,6 +116,14 @@ export default function Home() {
           </button>
           <div className="flex items-center gap-2 min-w-0">
             <StreakBadge />
+            {(() => {
+              const title = typeof window !== "undefined" ? getRankTitle(getLevel(getXP())) : null;
+              return title ? (
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#CFE94B", padding: "3px 9px", borderRadius: 7, border: "1px solid rgba(207,233,75,.3)", background: "rgba(207,233,75,.08)", flexShrink: 0 }}>
+                  {title}
+                </span>
+              ) : null;
+            })()}
             <div className="hidden sm:block">
               <UsernamePrompt />
             </div>
