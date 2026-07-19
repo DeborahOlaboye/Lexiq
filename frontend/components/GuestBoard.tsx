@@ -51,7 +51,7 @@ export default function GuestBoard({
   const [input, setInput]           = useState("");
   const [words, setWords]           = useState<WordEntry[]>([]);
   const [timeLeft, setTimeLeft]     = useState(duration);
-  const [phase, setPhase]           = useState<"idle" | "active" | "done">("idle");
+  const [phase, setPhase]           = useState<"idle" | "active" | "done">("active");
   const [showResults, setShowResults] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
   const [pops, setPops]             = useState<Pop[]>([]);
@@ -425,28 +425,6 @@ export default function GuestBoard({
 
         {/* Board */}
         <div style={{ position: "relative", flex: "1 1 320px", minWidth: 0 }}>
-
-          {/* Idle overlay */}
-          {phase === "idle" && (
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
-              style={{ position: "absolute", inset: -2, background: "rgba(13,10,7,.86)", backdropFilter: "blur(3px)", borderRadius: 18, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: 30, textAlign: "center", zIndex: 10 }}>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 30, letterSpacing: "-0.02em" }}>
-                {DURATIONS[difficulty]} seconds
-              </div>
-              <div style={{ color: "#CBC0AE", fontSize: 14, maxWidth: 280 }}>
-                Make as many words as you can from <b style={{ color: "#F5EFE2", letterSpacing: "0.1em" }}>{letterStr.split("").join(" ")}</b>. Tap tiles or type.
-              </div>
-              <motion.button
-                onClick={() => setPhase("active")}
-                animate={{ boxShadow: ["0 6px 0 #A9C931", "0 6px 24px rgba(207,233,75,0.6)", "0 6px 0 #A9C931"] }}
-                transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-                whileHover={{ scale: 1.04, y: -3 }} whileTap={{ scale: 0.97 }}
-                style={{ marginTop: 16, display: "inline-flex", alignItems: "center", gap: 9, padding: "16px 30px", borderRadius: 15, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, cursor: "pointer", border: "none", boxShadow: "0 6px 0 #A9C931" }}>
-                ▶ Tap to start
-              </motion.button>
-            </motion.div>
-          )}
 
           {/* Done overlay */}
           {phase === "done" && !showResults && (
