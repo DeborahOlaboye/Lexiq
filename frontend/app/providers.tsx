@@ -34,7 +34,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         appearance: {
           theme: "dark",
           accentColor: "#CFE94B",
-          logo: "https://lexiq-rust.vercel.app/icon.png",
+          logo: "https://lexiq-rust.vercel.app/icon.svg",
           landingHeader: "Sign in to Lexiq",
           loginMessage: "Play, stake & compete on Celo",
           walletList: ["metamask", "coinbase_wallet", "detected_wallets"],
