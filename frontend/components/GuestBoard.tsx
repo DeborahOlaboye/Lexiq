@@ -58,6 +58,7 @@ export default function GuestBoard({
   const [wordValid, setWordValid] = useState<"valid" | "invalid" | "unchecked">("unchecked");
   const [submitted, setSubmitted] = useState(false);
   const [flashCombo, setFlashCombo] = useState(0);
+  const [missedWords, setMissedWords] = useState<WordEntry[]>([]);
   const comboRef = useRef(0);
   const lastWordAt = useRef(0);
   const skin = useRef(typeof window !== "undefined" ? getSelectedSkin() : SKINS[0]).current;
@@ -77,6 +78,18 @@ export default function GuestBoard({
     const myScore = words.reduce((s, w) => s + w.pts, 0);
     setSubmitted(true);
     submitScore({ playerId: guestId, username: getStoredUsername() ?? displayName(), score: myScore });
+  }, [phase]); // eslint-disable-line
+
+  // Fetch all valid words from these letters to show what was missed
+  useEffect(() => {
+    if (phase !== "done") return;
+    const found = new Set(words.map(w => w.word));
+    fetch(`/api/words?letters=${letterStr}`)
+      .then(r => r.json())
+      .then(({ words: all }: { words: WordEntry[] }) => {
+        setMissedWords(all.filter(w => !found.has(w.word)).slice(0, 15));
+      })
+      .catch(() => {});
   }, [phase]); // eslint-disable-line
 
   // Debounced dictionary check
@@ -165,6 +178,26 @@ export default function GuestBoard({
                     {word} <b style={{ color: pts >= 8 ? "#FF5B45" : "#CFE94B" }}>+{pts}</b>
                   </span>
                 ))}
+              </div>
+            )}
+
+            {missedWords.length > 0 && (
+              <div style={{ width: "100%", marginTop: 22, paddingTop: 18, borderTop: LINE }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.14em", color: "#6E6557", textTransform: "uppercase", marginBottom: 10, textAlign: "left" }}>
+                  Left on the board ({missedWords.length}{missedWords.length === 15 ? "+" : ""} words)
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {missedWords.map(({ word, pts }) => (
+                    <span key={word} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 9, background: pts >= 8 ? "rgba(255,91,69,.07)" : "rgba(255,255,255,.04)", border: pts >= 8 ? "1px solid rgba(255,91,69,.22)" : LINE, fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 12, color: pts >= 8 ? "rgba(255,91,69,.75)" : "#6E6557" }}>
+                      {word} <b style={{ opacity: 0.7 }}>+{pts}</b>
+                    </span>
+                  ))}
+                </div>
+                {missedWords.some(w => w.pts >= 11) && (
+                  <div style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45", opacity: 0.8 }}>
+                    ↑ jackpot word in there. go again?
+                  </div>
+                )}
               </div>
             )}
 
