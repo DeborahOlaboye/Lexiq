@@ -10,12 +10,14 @@ import GameBoard from "@/components/GameBoard";
 import GuestBoard from "@/components/GuestBoard";
 import GuestLobby from "@/components/GuestLobby";
 import Leaderboard from "@/components/Leaderboard";
+import Matchmaking from "@/components/Matchmaking";
 import StreakBadge from "@/components/StreakBadge";
 import UsernamePrompt from "@/components/UsernamePrompt";
 import UsernameSetup from "@/components/UsernameSetup";
-import { getStoredUsername, getRankTitle, getLevel, getXP } from "@/lib/player";
+import { getStoredUsername, getRankTitle, getLevel, getXP, getLocalStreak } from "@/lib/player";
 
 type View = "lobby" | "game" | "leaderboard";
+type GuestView = "setup" | "lobby" | "matchmaking" | "game" | "leaderboard";
 
 const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -28,11 +30,12 @@ export default function Home() {
   const chainId = useChainId();
   const { switchChain, isPending: switching } = useSwitchChain();
   const isConnected = ready && authenticated;
-  const [view, setView] = useState<View>("lobby");
+
+  const [view, setView]             = useState<View>("lobby");
   const [activeRoundId, setActiveRoundId] = useState<bigint | null>(null);
-  const [guestMode, setGuestMode] = useState(false);
-  const [guestView, setGuestView] = useState<"setup" | "lobby" | "game" | "leaderboard">("lobby");
-  const [guestDifficulty, setGuestDifficulty] = useState<0|1|2>(1);
+  const [guestMode, setGuestMode]   = useState(false);
+  const [guestView, setGuestView]   = useState<GuestView>("lobby");
+  const [guestDifficulty, setGuestDifficulty] = useState<0 | 1 | 2>(1);
 
   function handleGuestPlay() {
     setGuestMode(true);
@@ -43,25 +46,51 @@ export default function Home() {
     }
   }
 
-  // Guest mode — full app shell, no wallet required
+  // ── GUEST MODE ──────────────────────────────────────────────────────────────
   if (!isConnected && guestMode) {
+    const { count: streak, lastDate } = typeof window !== "undefined" ? getLocalStreak() : { count: 0, lastDate: "" };
+    const today = typeof window !== "undefined" ? new Date().toISOString().slice(0, 10) : "";
+    const lastPlayedToday = lastDate === today;
+    const username = typeof window !== "undefined" ? getStoredUsername() : null;
+    const xp    = typeof window !== "undefined" ? getXP() : 0;
+    const level = getLevel(xp);
+    const rank  = getRankTitle(level);
+
     return (
       <div className="min-h-dvh bg-ink text-cream font-ui flex flex-col">
-        <header style={{ position: "sticky", top: 0, zIndex: 40, backdropFilter: "blur(10px)", background: "rgba(21,17,13,.72)", borderBottom: LINE }}>
-          <div className="flex items-center justify-between gap-3" style={{ width: "min(960px, 100%)", margin: "0 auto", padding: "0 clamp(16px,4vw,24px)", height: 58 }}>
+
+        {/* App bar */}
+        <header style={{ position: "sticky", top: 0, zIndex: 40, backdropFilter: "blur(10px)", background: "rgba(21,17,13,.78)", borderBottom: LINE }}>
+          <div className="flex items-center justify-between gap-3" style={{ width: "min(960px, 100%)", margin: "0 auto", padding: "12px clamp(16px,4vw,24px)" }}>
             <button onClick={() => setGuestView("lobby")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
               <Logo size="sm" />
             </button>
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:block"><UsernamePrompt /></div>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "4px 10px", border: LINE, borderRadius: 8 }}>Guest</span>
-              <button onClick={login} style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "5px 11px", border: LINE, borderRadius: 9, background: "none", cursor: "pointer" }}>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Streak chip */}
+              {streak > 0 && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 100, background: "rgba(255,91,69,.16)", border: "1px solid rgba(255,91,69,.4)", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: "#FF5B45", whiteSpace: "nowrap" }}>
+                  DAY {streak} {lastPlayedToday ? "▲" : "·"}
+                </span>
+              )}
+              {/* Username tag */}
+              {username && (
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#CBC0AE", padding: "6px 10px", border: LINE, borderRadius: 9 }}>
+                  {username}
+                </span>
+              )}
+              {/* Rank badge */}
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 11, letterSpacing: "0.04em", color: "#15110D", background: "#CFE94B", padding: "6px 10px", borderRadius: 9 }}>
+                {rank.toUpperCase()}
+              </span>
+              {/* Sign in */}
+              <button onClick={login} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 12, padding: "7px 13px", borderRadius: 9, background: "rgba(207,233,75,.15)", border: "1px solid rgba(207,233,75,.3)", color: "#CFE94B", cursor: "pointer" }}>
                 Sign In
               </button>
             </div>
           </div>
         </header>
 
+        {/* Username setup overlay */}
         {guestView === "setup" && (
           <UsernameSetup onDone={() => setGuestView("lobby")} />
         )}
@@ -70,7 +99,16 @@ export default function Home() {
           <div key={guestView} className="animate-view-in"
             style={{ width: guestView === "game" ? "min(960px, 100%)" : "min(680px, 100%)", margin: "0 auto", padding: "clamp(16px,4vw,24px)" }}>
             {(guestView === "lobby" || guestView === "setup") && (
-              <GuestLobby onPlay={(diff) => { setGuestDifficulty(diff); setGuestView("game"); }} />
+              <GuestLobby
+                onPlay={(diff) => { setGuestDifficulty(diff); setGuestView("game"); }}
+                onMatchmaking={() => setGuestView("matchmaking")}
+              />
+            )}
+            {guestView === "matchmaking" && (
+              <Matchmaking
+                onFound={() => { setGuestDifficulty(1); setGuestView("game"); }}
+                onCancel={() => setGuestView("lobby")}
+              />
             )}
             {guestView === "game" && (
               <GuestBoard
@@ -83,10 +121,13 @@ export default function Home() {
           </div>
         </main>
 
+        {/* Bottom nav */}
         <nav style={{ position: "sticky", bottom: 0, zIndex: 30, padding: "10px clamp(16px,4vw,24px) 14px", background: "linear-gradient(to top, #15110D 62%, transparent)" }}>
           <div style={{ width: "min(440px, 100%)", margin: "0 auto", background: "#2F2517", border: LINE2, borderRadius: 16, padding: 6, display: "flex", gap: 4 }}>
             {(["lobby", "game", "leaderboard"] as const).map((id) => {
-              const active = id === "lobby" ? (guestView === "lobby" || guestView === "setup") : guestView === id;
+              const active = id === "lobby"
+                ? (guestView === "lobby" || guestView === "setup" || guestView === "matchmaking")
+                : guestView === id;
               return (
                 <button key={id} onClick={() => setGuestView(id)}
                   style={{ flex: 1, textAlign: "center", padding: 12, borderRadius: 12, cursor: "pointer", border: "none", background: active ? "#CFE94B" : "transparent", color: active ? "#15110D" : "#9A8C77", fontFamily: "var(--font-display)", fontWeight: active ? 800 : 700, fontSize: 14, transition: "background 0.15s, color 0.15s" }}>
@@ -100,15 +141,15 @@ export default function Home() {
     );
   }
 
-  // Not connected (and not in guest mode) → landing
+  // ── LANDING ─────────────────────────────────────────────────────────────────
   if (!isConnected) return <Landing onGuestPlay={handleGuestPlay} onConnect={login} />;
 
   const isWrongChain = chainId !== celo.id;
 
+  // ── AUTHENTICATED APP ────────────────────────────────────────────────────────
   return (
     <div className="min-h-dvh bg-ink text-cream font-ui flex flex-col">
 
-      {/* Sticky top nav */}
       <header style={{ position: "sticky", top: 0, zIndex: 40, backdropFilter: "blur(10px)", background: "rgba(21,17,13,.72)", borderBottom: LINE }}>
         <div className="flex items-center justify-between gap-3" style={{ width: "min(960px, 100%)", margin: "0 auto", padding: "0 clamp(16px,4vw,24px)", height: 58 }}>
           <button onClick={() => setView("lobby")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
@@ -119,8 +160,8 @@ export default function Home() {
             {(() => {
               const title = typeof window !== "undefined" ? getRankTitle(getLevel(getXP())) : null;
               return title ? (
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#CFE94B", padding: "3px 9px", borderRadius: 7, border: "1px solid rgba(207,233,75,.3)", background: "rgba(207,233,75,.08)", flexShrink: 0 }}>
-                  {title}
+                <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 11, letterSpacing: "0.04em", color: "#15110D", background: "#CFE94B", padding: "6px 10px", borderRadius: 9, flexShrink: 0 }}>
+                  {title.toUpperCase()}
                 </span>
               ) : null;
             })()}

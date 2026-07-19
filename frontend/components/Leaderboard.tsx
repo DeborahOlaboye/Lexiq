@@ -9,6 +9,21 @@ import { getStoredUsername, getGuestId, getRankTitle, getLevel, ALL_BADGES, getB
 const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
 const MEDALS = ["#F4C84B", "#C9CBD1", "#CD8C5C"];
+
+function RankChip({ title }: { title: string }) {
+  const t = title.toUpperCase();
+  const style: React.CSSProperties =
+    t === "LEGEND"    ? { background: "#F4C84B", color: "#3c2e05" } :
+    t === "ULTIMATE"  ? { background: "#CFE94B", color: "#15110D" } :
+    t === "MASTER"    ? { background: "#FF5B45", color: "#fff"     } :
+    t === "ACE"       ? { background: "rgba(207,233,75,.18)", color: "#CFE94B", border: "1px solid rgba(207,233,75,.35)" } :
+                        { background: "rgba(255,255,255,.07)", color: "#9A8C77" };
+  return (
+    <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 9, letterSpacing: "0.04em", padding: "2px 7px", borderRadius: 100, display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", ...style }}>
+      {t}
+    </span>
+  );
+}
 const SCORING = [
   { label: "2 L",  pts: "1",  hot: false },
   { label: "3 L",  pts: "2",  hot: false },
@@ -113,8 +128,12 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
             style={{ background: "rgba(207,233,75,.07)", border: "1px solid rgba(207,233,75,.28)", borderRadius: 18, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 30, color: "#CFE94B", width: 36, flexShrink: 0, textAlign: "center", lineHeight: 1 }}>#{myRank + 1}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "#F5EFE2", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{myRow.username} <span style={{ color: "#9A8C77", fontWeight: 600, fontSize: 12 }}>(you)</span></div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77" }}>{rank} · Lv {level}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "#F5EFE2", marginBottom: 4, display: "flex", alignItems: "center", gap: 7, overflow: "hidden" }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{myRow.username}</span>
+                <span style={{ color: "#9A8C77", fontWeight: 600, fontSize: 12, flexShrink: 0 }}>(you)</span>
+                <RankChip title={rank} />
+              </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77" }}>Lv {level}</div>
             </div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "#CFE94B", flexShrink: 0 }}>{myRow.score}</div>
           </motion.div>
@@ -158,13 +177,11 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
                   transition={{ duration: 0.25, delay: i * 0.04 }}
                   style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderBottom: i < rows.length - 1 ? LINE : undefined, background: isMe ? "rgba(207,233,75,.07)" : undefined }}>
                   <span style={{ width: 24, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: MEDALS[i] ?? "#9A8C77", flexShrink: 0 }}>{i + 1}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: isMe ? "#CFE94B" : "#CBC0AE", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7, overflow: "hidden" }}>
+                    <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: isMe ? "#CFE94B" : "#CBC0AE", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {uname}{isMe ? " (you)" : ""}
-                    </div>
-                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557", marginTop: 1 }}>
-                      {getRankTitle(getLevel(score))}
-                    </div>
+                    </span>
+                    <RankChip title={getRankTitle(getLevel(score))} />
                   </div>
                   <motion.span
                     animate={isMe ? { textShadow: ["0 0 0 rgba(207,233,75,0)", "0 0 10px rgba(207,233,75,0.5)", "0 0 0 rgba(207,233,75,0)"] } : {}}
