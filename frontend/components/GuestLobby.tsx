@@ -1,8 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getGuestId, getStoredUsername } from "@/lib/player";
-import { usePlayerStreak } from "@/hooks/usePlayerStreak";
+import { getGuestId, getStoredUsername, getLocalStreak } from "@/lib/player";
 import UsernamePrompt from "./UsernamePrompt";
 
 const LINE  = "1px solid var(--line)";
@@ -22,7 +21,9 @@ const fadeUp = (delay = 0) => ({
 
 export default function GuestLobby({ onPlay }: { onPlay: (difficulty: 0|1|2) => void }) {
   const guestId    = useRef(typeof window !== "undefined" ? getGuestId() : "").current;
-  const { streak, longestStreak, lastPlayedToday } = usePlayerStreak(guestId || undefined);
+  const { count: streak, longest: longestStreak, lastDate } = typeof window !== "undefined" ? getLocalStreak() : { count: 0, longest: 0, lastDate: "" };
+  const today = typeof window !== "undefined" ? new Date().toISOString().slice(0, 10) : "";
+  const lastPlayedToday = lastDate === today;
   const [difficulty, setDifficulty] = useState<0|1|2>(1);
   const [showDiff, setShowDiff]     = useState(false);
   const [bestScore, setBestScore]   = useState<number | null>(null);

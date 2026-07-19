@@ -43,6 +43,34 @@ export function displayName(address?: string): string {
   return "Anonymous";
 }
 
+// ── Streak (cookie-based, instant — no KV race) ────────────────────────────
+
+type StreakData = { count: number; lastDate: string; longest: number };
+
+export function getLocalStreak(): StreakData {
+  try {
+    const raw = getCookie("lx_streak");
+    if (!raw) return { count: 0, lastDate: "", longest: 0 };
+    return JSON.parse(raw) as StreakData;
+  } catch {
+    return { count: 0, lastDate: "", longest: 0 };
+  }
+}
+
+export function recordPlay(): StreakData {
+  const today     = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+  const { count, lastDate, longest } = getLocalStreak();
+
+  if (lastDate === today) return { count, lastDate, longest }; // already recorded today
+
+  const newCount   = lastDate === yesterday ? count + 1 : 1;
+  const newLongest = Math.max(longest, newCount);
+  const data: StreakData = { count: newCount, lastDate: today, longest: newLongest };
+  setCookie("lx_streak", JSON.stringify(data), 365);
+  return data;
+}
+
 // ── XP / Level / Rank ───────────────────────────────────────────────────────
 
 export function getXP(): number {

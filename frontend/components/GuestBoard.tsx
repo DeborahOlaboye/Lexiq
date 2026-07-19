@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { isValidWord } from "@/lib/dictionary";
 import { scoreWord } from "@/lib/contracts";
 import { generateGuestLetters } from "@/lib/guestLetters";
-import { getGuestId, getStoredUsername, displayName, getSelectedSkin, SKINS } from "@/lib/player";
+import { getGuestId, getStoredUsername, displayName, getSelectedSkin, SKINS, recordPlay } from "@/lib/player";
 import { submitScore } from "@/hooks/usePlayerStreak";
 
 const LINE  = "1px solid var(--line)";
@@ -59,6 +59,8 @@ export default function GuestBoard({
   const [submitted, setSubmitted] = useState(false);
   const [flashCombo, setFlashCombo] = useState(0);
   const [missedWords, setMissedWords] = useState<WordEntry[]>([]);
+  const [streak, setStreak] = useState(0);
+  const [copied, setCopied] = useState(false);
   const comboRef = useRef(0);
   const lastWordAt = useRef(0);
   const skin = useRef(typeof window !== "undefined" ? getSelectedSkin() : SKINS[0]).current;
@@ -72,12 +74,14 @@ export default function GuestBoard({
     return () => clearInterval(id);
   }, [phase]);
 
-  // Submit score to shared leaderboard when game ends
+  // Submit score + record streak when game ends
   useEffect(() => {
     if (phase !== "done" || submitted || !guestId) return;
     const myScore = words.reduce((s, w) => s + w.pts, 0);
     setSubmitted(true);
     submitScore({ playerId: guestId, username: getStoredUsername() ?? displayName(), score: myScore });
+    const { count } = recordPlay();
+    setStreak(count);
   }, [phase]); // eslint-disable-line
 
   // Fetch all valid words from these letters to show what was missed
@@ -141,6 +145,18 @@ export default function GuestBoard({
     if ((used[l] || 0) < (avail[l] || 0)) setInput(prev => prev + l);
   }
 
+  async function handleShare() {
+    const topWord = sortedWords[0];
+    const text = `I scored ${myScore} pts on Lexiq${topWord ? ` — best word: ${topWord.word} (+${topWord.pts})` : ""}${streak > 1 ? ` · Day ${streak} streak 🔥` : ""}.\nCan you beat it? https://lexiq-rust.vercel.app`;
+    if (navigator.share) {
+      await navigator.share({ text }).catch(() => {});
+    } else {
+      await navigator.clipboard.writeText(text).catch(() => {});
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+    }
+  }
+
   /* ── RESULTS ── */
   if (phase === "done") {
     return (
@@ -201,7 +217,13 @@ export default function GuestBoard({
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 10, width: "100%", marginTop: 20 }}>
+            {streak > 0 && (
+              <div style={{ marginTop: 16, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 10, background: "rgba(255,91,69,.12)", border: "1px solid rgba(255,91,69,.35)", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "#FF5B45" }}>
+                🔥 DAY {streak} {streak > 1 ? "▲" : "· keep it going tomorrow"}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, width: "100%", marginTop: 16 }}>
               <motion.button whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.97 }} onClick={onBack}
                 animate={{ boxShadow: ["0 5px 0 #A9C931", "0 5px 20px rgba(207,233,75,0.5)", "0 5px 0 #A9C931"] }}
                 transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
@@ -215,6 +237,11 @@ export default function GuestBoard({
                 </motion.button>
               )}
             </div>
+
+            <motion.button whileHover={{ opacity: 0.85 }} whileTap={{ scale: 0.97 }} onClick={handleShare}
+              style={{ width: "100%", marginTop: 10, padding: "12px", borderRadius: 13, background: "none", border: LINE, color: "#9A8C77", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+              {copied ? "✓ Copied!" : "↗ Share result"}
+            </motion.button>
           </div>
         </div>
       </motion.div>
