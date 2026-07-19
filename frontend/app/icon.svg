@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
+  <defs>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="88%" stop-color="#CFE94B"/>
+      <stop offset="88%" stop-color="#A9C931"/>
+    </linearGradient>
+    <clipPath id="tile">
+      <rect width="56" height="56" rx="13"/>
+    </clipPath>
+  </defs>
+  <rect width="56" height="56" rx="13" fill="url(#edge)" clip-path="url(#tile)"/>
+  <text x="28" y="31" font-size="34" font-weight="800" text-anchor="middle" dominant-baseline="central" fill="#15110D" font-family="system-ui,sans-serif">Q</text>
+</svg>

@@ -1,5 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
+import Logo from "@/components/Logo";
 
 const HERO_TILES = [
   { l: "R", r: "-4deg", dur: "4s",   delay: "0s" },
@@ -47,14 +48,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
       {/* NAV */}
       <nav style={{ position: "sticky", top: 0, zIndex: 40, backdropFilter: "blur(10px)", background: "rgba(21,17,13,.72)", borderBottom: LINE }}>
         <div className="flex items-center justify-between" style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "0 clamp(18px,5vw,40px)", height: 60 }}>
-          <div className="flex items-center gap-[11px]">
-            <motion.div
-              animate={{ y: [0, -3, 0] }}
-              transition={{ duration: 3.0, repeat: Infinity, ease: "easeInOut" }}
-              style={{ width: 28, height: 32, borderRadius: 6, background: "#F3ECDB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "#2A2017", boxShadow: "inset 0 -2px 0 #CFC1A6" }}
-            >L</motion.div>
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 20, color: "#F5EFE2" }}>Lexiq</span>
-          </div>
+          <Logo size="md" />
           <div className="flex items-center gap-2">
             {onGuestPlay && (
               <motion.button onClick={onGuestPlay} whileHover={{ opacity: 0.8 }} whileTap={{ scale: 0.97 }}

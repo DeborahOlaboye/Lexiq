@@ -3,8 +3,8 @@ import { useState } from "react";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { usePrivy, useLogin, useLogout } from "@privy-io/react-auth";
 import { celo } from "wagmi/chains";
-import { motion } from "framer-motion";
 import Landing from "@/components/Landing";
+import Logo from "@/components/Logo";
 import GameLobby from "@/components/GameLobby";
 import GameBoard from "@/components/GameBoard";
 import GuestBoard from "@/components/GuestBoard";
@@ -49,10 +49,8 @@ export default function Home() {
       <div className="min-h-dvh bg-ink text-cream font-ui flex flex-col">
         <header style={{ position: "sticky", top: 0, zIndex: 40, backdropFilter: "blur(10px)", background: "rgba(21,17,13,.72)", borderBottom: LINE }}>
           <div className="flex items-center justify-between gap-3" style={{ width: "min(960px, 100%)", margin: "0 auto", padding: "0 clamp(16px,4vw,24px)", height: 58 }}>
-            <button onClick={() => setGuestView("lobby")} className="flex items-center gap-[10px]" style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
-              <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 3.0, repeat: Infinity, ease: "easeInOut" }}
-                style={{ width: 24, height: 28, borderRadius: 5, background: "#F3ECDB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#2A2017", boxShadow: "inset 0 -2px 0 #CFC1A6" }}>L</motion.div>
-              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "#F5EFE2" }}>Lexiq</span>
+            <button onClick={() => setGuestView("lobby")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+              <Logo size="sm" />
             </button>
             <div className="flex items-center gap-2">
               <div className="hidden sm:block"><UsernamePrompt /></div>
@@ -113,10 +111,8 @@ export default function Home() {
       {/* Sticky top nav */}
       <header style={{ position: "sticky", top: 0, zIndex: 40, backdropFilter: "blur(10px)", background: "rgba(21,17,13,.72)", borderBottom: LINE }}>
         <div className="flex items-center justify-between gap-3" style={{ width: "min(960px, 100%)", margin: "0 auto", padding: "0 clamp(16px,4vw,24px)", height: 58 }}>
-          <button onClick={() => setView("lobby")} className="flex items-center gap-[10px] shrink-0" style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
-            <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 3.0, repeat: Infinity, ease: "easeInOut" }}
-              style={{ width: 24, height: 28, borderRadius: 5, background: "#F3ECDB", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#2A2017", boxShadow: "inset 0 -2px 0 #CFC1A6" }}>L</motion.div>
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: "#F5EFE2" }}>Lexiq</span>
+          <button onClick={() => setView("lobby")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+            <Logo size="sm" />
           </button>
           <div className="flex items-center gap-2 min-w-0">
             <StreakBadge />
