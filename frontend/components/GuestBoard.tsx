@@ -6,6 +6,7 @@ import { scoreWord } from "@/lib/contracts";
 import { generateGuestLetters } from "@/lib/guestLetters";
 import { getGuestId, getStoredUsername, displayName, getSelectedSkin, SKINS, recordPlay, getRankTitle, getLevel, getXP } from "@/lib/player";
 import { submitScore } from "@/hooks/usePlayerStreak";
+import ShareCard from "./ShareCard";
 
 const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -337,43 +338,22 @@ export default function GuestBoard({
                 onClick={e => e.stopPropagation()}
                 style={{ width: "min(360px, 100%)", background: "#2F2517", border: LINE2, borderRadius: 22, padding: 26, textAlign: "center" }}>
 
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 4 }}>
-                  <svg width="28" height="28" viewBox="0 0 64 64" fill="none">
-                    <rect width="64" height="64" rx="15" fill="#15110D" />
-                    <rect x="10" y="8" width="44" height="48" rx="11" fill="#A9C931" />
-                    <rect x="10" y="8" width="44" height="39" rx="11" fill="#CFE94B" />
-                    <path d="M38 35 L44 41.5 L40.2 44.5 L35.5 39 Z" fill="#15110D" />
-                    <circle cx="32" cy="27" r="12" fill="none" stroke="#15110D" strokeWidth="6.2" />
-                  </svg>
-                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16, color: "#F5EFE2" }}>Lexiq</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "#F5EFE2" }}>Share your score</span>
+                  <button onClick={() => setShowShareCard(false)}
+                    style={{ fontSize: 13, color: "#6E6557", cursor: "pointer", background: "none", border: "none", padding: "4px 8px" }}>
+                    ✕ Close
+                  </button>
                 </div>
-
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 56, color: "#CFE94B", lineHeight: 1, marginTop: 16 }}>{myScore}</div>
-                <div style={{ fontSize: 13, color: "#CBC0AE", marginTop: 4 }}>
-                  {getStoredUsername() ?? "Anonymous"} · {words.length} word{words.length !== 1 ? "s" : ""}{topWord ? ` · best ${topWord.word}` : ""}
-                </div>
-                <div style={{ display: "inline-flex", marginTop: 8, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 10, letterSpacing: "0.04em", color: "#15110D", background: "#CFE94B", padding: "3px 9px", borderRadius: 100 }}>
-                  {rankTitle.toUpperCase()}
-                </div>
-
-                <button onClick={doNativeShare}
-                  style={{ marginTop: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 13, width: "100%", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, cursor: "pointer", border: "none" }}>
-                  ↗ Share
-                </button>
-                <div style={{ display: "flex", gap: 8, marginTop: 9 }}>
-                  <button onClick={shareX}
-                    style={{ flex: 1, padding: 12, borderRadius: 12, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, cursor: "pointer", background: "transparent" }}>X</button>
-                  <button onClick={shareWhatsApp}
-                    style={{ flex: 1, padding: 12, borderRadius: 12, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, cursor: "pointer", background: "transparent" }}>WhatsApp</button>
-                </div>
-                <button onClick={doCopy}
-                  style={{ marginTop: 9, display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: 13, borderRadius: 12, width: "100%", border: LINE2, color: "#CBC0AE", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer", background: "transparent" }}>
-                  {copied ? "✓ Copied!" : "Copy link"}
-                </button>
-                <button onClick={() => setShowShareCard(false)}
-                  style={{ marginTop: 10, fontSize: 12, color: "#6E6557", cursor: "pointer", background: "none", border: "none" }}>
-                  Close
-                </button>
+                <ShareCard
+                  score={myScore}
+                  words={words.length}
+                  bestWord={topWord?.word ?? null}
+                  bestPts={topWord?.pts ?? 0}
+                  username={getStoredUsername() ?? "Anonymous"}
+                  rank={rankTitle}
+                  streak={streak}
+                />
               </motion.div>
             </motion.div>
           )}
