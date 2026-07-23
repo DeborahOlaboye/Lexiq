@@ -8,6 +8,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { usePlayerStreak } from "@/hooks/usePlayerStreak";
 import UsernamePrompt from "./UsernamePrompt";
 import { getXP, getLevel, getRankTitle, SKINS, getSelectedSkin, saveSkin } from "@/lib/player";
+import type { Lang } from "@/lib/guestLetters";
+
+const LANGS: { id: Lang; label: string }[] = [
+  { id: "en", label: "EN" },
+  { id: "es", label: "ES" },
+  { id: "fr", label: "FR" },
+];
 
 const MIN_STAKE = 0.01;
 const LINE = "1px solid var(--line)";
@@ -25,7 +32,7 @@ const fadeUp = (delay = 0) => ({
   transition: { duration: 0.45, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay },
 });
 
-export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigint) => void }) {
+export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { onEnterGame: (roundId: bigint) => void; lang?: Lang; onLangChange?: (l: Lang) => void }) {
   const { address } = useAccount();
   const contract = LEXIQ_ADDRESS;
   const { streak, longestStreak, lastPlayedToday } = usePlayerStreak(address ?? undefined);
@@ -206,6 +213,23 @@ export default function GameLobby({ onEnterGame }: { onEnterGame: (roundId: bigi
           >FREE</motion.span>
         </div>
         <div style={{ fontSize: 14, color: "#CBC0AE", marginBottom: 18 }}>7 letters · {diffTime} · longer words score higher</div>
+
+        {/* Language picker */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 8 }}>Language</div>
+          <div style={{ display: "flex", gap: 7 }}>
+            {LANGS.map(({ id, label }) => {
+              const active = lang === id;
+              return (
+                <motion.button key={id} onClick={() => onLangChange?.(id)}
+                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                  style={{ padding: "7px 16px", borderRadius: 10, border: active ? "1px solid #CFE94B" : "1px solid var(--line)", background: active ? "rgba(207,233,75,.12)" : "#1E1710", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 12, letterSpacing: "0.1em", color: active ? "#CFE94B" : "#9A8C77", cursor: "pointer" }}>
+                  {label}
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Difficulty picker */}
         <div style={{ marginBottom: 16 }}>

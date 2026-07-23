@@ -38,6 +38,7 @@ export default function Home() {
   const [guestView, setGuestView]   = useState<GuestView>("lobby");
   const [guestDifficulty, setGuestDifficulty] = useState<0 | 1 | 2>(1);
   const [guestLang,       setGuestLang]       = useState<Lang>("en");
+  const [authLang,        setAuthLang]        = useState<Lang>("en");
 
   function handleGuestPlay() {
     setGuestMode(true);
@@ -197,10 +198,10 @@ export default function Home() {
         <div key={view} className="animate-view-in"
           style={{ width: view === "game" ? "min(960px, 100%)" : "min(680px, 100%)", margin: "0 auto", padding: "clamp(16px,4vw,24px)" }}>
           {view === "lobby" && (
-            <GameLobby onEnterGame={(id) => { setActiveRoundId(id); setView("game"); }} />
+            <GameLobby onEnterGame={(id) => { setActiveRoundId(id); setView("game"); }} lang={authLang} onLangChange={setAuthLang} />
           )}
           {view === "game" && (
-            <GameBoard roundId={activeRoundId} onBack={() => setView("lobby")} onLeaderboard={() => setView("leaderboard")} />
+            <GameBoard roundId={activeRoundId} lang={authLang} onBack={() => setView("lobby")} onLeaderboard={() => setView("leaderboard")} />
           )}
           {view === "leaderboard" && <Leaderboard />}
         </div>

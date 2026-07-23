@@ -9,6 +9,7 @@ import { wagmiConfig } from "@/lib/wagmi";
 import { isValidWord, validateWords } from "@/lib/dictionary";
 import { motion, AnimatePresence } from "framer-motion";
 import { getStoredUsername, displayName, getSelectedSkin, SKINS } from "@/lib/player";
+import type { Lang } from "@/lib/guestLetters";
 import { submitScore } from "@/hooks/usePlayerStreak";
 
 const LINE = "1px solid var(--line)";
@@ -47,10 +48,12 @@ type Pop = { id: number; text: string };
 
 export default function GameBoard({
   roundId,
+  lang = "en",
   onBack,
   onLeaderboard,
 }: {
   roundId: bigint | null;
+  lang?: Lang;
   onBack: () => void;
   onLeaderboard: () => void;
 }) {
@@ -114,7 +117,7 @@ export default function GameBoard({
     if (w.length < 2 || !canBuild(w, letterStr)) { setWordValid("unchecked"); return; }
     setWordValid("unchecked");
     const t = setTimeout(async () => {
-      const ok = await isValidWord(w);
+      const ok = await isValidWord(w, lang);
       setWordValid(ok ? "valid" : "invalid");
     }, 250);
     return () => clearTimeout(t);
@@ -144,7 +147,7 @@ export default function GameBoard({
       // Re-validate every word against the dictionary before touching the chain.
       // This catches anything that slipped in while the debounce was in-flight.
       setSubmitProgress("Checking words…");
-      const validSet = await validateWords(words.map((w) => w.word));
+      const validSet = await validateWords(words.map((w) => w.word), lang);
       const validWords = words.filter((w) => validSet.has(w.word.toUpperCase()));
       if (validWords.length === 0) {
         setSubmitError("No valid dictionary words to submit.");
