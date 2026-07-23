@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getGuestId, getStoredUsername, getLocalStreak, getXP, getLevel, getRankTitle, getSelectedSkin, saveSkin, SKINS } from "@/lib/player";
+import type { Lang } from "@/lib/guestLetters";
 import UsernamePrompt from "./UsernamePrompt";
 
 const LINE  = "1px solid var(--line)";
@@ -19,12 +20,22 @@ const fadeUp = (delay = 0) => ({
   transition: { duration: 0.4, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay },
 });
 
+const LANGS: { id: Lang; flag: string; label: string }[] = [
+  { id: "en", flag: "🇬🇧", label: "English" },
+  { id: "es", flag: "🇪🇸", label: "Español" },
+  { id: "fr", flag: "🇫🇷", label: "Français" },
+];
+
 export default function GuestLobby({
   onPlay,
   onMatchmaking,
+  lang = "en",
+  onLangChange,
 }: {
   onPlay: (difficulty: 0 | 1 | 2) => void;
   onMatchmaking?: () => void;
+  lang?: Lang;
+  onLangChange?: (l: Lang) => void;
 }) {
   const guestId = useRef(typeof window !== "undefined" ? getGuestId() : "").current;
   const { count: streak, longest: longestStreak, lastDate } = typeof window !== "undefined" ? getLocalStreak() : { count: 0, longest: 0, lastDate: "" };
@@ -112,7 +123,26 @@ export default function GuestLobby({
             FREE
           </motion.span>
         </div>
-        <div style={{ fontSize: 14, color: "#CBC0AE", marginBottom: 18 }}>7 letters · {diff.time} · longer words score higher</div>
+        <div style={{ fontSize: 14, color: "#CBC0AE", marginBottom: 14 }}>7 letters · {diff.time} · longer words score higher</div>
+
+        {/* Language picker */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.12em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 8 }}>Language</div>
+          <div style={{ display: "flex", gap: 7 }}>
+            {LANGS.map(({ id, flag, label }) => {
+              const active = lang === id;
+              return (
+                <motion.button key={id}
+                  onClick={() => onLangChange?.(id)}
+                  whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                  style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "9px 8px", borderRadius: 11, cursor: "pointer", border: active ? "1px solid rgba(207,233,75,.7)" : LINE, background: active ? "rgba(207,233,75,.10)" : "#1E1710", transition: "background 0.15s, border-color 0.15s" }}>
+                  <span style={{ fontSize: 16 }}>{flag}</span>
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: active ? 800 : 600, fontSize: 12, color: active ? "#CFE94B" : "#9A8C77" }}>{label}</span>
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Difficulty picker */}
         <div style={{ marginBottom: 18 }}>

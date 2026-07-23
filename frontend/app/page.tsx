@@ -15,6 +15,7 @@ import StreakBadge from "@/components/StreakBadge";
 import UsernamePrompt from "@/components/UsernamePrompt";
 import UsernameSetup from "@/components/UsernameSetup";
 import { getStoredUsername, getRankTitle, getLevel, getXP, getLocalStreak } from "@/lib/player";
+import type { Lang } from "@/lib/guestLetters";
 
 type View = "lobby" | "game" | "leaderboard";
 type GuestView = "setup" | "lobby" | "matchmaking" | "game" | "leaderboard";
@@ -36,6 +37,7 @@ export default function Home() {
   const [guestMode, setGuestMode]   = useState(false);
   const [guestView, setGuestView]   = useState<GuestView>("lobby");
   const [guestDifficulty, setGuestDifficulty] = useState<0 | 1 | 2>(1);
+  const [guestLang,       setGuestLang]       = useState<Lang>("en");
 
   function handleGuestPlay() {
     setGuestMode(true);
@@ -102,6 +104,8 @@ export default function Home() {
               <GuestLobby
                 onPlay={(diff) => { setGuestDifficulty(diff); setGuestView("game"); }}
                 onMatchmaking={() => setGuestView("matchmaking")}
+                lang={guestLang}
+                onLangChange={setGuestLang}
               />
             )}
             {guestView === "matchmaking" && (
@@ -113,6 +117,7 @@ export default function Home() {
             {guestView === "game" && (
               <GuestBoard
                 difficulty={guestDifficulty}
+                lang={guestLang}
                 onBack={() => setGuestView("lobby")}
                 onLeaderboard={() => setGuestView("leaderboard")}
               />

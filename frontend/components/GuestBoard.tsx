@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { isValidWord } from "@/lib/dictionary";
 import { scoreWord } from "@/lib/contracts";
-import { generateGuestLetters } from "@/lib/guestLetters";
+import { generateGuestLetters, type Lang } from "@/lib/guestLetters";
 import { getGuestId, getStoredUsername, displayName, getSelectedSkin, SKINS, recordPlay, getRankTitle, getLevel, getXP } from "@/lib/player";
 import { submitScore } from "@/hooks/usePlayerStreak";
 import ShareCard from "./ShareCard";
@@ -36,16 +36,20 @@ function canBuild(word: string, letters: string) {
   return true;
 }
 
+const LANG_LABEL: Record<Lang, string> = { en: "🇬🇧 EN", es: "🇪🇸 ES", fr: "🇫🇷 FR" };
+
 export default function GuestBoard({
   difficulty = 1,
+  lang = "en",
   onBack,
   onLeaderboard,
 }: {
   difficulty?: 0 | 1 | 2;
+  lang?: Lang;
   onBack: () => void;
   onLeaderboard?: () => void;
 }) {
-  const letterStr   = useRef(generateGuestLetters()).current;
+  const letterStr   = useRef(generateGuestLetters(lang)).current;
   const guestId     = useRef(typeof window !== "undefined" ? getGuestId() : "").current;
   const duration    = DURATIONS[difficulty] ?? 90;
 
@@ -103,7 +107,7 @@ export default function GuestBoard({
   useEffect(() => {
     if (phase !== "done") return;
     const found = new Set(words.map(w => w.word));
-    fetch(`/api/words?letters=${letterStr}`)
+    fetch(`/api/words?letters=${letterStr}&lang=${lang}`)
       .then(r => r.json())
       .then(({ words: all }: { words: WordEntry[] }) => {
         setMissedWords(all.filter(w => !found.has(w.word)).slice(0, 15));
@@ -117,7 +121,7 @@ export default function GuestBoard({
     if (w.length < 2 || !canBuild(w, letterStr)) { setWordValid("unchecked"); return; }
     setWordValid("unchecked");
     const t = setTimeout(async () => {
-      const ok = await isValidWord(w);
+      const ok = await isValidWord(w, lang);
       setWordValid(ok ? "valid" : "invalid");
     }, 250);
     return () => clearTimeout(t);
@@ -394,6 +398,9 @@ export default function GuestBoard({
         <div style={{ display: "flex", gap: 6 }}>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", padding: "3px 9px", borderRadius: 7, border: LINE, background: "#241C13" }}>
             {DIFF_LABEL[difficulty]}
+          </span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", padding: "3px 9px", borderRadius: 7, border: LINE, background: "#241C13" }}>
+            {LANG_LABEL[lang]}
           </span>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "3px 9px", borderRadius: 7, border: LINE, background: "rgba(255,91,69,.07)" }}>
             Guest

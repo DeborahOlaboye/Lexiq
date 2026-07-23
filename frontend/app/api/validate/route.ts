@@ -1,14 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import rawWords from "an-array-of-english-words";
+import rawEn from "an-array-of-english-words";
+import rawEs from "an-array-of-spanish-words";
+import rawFr from "an-array-of-french-words";
 
-const WORDS: Set<string> = new Set(
-  (rawWords as string[])
-    .filter((w) => w.length >= 2 && w.length <= 7)
-    .map((w) => w.toUpperCase())
-);
+// Strip diacritics and upper-case: "école" → "ECOLE"
+function normalize(w: string): string {
+  return w.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
+}
+
+function buildSet(raw: unknown): Set<string> {
+  return new Set(
+    (raw as string[])
+      .map(normalize)
+      .filter((w) => /^[A-Z]{2,7}$/.test(w))
+  );
+}
+
+const SETS: Record<string, Set<string>> = {
+  en: buildSet(rawEn),
+  es: buildSet(rawEs),
+  fr: buildSet(rawFr),
+};
 
 export function GET(req: NextRequest) {
   const word = req.nextUrl.searchParams.get("w");
+  const lang = req.nextUrl.searchParams.get("lang") ?? "en";
   if (!word) return NextResponse.json({ valid: false });
-  return NextResponse.json({ valid: WORDS.has(word.toUpperCase()) });
+  const set = SETS[lang] ?? SETS.en;
+  return NextResponse.json({ valid: set.has(word.toUpperCase()) });
 }
