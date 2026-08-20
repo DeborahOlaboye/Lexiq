@@ -70,13 +70,6 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
 
         {/* Copy */}
         <div>
-          <motion.div {...fadeUp(0)} className="inline-flex items-center gap-2"
-            style={{ padding: "7px 13px", borderRadius: 20, border: LINE2, fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#CFE94B" }}>
-            <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.4, repeat: Infinity }}
-              style={{ width: 7, height: 7, borderRadius: "50%", background: "#CFE94B", display: "inline-block" }} />
-            On-chain word race · Celo
-          </motion.div>
-
           <motion.h1 {...fadeUp(0.1)}
             style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(40px,8vw,64px)", lineHeight: 0.96, letterSpacing: "-0.025em", marginTop: 20, marginBottom: 0, color: "#F5EFE2" }}>
             Seven letters.<br />Ninety seconds.<br />
@@ -104,10 +97,6 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
               style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,24px)", borderRadius: 14, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "clamp(15px,2vw,17px)", background: "none", cursor: "pointer" }}>
               Sign In
             </motion.button>
-          </motion.div>
-
-          <motion.div {...fadeUp(0.44)} style={{ display: "flex", flexWrap: "wrap", columnGap: 22, rowGap: 4, marginTop: 20, fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77" }}>
-            <span>↳ Settled on Celo</span><span>· USDM</span><span>· No sign-up</span><span>· Phone & laptop</span>
           </motion.div>
         </div>
 
@@ -151,11 +140,6 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
           </motion.div>
         </div>
       </div>
-
-      {/* Connect subtext */}
-      <motion.div {...inView()} style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "0 clamp(18px,5vw,40px) clamp(20px,3vw,40px)", textAlign: "center" }}>
-        <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77", margin: 0 }}>Connect your wallet — it works the same on your phone and your laptop</p>
-      </motion.div>
 
       {/* STATS BAND */}
       <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "0 clamp(18px,5vw,40px)" }}>
@@ -313,26 +297,11 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
                 Play free
               </motion.button>
             )}
-            <motion.button
-              onClick={handleConnect}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.96 }}
-              style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "clamp(13px,2vw,17px) clamp(26px,4vw,34px)", borderRadius: 14, border: "2px solid #15110D", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,18px)", cursor: "pointer", background: "none" }}>
-              Sign In
-            </motion.button>
           </div>
         </motion.div>
       </div>
 
-      {/* FOOTER */}
-      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(20px,4vw,30px) clamp(18px,5vw,40px) clamp(14px,3vw,18px)", borderTop: LINE, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
-        <div className="flex items-center gap-[10px]">
-          <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17 }}>Lexiq</span>
-          <span style={{ fontSize: 13, color: "#9A8C77" }}>· Solo word race on Celo</span>
-        </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77" }}>USDM · 0x765D…282a · chainId 42220</div>
-      </div>
-      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "0 clamp(18px,5vw,40px) clamp(24px,4vw,36px)" }}>
+      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(20px,4vw,30px) clamp(18px,5vw,40px) clamp(24px,4vw,36px)", borderTop: LINE }}>
         <LegalLinks />
       </div>
     </div>
