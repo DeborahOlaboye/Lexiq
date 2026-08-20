@@ -1,6 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 import Logo from "@/components/Logo";
+import LegalLinks from "@/components/LegalLinks";
 
 const HERO_TILES = [
   { l: "R", r: "-4deg", dur: "4s",   delay: "0s" },
@@ -324,12 +325,15 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
       </div>
 
       {/* FOOTER */}
-      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(20px,4vw,30px) clamp(18px,5vw,40px) clamp(30px,5vw,46px)", borderTop: LINE, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
+      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(20px,4vw,30px) clamp(18px,5vw,40px) clamp(14px,3vw,18px)", borderTop: LINE, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
         <div className="flex items-center gap-[10px]">
           <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17 }}>Lexiq</span>
           <span style={{ fontSize: 13, color: "#9A8C77" }}>· Solo word race on Celo</span>
         </div>
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77" }}>USDM · 0x765D…282a · chainId 42220</div>
+      </div>
+      <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "0 clamp(18px,5vw,40px) clamp(24px,4vw,36px)" }}>
+        <LegalLinks />
       </div>
     </div>
   );

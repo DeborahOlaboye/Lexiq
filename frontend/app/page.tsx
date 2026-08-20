@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { usePrivy, useLogin, useLogout } from "@privy-io/react-auth";
 import { celo } from "wagmi/chains";
@@ -14,7 +14,9 @@ import Matchmaking from "@/components/Matchmaking";
 import StreakBadge from "@/components/StreakBadge";
 import UsernamePrompt from "@/components/UsernamePrompt";
 import UsernameSetup from "@/components/UsernameSetup";
+import LegalLinks from "@/components/LegalLinks";
 import { getStoredUsername, getRankTitle, getLevel, getXP, getLocalStreak } from "@/lib/player";
+import { isMiniPay } from "@/lib/minipay";
 import type { Lang } from "@/lib/guestLetters";
 
 type View = "lobby" | "game" | "leaderboard";
@@ -27,10 +29,15 @@ export default function Home() {
   const { ready, authenticated } = usePrivy();
   const { login } = useLogin({ onComplete: () => { setGuestMode(false); setView("lobby"); } });
   const { logout } = useLogout({ onSuccess: () => {} });
-  const { address } = useAccount();
+  const { address, isConnected: wagmiConnected } = useAccount();
   const chainId = useChainId();
   const { switchChain, isPending: switching } = useSwitchChain();
-  const isConnected = ready && authenticated;
+
+  // Inside MiniPay the wallet auto-connects via wagmi (no Privy login flow runs),
+  // so gate on the wagmi connection there instead of waiting on Privy's authenticated state.
+  const [inMiniPay, setInMiniPay] = useState(false);
+  useEffect(() => { setInMiniPay(isMiniPay()); }, []);
+  const isConnected = inMiniPay ? wagmiConnected : ready && authenticated;
 
   const [view, setView]             = useState<View>("lobby");
   const [activeRoundId, setActiveRoundId] = useState<bigint | null>(null);
@@ -142,6 +149,7 @@ export default function Home() {
               );
             })}
           </div>
+          <LegalLinks />
         </nav>
       </div>
     );
@@ -174,12 +182,14 @@ export default function Home() {
             <div className="hidden sm:block">
               <UsernamePrompt />
             </div>
-            <button onClick={() => logout()}
-              style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "5px 11px", border: LINE, borderRadius: 9, background: "none", cursor: "pointer", transition: "color 0.15s, border-color 0.15s" }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "#FF5B45"; e.currentTarget.style.borderColor = "rgba(255,91,69,.5)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "#6E6557"; e.currentTarget.style.borderColor = "var(--line)"; }}>
-              Sign out
-            </button>
+            {!inMiniPay && (
+              <button onClick={() => logout()}
+                style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", padding: "5px 11px", border: LINE, borderRadius: 9, background: "none", cursor: "pointer", transition: "color 0.15s, border-color 0.15s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "#FF5B45"; e.currentTarget.style.borderColor = "rgba(255,91,69,.5)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "#6E6557"; e.currentTarget.style.borderColor = "var(--line)"; }}>
+                Sign out
+              </button>
+            )}
           </div>
         </div>
 
@@ -217,6 +227,7 @@ export default function Home() {
             </button>
           ))}
         </div>
+        <LegalLinks />
       </nav>
     </div>
   );

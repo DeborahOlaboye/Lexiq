@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ERC20_ABI, USDM_ADDRESS } from "@/lib/contracts";
-import { celoFee } from "@/lib/minipay";
+import { celoFee, addCashDeeplink } from "@/lib/minipay";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlayerStreak } from "@/hooks/usePlayerStreak";
 import UsernamePrompt from "./UsernamePrompt";
@@ -52,6 +52,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   const [challengeId, setChallengeId] = useState("");
   const [showChallenge, setShowChallenge] = useState(false);
 
+  const { data: usdmBalance } = useReadContract({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined });
   const { data: prizePool } = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "weeklyPrizePool" });
   const { data: myRounds }  = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "getPlayerRounds", args: address ? [address] : undefined });
   const { data: myHigh }    = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "highScore",       args: address ? [address] : undefined });
@@ -65,6 +66,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
 
   const stakeNum = parseFloat(stake) || 0;
   const stakeBN  = stakeNum > 0 ? parseUnits(stakeNum.toFixed(18), 18) : 0n;
+  const insufficientBalance = stakeBN > 0n && usdmBalance !== undefined && stakeBN > (usdmBalance as bigint);
   const busy     = approving || starting;
   const prizeFormatted = prizePool ? (Number(prizePool) / 1e18).toFixed(2) : "—";
 
@@ -264,12 +266,12 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
         <AnimatePresence mode="wait">
           {!showChallenge ? (
             <motion.div key="play" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <motion.button onClick={handleStart} disabled={busy || !!stakeError}
-                animate={!busy && !stakeError ? { boxShadow: ["0 6px 0 #A9C931", "0 6px 24px rgba(207,233,75,0.6)", "0 6px 0 #A9C931"], y: [0, -3, 0] } : { boxShadow: "0 6px 0 #A9C931", y: 0 }}
-                transition={!busy && !stakeError ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" } : {}}
-                whileHover={!busy && !stakeError ? { scale: 1.03, y: -4 } : undefined}
-                whileTap={!busy && !stakeError ? { scale: 0.97 } : undefined}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", padding: "clamp(14px,3vw,17px)", borderRadius: 15, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", cursor: busy || !!stakeError ? "not-allowed" : "pointer", opacity: busy || !!stakeError ? 0.4 : 1 }}>
+              <motion.button onClick={handleStart} disabled={busy || !!stakeError || insufficientBalance}
+                animate={!busy && !stakeError && !insufficientBalance ? { boxShadow: ["0 6px 0 #A9C931", "0 6px 24px rgba(207,233,75,0.6)", "0 6px 0 #A9C931"], y: [0, -3, 0] } : { boxShadow: "0 6px 0 #A9C931", y: 0 }}
+                transition={!busy && !stakeError && !insufficientBalance ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" } : {}}
+                whileHover={!busy && !stakeError && !insufficientBalance ? { scale: 1.03, y: -4 } : undefined}
+                whileTap={!busy && !stakeError && !insufficientBalance ? { scale: 0.97 } : undefined}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", padding: "clamp(14px,3vw,17px)", borderRadius: 15, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", cursor: busy || !!stakeError || insufficientBalance ? "not-allowed" : "pointer", opacity: busy || !!stakeError || insufficientBalance ? 0.4 : 1 }}>
                 <span style={{ fontSize: 13 }}>▶</span>
                 {busy ? (status ?? "Working…") : showStake && stakeNum > 0 ? `Play · Stake ${stakeNum} USDM` : `Play for Free · ${diffLabel}`}
               </motion.button>
@@ -280,10 +282,10 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
               <input value={challengeId} onChange={e => setChallengeId(e.target.value.replace(/\D/g, ""))}
                 placeholder="Paste round ID…" inputMode="numeric"
                 style={{ flex: 1, background: "#1E1710", border: LINE2, borderRadius: 12, padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 14, color: "#F5EFE2", outline: "none" }} />
-              <motion.button onClick={handleChallenge} disabled={!challengeId || busy}
-                whileHover={challengeId && !busy ? { scale: 1.04 } : undefined}
-                whileTap={challengeId && !busy ? { scale: 0.96 } : undefined}
-                style={{ padding: "12px 18px", borderRadius: 12, border: "none", background: challengeId && !busy ? "#CFE94B" : "#2F2517", color: challengeId && !busy ? "#15110D" : "#6E6557", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, cursor: challengeId && !busy ? "pointer" : "not-allowed" }}>
+              <motion.button onClick={handleChallenge} disabled={!challengeId || busy || insufficientBalance}
+                whileHover={challengeId && !busy && !insufficientBalance ? { scale: 1.04 } : undefined}
+                whileTap={challengeId && !busy && !insufficientBalance ? { scale: 0.96 } : undefined}
+                style={{ padding: "12px 18px", borderRadius: 12, border: "none", background: challengeId && !busy && !insufficientBalance ? "#CFE94B" : "#2F2517", color: challengeId && !busy && !insufficientBalance ? "#15110D" : "#6E6557", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, cursor: challengeId && !busy && !insufficientBalance ? "pointer" : "not-allowed" }}>
                 Race!
               </motion.button>
             </motion.div>
@@ -319,6 +321,11 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
               </div>
               {stakeError
                 ? <p style={{ fontSize: 11, color: "#FF5B45", marginTop: 6, marginBottom: 0 }}>{stakeError}</p>
+                : insufficientBalance
+                ? <p style={{ fontSize: 11, color: "#FF5B45", marginTop: 6, marginBottom: 0 }}>
+                    Not enough USDM to stake that much.{" "}
+                    <a href={addCashDeeplink()} target="_blank" rel="noopener noreferrer" style={{ color: "#FF5B45", textDecoration: "underline" }}>Deposit</a>
+                  </p>
                 : <p style={{ fontSize: 11, color: "#6E6557", marginTop: 6, marginBottom: 0 }}>Score 10+ pts → stake returned minus 1% fee</p>}
             </motion.div>
           )}
