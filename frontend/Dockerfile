@@ -10,6 +10,7 @@ COPY . .
 # NEXT_PUBLIC_ vars must be present at build time — passed from docker-compose args
 ARG NEXT_PUBLIC_PRIVY_APP_ID
 ENV NEXT_PUBLIC_PRIVY_APP_ID=$NEXT_PUBLIC_PRIVY_APP_ID
+ENV NODE_OPTIONS="--max_old_space_size=3072"
 RUN npm run build
 
 FROM node:20-alpine AS runner
