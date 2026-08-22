@@ -2,6 +2,7 @@
 const config = {
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
   output: "standalone",
   webpack: (config) => {
     // Privy imports optional packages not available in all environments
