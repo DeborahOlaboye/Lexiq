@@ -1,7 +1,7 @@
 "use client";
 
 // TODO: replace with your real support channel (Telegram, WhatsApp, email, or a web portal).
-const SUPPORT_URL = "mailto:support@lexiq.app";
+const SUPPORT_URL = "mailto:contact@playlexiq.xyz";
 
 const linkStyle: React.CSSProperties = { color: "inherit", textDecoration: "none" };
 

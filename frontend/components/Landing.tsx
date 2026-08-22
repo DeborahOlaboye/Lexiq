@@ -17,15 +17,15 @@ const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
 
 const fadeUp  = (delay = 0) => ({
-  initial:    { opacity: 0, y: 28 },
+  initial:    { opacity: 1, y: 16 },
   animate:    { opacity: 1, y: 0  },
-  transition: { duration: 0.6, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay },
+  transition: { duration: 0.55, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay },
 });
 
 const inView  = (delay = 0) => ({
-  initial:    { opacity: 0, y: 22 },
+  initial:    { opacity: 1, y: 14 },
   whileInView:{ opacity: 1, y: 0  },
-  viewport:   { once: false, amount: 0.15 },
+  viewport:   { once: true, amount: 0.15 },
   transition: { duration: 0.55, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay },
 });
 
@@ -105,7 +105,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
           <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", display: "flex", gap: 7 }}>
             {HERO_TILES.map(({ l, r, dur, delay }, i) => (
               <motion.div key={l}
-                initial={{ opacity: 0, y: 20, rotate: -10 }}
+                initial={{ opacity: 1, y: 10, rotate: -6 }}
                 animate={{ opacity: 1, y: 0, rotate: 0 }}
                 transition={{ duration: 0.5, ease: [0.2, 1.4, 0.4, 1] as [number, number, number, number], delay: 0.1 + i * 0.07 }}
                 className="animate-floaty"
