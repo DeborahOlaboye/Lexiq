@@ -182,7 +182,7 @@ export default function GuestBoard({
   }
 
   function shareText() {
-    return `I scored ${myScore} pts on Lexiq${topWord ? ` — best word: ${topWord.word} (+${topWord.pts})` : ""}${streak > 1 ? ` · Day ${streak} streak 🔥` : ""}.\nCan you beat it? https://lexiq-rust.vercel.app`;
+    return `I scored ${myScore} pts on Lexiq${topWord ? ` — best word: ${topWord.word} (+${topWord.pts})` : ""}${streak > 1 ? ` · Day ${streak} streak 🔥` : ""}.\nCan you beat it? https://playlexiq.xyz`;
   }
 
   async function doNativeShare() {

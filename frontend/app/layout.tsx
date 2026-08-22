@@ -27,9 +27,23 @@ const monoFont = Space_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://playlexiq.xyz"),
   title: "Lexiq — 90-second word race on Celo",
   description:
     "Build as many words as you can from 7 random letters. Stake USDM, beat your best, and climb the weekly prize board.",
+  openGraph: {
+    title: "Lexiq — 90-second word race on Celo",
+    description: "Build as many words as you can from 7 random letters. Stake USDM, beat your best, and climb the weekly prize board.",
+    url: "https://playlexiq.xyz",
+    siteName: "Lexiq",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Lexiq — 90-second word race on Celo",
+    description: "Build as many words as you can from 7 random letters.",
+    site: "@playlexiq",
+  },
   other: {
     "talentapp:project_verification":
       "d90c99e9041df8cf32e67e04cc18a873b301515b08f9b8a1910ac9a1431edde6fc83e90256f4b6da01aaa56b059f02f0e43a6ab20a130beee233fdc7943551b7",

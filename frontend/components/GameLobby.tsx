@@ -370,7 +370,7 @@ function RoundChip({ id, index, onEnter }: { id: bigint; index: number; onEnter:
 
   function shareChallenge(e: React.MouseEvent) {
     e.stopPropagation();
-    const text = `Challenge me on Lexiq! Use round #${id.toString()} — same 7 letters, beat my score 🎯\nhttps://lexiq.vercel.app`;
+    const text = `Challenge me on Lexiq! Use round #${id.toString()} — same 7 letters, beat my score 🎯\nhttps://playlexiq.xyz`;
     if (navigator.share) {
       navigator.share({ text }).catch(() => {});
     } else if (navigator.clipboard) {

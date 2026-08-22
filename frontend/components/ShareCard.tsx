@@ -223,7 +223,7 @@ export default function ShareCard({ score, words, bestWord, bestPts, username, r
     ctx.textAlign   = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle   = "rgba(154,140,119,.55)";
-    ctx.fillText("lexiq-rust.vercel.app", W / 2, H - 66);
+    ctx.fillText("playlexiq.xyz", W / 2, H - 66);
 
     // Export
     const url = canvas.toDataURL("image/png");
@@ -237,9 +237,9 @@ export default function ShareCard({ score, words, bestWord, bestPts, username, r
     try {
       const file = new File([blob], "lexiq-score.png", { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `I scored ${score} pts on Lexiq!`, url: "https://lexiq-rust.vercel.app" });
+        await navigator.share({ files: [file], title: `I scored ${score} pts on Lexiq!`, url: "https://playlexiq.xyz" });
       } else if (navigator.share) {
-        await navigator.share({ title: `I scored ${score} pts on Lexiq!`, url: "https://lexiq-rust.vercel.app" });
+        await navigator.share({ title: `I scored ${score} pts on Lexiq!`, url: "https://playlexiq.xyz" });
       } else {
         handleDownload();
       }
@@ -266,7 +266,7 @@ export default function ShareCard({ score, words, bestWord, bestPts, username, r
       setTimeout(() => setCopied(false), 2200);
     } catch {
       // Fallback: copy text
-      await navigator.clipboard.writeText(`I scored ${score} pts on Lexiq! https://lexiq-rust.vercel.app`).catch(() => {});
+      await navigator.clipboard.writeText(`I scored ${score} pts on Lexiq! https://playlexiq.xyz`).catch(() => {});
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
     }
