@@ -6,19 +6,17 @@ export function isMiniPay(): boolean {
   return !!(window as unknown as { ethereum?: { isMiniPay?: boolean } }).ethereum?.isMiniPay;
 }
 
-// cUSD on Celo mainnet — supported as a feeCurrency for gas abstraction
-const CUSD = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as const;
+// USDm (cUSD) on Celo mainnet — CIP-64 feeCurrency so gas is paid in stablecoins, not CELO.
+// Same address is used directly as feeCurrency (18-decimal Mento stables use the token address, not an adapter).
+export const FEE_CURRENCY = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as const;
 
 /**
  * Spread into writeContract() calls.
- * Always enforces chainId: celo.id so MetaMask/wallets prompt a chain
- * switch instead of sending the tx on whatever network they're on.
- * Inside MiniPay also adds feeCurrency so gas is paid in cUSD.
+ * Enforces chainId: celo.id and pays gas in USDm via CIP-64 fee abstraction.
+ * Users only need USDm — no native CELO required.
  */
-export function celoFee(): { chainId: number; feeCurrency?: `0x${string}` } {
-  return isMiniPay()
-    ? { chainId: celo.id, feeCurrency: CUSD }
-    : { chainId: celo.id };
+export function celoFee(): { chainId: number; feeCurrency: `0x${string}` } {
+  return { chainId: celo.id, feeCurrency: FEE_CURRENCY };
 }
 
 /**

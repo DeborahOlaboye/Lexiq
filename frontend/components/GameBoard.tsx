@@ -10,6 +10,7 @@ import { isValidWord, validateWords } from "@/lib/dictionary";
 import { motion, AnimatePresence } from "framer-motion";
 import { getStoredUsername, displayName, getSelectedSkin, SKINS } from "@/lib/player";
 import type { Lang } from "@/lib/guestLetters";
+import { getAttributionTag } from "@/lib/attribution";
 import { submitScore } from "@/hooks/usePlayerStreak";
 
 const LINE = "1px solid var(--line)";
@@ -161,11 +162,13 @@ export default function GameBoard({
       // Step 1 — commit all hashes in one tx (no time restriction on new contract)
       setSubmitProgress(`Committing ${wordsToSubmit.length} word${wordsToSubmit.length !== 1 ? "s" : ""}…`);
       const hashes = wordsToSubmit.map((w) => hashWord(w.word, w.salt));
+      const tag = getAttributionTag();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const commitHash = await (writeContract as any)(wagmiConfig, {
         address: contract, abi: LEXIQ_ABI, functionName: "commitWords",
         args: [roundId, hashes],
         ...celoFee(),
+        ...(tag ? { dataSuffix: tag } : {}),
       });
       await waitForTransactionReceipt(wagmiConfig, { hash: commitHash });
 
@@ -176,6 +179,7 @@ export default function GameBoard({
         address: contract, abi: LEXIQ_ABI, functionName: "revealWords",
         args: [roundId, wordsToSubmit.map((w) => w.word), wordsToSubmit.map((w) => w.salt)],
         ...celoFee(),
+        ...(tag ? { dataSuffix: tag } : {}),
       });
       await waitForTransactionReceipt(wagmiConfig, { hash: revealHash });
       setSubmitProgress(null);

@@ -9,6 +9,7 @@ import { usePlayerStreak } from "@/hooks/usePlayerStreak";
 import UsernamePrompt from "./UsernamePrompt";
 import { getXP, getLevel, getRankTitle, SKINS, getSelectedSkin, saveSkin } from "@/lib/player";
 import type { Lang } from "@/lib/guestLetters";
+import { getAttributionTag } from "@/lib/attribution";
 
 const LANGS: { id: Lang; label: string }[] = [
   { id: "en", label: "EN" },
@@ -79,36 +80,39 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
 
   function handleStart() {
     if (stakeError) return;
+    const tag = getAttributionTag();
     if (stakeBN > 0n) {
       setPendingStake(stakeBN);
       setStatus("Approving USDM…");
-      approve({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "approve", args: [contract, stakeBN], ...celoFee() } as any);
+      approve({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "approve", args: [contract, stakeBN], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
     } else {
       setStatus("Starting round…");
-      start({ address: contract, abi: LEXIQ_ABI, functionName: "startRound", args: [0n, difficulty], ...celoFee() } as any);
+      start({ address: contract, abi: LEXIQ_ABI, functionName: "startRound", args: [0n, difficulty], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
     }
   }
 
   function handleChallenge() {
     const id = BigInt(challengeId.trim());
+    const tag = getAttributionTag();
     if (stakeBN > 0n) {
       setPendingStake(stakeBN);
       setStatus("Approving USDM…");
-      approve({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "approve", args: [contract, stakeBN], ...celoFee() } as any);
+      approve({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "approve", args: [contract, stakeBN], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
     } else {
       setStatus("Accepting challenge…");
-      start({ address: contract, abi: LEXIQ_ABI, functionName: "startChallenge", args: [id, 0n], ...celoFee() } as any);
+      start({ address: contract, abi: LEXIQ_ABI, functionName: "startChallenge", args: [id, 0n], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
     }
   }
 
   useEffect(() => {
     if (approveOk && pendingStake > 0n && !startTx) {
       setStatus("Starting…");
+      const tag = getAttributionTag();
       if (showChallenge && challengeId) {
         const id = BigInt(challengeId.trim());
-        start({ address: contract, abi: LEXIQ_ABI, functionName: "startChallenge", args: [id, pendingStake], ...celoFee() } as any);
+        start({ address: contract, abi: LEXIQ_ABI, functionName: "startChallenge", args: [id, pendingStake], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
       } else {
-        start({ address: contract, abi: LEXIQ_ABI, functionName: "startRound", args: [pendingStake, difficulty], ...celoFee() } as any);
+        start({ address: contract, abi: LEXIQ_ABI, functionName: "startRound", args: [pendingStake, difficulty], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
       }
     }
   }, [approveOk]); // eslint-disable-line

@@ -68,6 +68,7 @@ export default function GuestBoard({
   const [streak, setStreak]         = useState(0);
   const [copied, setCopied]         = useState(false);
   const [bestScore, setBestScore]   = useState<number>(0);
+  const [chainTx, setChainTx]       = useState<"idle" | "pending" | "ok" | "fail">("idle");
   const comboRef    = useRef(0);
   const lastWordAt  = useRef(0);
   const skin        = useRef(typeof window !== "undefined" ? getSelectedSkin() : SKINS[0]).current;
@@ -93,7 +94,7 @@ export default function GuestBoard({
     return () => clearInterval(id);
   }, [phase]);
 
-  // Submit score + record streak when game ends
+  // Submit score + record streak + relay to chain when game ends
   useEffect(() => {
     if (phase !== "done" || submitted || !guestId) return;
     const myScore = words.reduce((s, w) => s + w.pts, 0);
@@ -101,6 +102,19 @@ export default function GuestBoard({
     submitScore({ playerId: guestId, username: getStoredUsername() ?? displayName(), score: myScore });
     const { count } = recordPlay();
     setStreak(count);
+
+    // Relay words to Celo mainnet — fire and forget, doesn't block UX
+    if (words.length > 0) {
+      setChainTx("pending");
+      fetch("/api/relay-score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ words: words.map(w => w.word), difficulty, lang }),
+      })
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(() => setChainTx("ok"))
+        .catch(() => setChainTx("fail"));
+    }
   }, [phase]); // eslint-disable-line
 
   // Fetch all valid words when done
@@ -294,9 +308,29 @@ export default function GuestBoard({
             </div>
           )}
 
+          {/* Chain status badge */}
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            {chainTx === "pending" && (
+              <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.2, repeat: Infinity }}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 100, background: "rgba(207,233,75,.08)", border: "1px solid rgba(207,233,75,.25)", fontFamily: "var(--font-mono)", fontSize: 11, color: "#CFE94B" }}>
+                ⛓ Recording on Celo…
+              </motion.div>
+            )}
+            {chainTx === "ok" && (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 100, background: "rgba(207,233,75,.12)", border: "1px solid rgba(207,233,75,.4)", fontFamily: "var(--font-mono)", fontSize: 11, color: "#CFE94B" }}>
+                ✓ Saved on Celo mainnet
+              </div>
+            )}
+            {chainTx === "fail" && (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 100, background: "rgba(255,91,69,.08)", border: "1px solid rgba(255,91,69,.3)", fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45" }}>
+                Chain record failed
+              </div>
+            )}
+          </div>
+
           {/* Streak chip */}
           {streak > 0 && (
-            <div style={{ marginTop: 14, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 100, background: "rgba(255,91,69,.12)", border: "1px solid rgba(255,91,69,.35)", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "#FF5B45" }}>
+            <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 100, background: "rgba(255,91,69,.12)", border: "1px solid rgba(255,91,69,.35)", fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: "#FF5B45" }}>
               🔥 DAY {streak} {streak > 1 ? "▲" : "· keep it going tomorrow"}
             </div>
           )}
