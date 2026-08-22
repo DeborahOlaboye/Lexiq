@@ -6,8 +6,8 @@ async function getKV() {
   const url   = process.env.KV_REST_API_URL;
   const token = process.env.KV_REST_API_TOKEN;
   if (!url || !token) return null;
-  const { createClient } = await import("@vercel/kv");
-  return createClient({ url, token });
+  const { Redis } = await import("@upstash/redis");
+  return new Redis({ url, token });
 }
 
 // ── POST /api/scores ────────────────────────────────────────────────────────
@@ -54,26 +54,20 @@ export async function GET() {
     const kv = await getKV();
     if (!kv) return NextResponse.json({ scores: [] });
 
-    // Fetch top 20 playerIds with their scores (highest first)
-    const raw = await kv.zrange<string[]>("lx:lb", 0, 19, { rev: true, withScores: true });
+    // Fetch top 20 playerIds (highest score first)
+    const playerIds = await kv.zrange<string[]>("lx:lb", 0, 19, { rev: true });
+    if (playerIds.length === 0) return NextResponse.json({ scores: [] });
 
-    // raw is [member, score, member, score, ...] interleaved
-    const entries: { playerId: string; score: number }[] = [];
-    for (let i = 0; i < raw.length; i += 2) {
-      entries.push({ playerId: raw[i] as unknown as string, score: Number(raw[i + 1]) });
-    }
+    // Batch-fetch scores and usernames
+    const [scoreVals, usernames] = await Promise.all([
+      Promise.all(playerIds.map((id) => kv.zscore("lx:lb", id))),
+      Promise.all(playerIds.map((id) => kv.hget<string>(`lx:u:${id}`, "username"))),
+    ]);
 
-    if (entries.length === 0) return NextResponse.json({ scores: [] });
-
-    // Batch-fetch usernames
-    const usernames = await Promise.all(
-      entries.map((e) => kv.hget<string>(`lx:u:${e.playerId}`, "username"))
-    );
-
-    const scores = entries.map((e, i) => ({
-      playerId: e.playerId,
+    const scores = playerIds.map((id, i) => ({
+      playerId: id,
       username: usernames[i] ?? "Anonymous",
-      score: e.score,
+      score: Number(scoreVals[i] ?? 0),
     }));
 
     return NextResponse.json({ scores });

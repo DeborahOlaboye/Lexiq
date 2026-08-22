@@ -4,8 +4,8 @@ async function getKV() {
   const url   = process.env.KV_REST_API_URL;
   const token = process.env.KV_REST_API_TOKEN;
   if (!url || !token) return null;
-  const { createClient } = await import("@vercel/kv");
-  return createClient({ url, token });
+  const { Redis } = await import("@upstash/redis");
+  return new Redis({ url, token });
 }
 
 function computeStreak(dates: string[]): { streak: number; longestStreak: number; lastPlayedToday: boolean } {
