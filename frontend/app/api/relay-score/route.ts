@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     // 2. Submit startRound
     const startHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startRound",
-      args: [0n, difficulty], gasPrice: await freshGasPrice(),
+      args: [0n, difficulty], gasPrice: await freshGasPrice(), gas: 300_000n,
     });
     await publicClient.waitForTransactionReceipt({ hash: startHash });
 
@@ -79,16 +79,21 @@ export async function POST(req: NextRequest) {
     const salts = validWords.map(() => randomSalt());
     const hashes = validWords.map((w, i) => hashWord(w, salts[i]));
 
+    // 80k base + 30k per word — covers up to ~30 words comfortably
+    const commitGas = BigInt(80_000 + validWords.length * 30_000);
+
     const commitHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "commitWords",
-      args: [roundId as bigint, hashes], gasPrice: await freshGasPrice(),
+      args: [roundId as bigint, hashes], gasPrice: await freshGasPrice(), gas: commitGas,
     });
     await publicClient.waitForTransactionReceipt({ hash: commitHash });
 
-    // 4. revealWords
+    // 4. revealWords — 120k base + 40k per word
+    const revealGas = BigInt(120_000 + validWords.length * 40_000);
+
     const revealHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "revealWords",
-      args: [roundId as bigint, validWords, salts], gasPrice: await freshGasPrice(),
+      args: [roundId as bigint, validWords, salts], gasPrice: await freshGasPrice(), gas: revealGas,
     });
     await publicClient.waitForTransactionReceipt({ hash: revealHash });
 
