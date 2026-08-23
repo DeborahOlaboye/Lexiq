@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   // Fetch a fresh gas price before each write so it always clears the current block base fee
   async function freshGasPrice() {
     const gp = await publicClient.getGasPrice();
-    return gp * 2n; // 2× buffer above current base fee
+    return gp + gp / 5n; // +20% buffer — enough to clear base fee without bloating the simulation cost
   }
 
   try {
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
     // 2. Submit startRound
     const startHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startRound",
-      args: [0n, difficulty], gasPrice: await freshGasPrice(), gas: 300_000n,
+      args: [0n, difficulty], gasPrice: await freshGasPrice(), gas: 50_000n,
     });
     await publicClient.waitForTransactionReceipt({ hash: startHash });
 
@@ -79,8 +79,8 @@ export async function POST(req: NextRequest) {
     const salts = validWords.map(() => randomSalt());
     const hashes = validWords.map((w, i) => hashWord(w, salts[i]));
 
-    // 80k base + 30k per word — covers up to ~30 words comfortably
-    const commitGas = BigInt(80_000 + validWords.length * 30_000);
+    // 20k base + 8k per word — tuned for Celo L2 (OP Stack) actual gas usage
+    const commitGas = BigInt(20_000 + validWords.length * 8_000);
 
     const commitHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "commitWords",
@@ -88,8 +88,8 @@ export async function POST(req: NextRequest) {
     });
     await publicClient.waitForTransactionReceipt({ hash: commitHash });
 
-    // 4. revealWords — 120k base + 40k per word
-    const revealGas = BigInt(120_000 + validWords.length * 40_000);
+    // 4. revealWords — 30k base + 12k per word
+    const revealGas = BigInt(30_000 + validWords.length * 12_000);
 
     const revealHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "revealWords",
