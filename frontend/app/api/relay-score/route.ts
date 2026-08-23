@@ -68,34 +68,37 @@ export async function POST(req: NextRequest) {
       args: [0n, difficulty], account,
     });
 
-    // 2. Submit startRound
+    // 2. Submit startRound — actual gas usage on Celo L2 is ~157k; 250k gives comfortable headroom
     const startHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startRound",
-      args: [0n, difficulty], gasPrice: await freshGasPrice(), gas: 50_000n,
+      args: [0n, difficulty], gasPrice: await freshGasPrice(), gas: 250_000n,
     });
-    await publicClient.waitForTransactionReceipt({ hash: startHash });
+    const startReceipt = await publicClient.waitForTransactionReceipt({ hash: startHash });
+    if (startReceipt.status === "reverted") throw new Error(`startRound reverted (${startHash})`);
 
     // 3. commitWords — generate salts server-side so hashes are trustworthy
     const salts = validWords.map(() => randomSalt());
     const hashes = validWords.map((w, i) => hashWord(w, salts[i]));
 
-    // 20k base + 8k per word — tuned for Celo L2 (OP Stack) actual gas usage
-    const commitGas = BigInt(20_000 + validWords.length * 8_000);
+    // 80k base + 30k per word — generous headroom for Celo L2 storage writes
+    const commitGas = BigInt(80_000 + validWords.length * 30_000);
 
     const commitHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "commitWords",
       args: [roundId as bigint, hashes], gasPrice: await freshGasPrice(), gas: commitGas,
     });
-    await publicClient.waitForTransactionReceipt({ hash: commitHash });
+    const commitReceipt = await publicClient.waitForTransactionReceipt({ hash: commitHash });
+    if (commitReceipt.status === "reverted") throw new Error(`commitWords reverted (${commitHash})`);
 
-    // 4. revealWords — 30k base + 12k per word
-    const revealGas = BigInt(30_000 + validWords.length * 12_000);
+    // 4. revealWords — 120k base + 40k per word
+    const revealGas = BigInt(120_000 + validWords.length * 40_000);
 
     const revealHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "revealWords",
       args: [roundId as bigint, validWords, salts], gasPrice: await freshGasPrice(), gas: revealGas,
     });
-    await publicClient.waitForTransactionReceipt({ hash: revealHash });
+    const revealReceipt = await publicClient.waitForTransactionReceipt({ hash: revealHash });
+    if (revealReceipt.status === "reverted") throw new Error(`revealWords reverted (${revealHash})`);
 
     const score = validWords.reduce((s, w) => s + (SCORE[w.length] ?? 11), 0);
     return NextResponse.json({
