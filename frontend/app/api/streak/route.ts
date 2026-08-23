@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-async function getKV() {
-  const url   = process.env.KV_REST_API_URL;
-  const token = process.env.KV_REST_API_TOKEN;
-  if (!url || !token) return null;
-  const { Redis } = await import("@upstash/redis");
-  return new Redis({ url, token });
-}
+import { getRedis } from "@/lib/redis";
 
 function computeStreak(dates: string[]): { streak: number; longestStreak: number; lastPlayedToday: boolean } {
   const today     = new Date().toISOString().slice(0, 10);
@@ -50,10 +43,10 @@ export async function GET(req: NextRequest) {
   if (!pid) return NextResponse.json({ streak: 0, longestStreak: 0, lastPlayedToday: false });
 
   try {
-    const kv = await getKV();
+    const kv = getRedis();
     if (!kv) return NextResponse.json({ streak: 0, longestStreak: 0, lastPlayedToday: false });
 
-    const dates = await kv.smembers<string[]>(`lx:played:${pid}`);
+    const dates = await kv.smembers(`lx:played:${pid}`);
     return NextResponse.json(computeStreak(dates ?? []));
   } catch (e) {
     console.error("/api/streak GET", e);
