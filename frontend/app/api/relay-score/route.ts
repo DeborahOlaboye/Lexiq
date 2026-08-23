@@ -3,7 +3,6 @@ import { createWalletClient, createPublicClient, http, keccak256, encodePacked }
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
 import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
-import { FEE_CURRENCY } from "@/lib/minipay";
 import type { Lang } from "@/lib/guestLetters";
 import rawEn from "an-array-of-english-words";
 import rawEs from "an-array-of-spanish-words";
@@ -56,6 +55,12 @@ export async function POST(req: NextRequest) {
   const walletClient = createWalletClient({ account, chain: celo, transport: http(RPC) });
   const publicClient = createPublicClient({ chain: celo, transport: http(RPC) });
 
+  // Fetch a fresh gas price before each write so it always clears the current block base fee
+  async function freshGasPrice() {
+    const gp = await publicClient.getGasPrice();
+    return gp * 2n; // 2× buffer above current base fee
+  }
+
   try {
     // 1. Simulate startRound to get the roundId before writing
     const { result: roundId } = await publicClient.simulateContract({
@@ -66,8 +71,8 @@ export async function POST(req: NextRequest) {
     // 2. Submit startRound
     const startHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startRound",
-      args: [0n, difficulty], feeCurrency: FEE_CURRENCY,
-    } as Parameters<typeof walletClient.writeContract>[0]);
+      args: [0n, difficulty], gasPrice: await freshGasPrice(),
+    });
     await publicClient.waitForTransactionReceipt({ hash: startHash });
 
     // 3. commitWords — generate salts server-side so hashes are trustworthy
@@ -76,15 +81,15 @@ export async function POST(req: NextRequest) {
 
     const commitHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "commitWords",
-      args: [roundId as bigint, hashes], feeCurrency: FEE_CURRENCY,
-    } as Parameters<typeof walletClient.writeContract>[0]);
+      args: [roundId as bigint, hashes], gasPrice: await freshGasPrice(),
+    });
     await publicClient.waitForTransactionReceipt({ hash: commitHash });
 
     // 4. revealWords
     const revealHash = await walletClient.writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "revealWords",
-      args: [roundId as bigint, validWords, salts], feeCurrency: FEE_CURRENCY,
-    } as Parameters<typeof walletClient.writeContract>[0]);
+      args: [roundId as bigint, validWords, salts], gasPrice: await freshGasPrice(),
+    });
     await publicClient.waitForTransactionReceipt({ hash: revealHash });
 
     const score = validWords.reduce((s, w) => s + (SCORE[w.length] ?? 11), 0);
