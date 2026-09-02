@@ -126,7 +126,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
       const res = await fetch("/api/round/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player: address, difficulty }),
+        body: JSON.stringify({ player: address, difficulty, lang }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start round");
@@ -174,14 +174,14 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
         const res = await fetch("/api/round/seed", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ player: address, difficulty }),
+          body: JSON.stringify({ player: address, difficulty, lang }),
         });
         const seed = await res.json();
         if (!res.ok) throw new Error(seed.error ?? "Could not start round");
         savePlayToken(seed.playToken);
         start({
           address: contract, abi: LEXIQ_ABI, functionName: "startRound",
-          args: [pendingStake, difficulty, seed.seed, BigInt(seed.deadline), seed.signature],
+          args: [pendingStake, difficulty, seed.lang, seed.seed, BigInt(seed.deadline), seed.signature],
           ...celoFee(fee.address), ...(tag ? { dataSuffix: tag } : {}),
         } as any);
       } catch (err) {

@@ -164,7 +164,7 @@ export default function GameBoard({
       const res = await fetch("/api/round/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roundId: roundId.toString(), words: words.map((w) => w.word), lang, playToken: getPlayToken() }),
+        body: JSON.stringify({ roundId: roundId.toString(), words: words.map((w) => w.word), playToken: getPlayToken() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not submit round");

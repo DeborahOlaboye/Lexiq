@@ -6,9 +6,13 @@ export const LEXIQ_ADDRESS = (process.env.NEXT_PUBLIC_LEXIQ_ADDRESS ??
 
 /** Round tuple indices returned by getRound(). */
 export const ROUND = {
-  player: 0, seed: 1, startedAt: 2, difficulty: 3,
-  score: 4, wordCount: 5, state: 6, stake: 7,
+  player: 0, seed: 1, startedAt: 2, difficulty: 3, lang: 4,
+  score: 5, wordCount: 6, state: 7, stake: 8,
 } as const;
+
+/** Round.lang values, matching LANG_* in Lexiq.sol. */
+export const LANG_ID: Record<string, number> = { en: 0, es: 1, fr: 2 };
+export const LANG_BY_ID = ["en", "es", "fr"] as const;
 
 export const ROUND_ACTIVE = 0;
 export const ROUND_FINISHED = 1;
@@ -18,6 +22,7 @@ export const LEXIQ_ABI = [
   { name: "startRoundFor", type: "function", stateMutability: "nonpayable",
     inputs: [
       { name: "player", type: "address" }, { name: "difficulty", type: "uint8" },
+      { name: "lang", type: "uint8" },
       { name: "seed", type: "bytes32" }, { name: "deadline", type: "uint256" },
       { name: "seedSig", type: "bytes" },
     ],
@@ -25,6 +30,7 @@ export const LEXIQ_ABI = [
   { name: "startRound", type: "function", stateMutability: "nonpayable",
     inputs: [
       { name: "stakeAmount", type: "uint256" }, { name: "difficulty", type: "uint8" },
+      { name: "lang", type: "uint8" },
       { name: "seed", type: "bytes32" }, { name: "deadline", type: "uint256" },
       { name: "seedSig", type: "bytes" },
     ],
@@ -51,6 +57,7 @@ export const LEXIQ_ABI = [
     outputs: [
       { name: "player", type: "address" }, { name: "seed", type: "bytes32" },
       { name: "startedAt", type: "uint32" }, { name: "difficulty", type: "uint8" },
+      { name: "lang", type: "uint8" },
       { name: "score", type: "uint16" }, { name: "wordCount", type: "uint8" },
       { name: "state", type: "uint8" }, { name: "stake", type: "uint256" },
     ] },
@@ -80,7 +87,8 @@ export const LEXIQ_ABI = [
   // ── Events ──
   { name: "RoundStarted", type: "event", inputs: [
     { name: "roundId", type: "uint256", indexed: true }, { name: "player", type: "address", indexed: true },
-    { name: "difficulty", type: "uint8", indexed: false }, { name: "stake", type: "uint256", indexed: false }] },
+    { name: "difficulty", type: "uint8", indexed: false }, { name: "lang", type: "uint8", indexed: false },
+    { name: "stake", type: "uint256", indexed: false }] },
   { name: "RoundFinished", type: "event", inputs: [
     { name: "roundId", type: "uint256", indexed: true }, { name: "player", type: "address", indexed: true },
     { name: "score", type: "uint16", indexed: false }, { name: "wordCount", type: "uint8", indexed: false }] },

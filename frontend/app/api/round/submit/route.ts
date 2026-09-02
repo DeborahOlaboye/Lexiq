@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { LEXIQ_ADDRESS, LEXIQ_ABI, ROUND, ROUND_ACTIVE } from "@/lib/contracts";
+import { LEXIQ_ADDRESS, LEXIQ_ABI, ROUND, ROUND_ACTIVE, LANG_BY_ID } from "@/lib/contracts";
 import { FEE_CURRENCY } from "@/lib/minipay";
 import { publicClient, relayerWallet, signScore, relayFees, nowSeconds } from "@/lib/attestation";
 import { getServerAttributionTag } from "@/lib/attribution";
@@ -21,12 +21,11 @@ const GRACE_SECONDS = 30;
 const DURATION: Record<number, number> = { 0: 120, 1: 90, 2: 60 };
 
 export async function POST(req: NextRequest) {
-  let body: { roundId?: string; words?: string[]; lang?: Lang; playToken?: string };
+  let body: { roundId?: string; words?: string[]; playToken?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
   if (!body.roundId) return NextResponse.json({ error: "Bad round" }, { status: 400 });
   const roundId = BigInt(body.roundId);
-  const lang: Lang = (["en", "es", "fr"].includes(body.lang ?? "") ? body.lang : "en") as Lang;
   const submitted = Array.isArray(body.words) ? body.words.slice(0, 100) : [];
 
   try {
@@ -38,6 +37,10 @@ export async function POST(req: NextRequest) {
     const startedAt  = Number(round[ROUND.startedAt]);
     const difficulty = Number(round[ROUND.difficulty]);
     const state      = Number(round[ROUND.state]);
+    // Read from the round, never the request: a player could otherwise open a round on the
+    // French table — which is heavily weighted to E — and settle it against the English
+    // dictionary, pairing a favourable draw with a different word list.
+    const lang: Lang = LANG_BY_ID[Number(round[ROUND.lang])] ?? "en";
 
     if (state !== ROUND_ACTIVE) {
       return NextResponse.json({ error: "Round already finished" }, { status: 409 });

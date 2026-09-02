@@ -8,6 +8,7 @@ const DAY  = 86_400;
 const USDM = (n: string) => ethers.parseUnits(n, 18);
 
 const EASY = 0, NORMAL = 1, HARD = 2;
+const EN = 0, ES = 1, FR = 2;
 
 describe("Lexiq", () => {
   async function deploy() {
@@ -39,6 +40,7 @@ describe("Lexiq", () => {
       { name: "player",     type: "address" },
       { name: "nonce",      type: "uint256" },
       { name: "difficulty", type: "uint8"   },
+      { name: "lang",       type: "uint8"   },
       { name: "seed",       type: "bytes32" },
       { name: "deadline",   type: "uint256" },
     ],
@@ -55,7 +57,7 @@ describe("Lexiq", () => {
   };
 
   async function signSeed(
-    ctx: Ctx, player: string, difficulty: number,
+    ctx: Ctx, player: string, difficulty: number, lang = EN,
     opts: { signer?: HardhatEthersSigner; nonce?: bigint; seed?: string; deadline?: number } = {},
   ) {
     const nonce    = opts.nonce    ?? await ctx.lexiq.roundNonce(player);
@@ -63,7 +65,7 @@ describe("Lexiq", () => {
     const deadline = opts.deadline ?? (await time()) + DAY;
     const signer   = opts.signer   ?? ctx.gameSigner;
     const sig = await signer.signTypedData(ctx.domain, SEED_TYPES, {
-      player, nonce, difficulty, seed, deadline,
+      player, nonce, difficulty, lang, seed, deadline,
     });
     return { seed, deadline, sig };
   }
@@ -85,9 +87,9 @@ describe("Lexiq", () => {
   }
 
   /** Open a free round via the relayer and return its id. */
-  async function openFree(ctx: Ctx, player: string, difficulty = NORMAL) {
-    const { seed, deadline, sig } = await signSeed(ctx, player, difficulty);
-    const tx = await ctx.lexiq.connect(ctx.relayer).startRoundFor(player, difficulty, seed, deadline, sig);
+  async function openFree(ctx: Ctx, player: string, difficulty = NORMAL, lang = EN) {
+    const { seed, deadline, sig } = await signSeed(ctx, player, difficulty, lang);
+    const tx = await ctx.lexiq.connect(ctx.relayer).startRoundFor(player, difficulty, lang, seed, deadline, sig);
     await tx.wait();
     return (await ctx.lexiq.totalRounds()) - 1n;
   }
@@ -95,8 +97,8 @@ describe("Lexiq", () => {
   /** Open a staked round sent by the player themselves. */
   async function openStaked(ctx: Ctx, player: HardhatEthersSigner, stake: bigint, difficulty = NORMAL) {
     await ctx.usdm.connect(player).approve(await ctx.lexiq.getAddress(), stake);
-    const { seed, deadline, sig } = await signSeed(ctx, player.address, difficulty);
-    await ctx.lexiq.connect(player).startRound(stake, difficulty, seed, deadline, sig);
+    const { seed, deadline, sig } = await signSeed(ctx, player.address, difficulty, EN);
+    await ctx.lexiq.connect(player).startRound(stake, difficulty, EN, seed, deadline, sig);
     return (await ctx.lexiq.totalRounds()) - 1n;
   }
 
@@ -183,7 +185,7 @@ describe("Lexiq", () => {
       await ctx.usdm.connect(ctx.alice).approve(await ctx.lexiq.getAddress(), tooBig);
       const { seed, deadline, sig } = await signSeed(ctx, ctx.alice.address, NORMAL);
       await expect(
-        ctx.lexiq.connect(ctx.alice).startRound(tooBig, NORMAL, seed, deadline, sig),
+        ctx.lexiq.connect(ctx.alice).startRound(tooBig, NORMAL, EN, seed, deadline, sig),
       ).to.be.revertedWithCustomError(ctx.lexiq, "StakeTooLarge");
     });
 
@@ -278,18 +280,18 @@ describe("Lexiq", () => {
   describe("seed attestation", () => {
     it("rejects a seed signed by anyone but the game signer", async () => {
       const ctx = await loadFixture(deploy);
-      const { seed, deadline, sig } = await signSeed(ctx, ctx.alice.address, NORMAL, { signer: ctx.alice });
+      const { seed, deadline, sig } = await signSeed(ctx, ctx.alice.address, NORMAL, EN, { signer: ctx.alice });
       await expect(
-        ctx.lexiq.connect(ctx.relayer).startRoundFor(ctx.alice.address, NORMAL, seed, deadline, sig),
+        ctx.lexiq.connect(ctx.relayer).startRoundFor(ctx.alice.address, NORMAL, EN, seed, deadline, sig),
       ).to.be.revertedWithCustomError(ctx.lexiq, "BadAttestation");
     });
 
     it("cannot reuse a seed attestation — no re-rolling the draw", async () => {
       const ctx = await loadFixture(deploy);
       const { seed, deadline, sig } = await signSeed(ctx, ctx.alice.address, NORMAL);
-      await ctx.lexiq.connect(ctx.relayer).startRoundFor(ctx.alice.address, NORMAL, seed, deadline, sig);
+      await ctx.lexiq.connect(ctx.relayer).startRoundFor(ctx.alice.address, NORMAL, EN, seed, deadline, sig);
       await expect(
-        ctx.lexiq.connect(ctx.relayer).startRoundFor(ctx.alice.address, NORMAL, seed, deadline, sig),
+        ctx.lexiq.connect(ctx.relayer).startRoundFor(ctx.alice.address, NORMAL, EN, seed, deadline, sig),
       ).to.be.revertedWithCustomError(ctx.lexiq, "BadAttestation");
     });
 
@@ -309,7 +311,7 @@ describe("Lexiq", () => {
       const ctx = await loadFixture(deploy);
       const { seed, deadline, sig } = await signSeed(ctx, ctx.alice.address, NORMAL);
       await expect(
-        ctx.lexiq.connect(ctx.alice).startRoundFor(ctx.alice.address, NORMAL, seed, deadline, sig),
+        ctx.lexiq.connect(ctx.alice).startRoundFor(ctx.alice.address, NORMAL, EN, seed, deadline, sig),
       ).to.be.revertedWithCustomError(ctx.lexiq, "NotRelayer");
     });
 
@@ -341,13 +343,13 @@ describe("Lexiq", () => {
       const stale = await signSeed(ctx, ctx.alice.address, NORMAL); // old signer
       await expect(
         ctx.lexiq.connect(ctx.relayer)
-          .startRoundFor(ctx.alice.address, NORMAL, stale.seed, stale.deadline, stale.sig),
+          .startRoundFor(ctx.alice.address, NORMAL, EN, stale.seed, stale.deadline, stale.sig),
       ).to.be.revertedWithCustomError(ctx.lexiq, "BadAttestation");
 
-      const fresh = await signSeed(ctx, ctx.alice.address, NORMAL, { signer: ctx.bob });
+      const fresh = await signSeed(ctx, ctx.alice.address, NORMAL, EN, { signer: ctx.bob });
       await expect(
         ctx.lexiq.connect(ctx.relayer)
-          .startRoundFor(ctx.alice.address, NORMAL, fresh.seed, fresh.deadline, fresh.sig),
+          .startRoundFor(ctx.alice.address, NORMAL, EN, fresh.seed, fresh.deadline, fresh.sig),
       ).to.emit(ctx.lexiq, "RoundStarted");
     });
   });
@@ -373,15 +375,71 @@ describe("Lexiq", () => {
 
     it("gives a challenge the original round's letters and difficulty", async () => {
       const ctx = await loadFixture(deploy);
-      const orig = await openFree(ctx, ctx.alice.address, HARD);
+      const orig = await openFree(ctx, ctx.alice.address, HARD, FR);
       await settle(ctx, orig, ctx.alice.address, 60);
 
       await ctx.lexiq.connect(ctx.bob).startChallenge(orig, 0);
       const id = (await ctx.lexiq.totalRounds()) - 1n;
 
       expect(await ctx.lexiq.getLetters(id)).to.deep.equal(await ctx.lexiq.getLetters(orig));
-      const [, , , difficulty] = await ctx.lexiq.getRound(id);
+      const [, , , difficulty, roundLang] = await ctx.lexiq.getRound(id);
       expect(difficulty).to.equal(HARD);
+      expect(roundLang).to.equal(FR);
+    });
+
+    it("meets the vowel floor in every language", async () => {
+      const ctx = await loadFixture(deploy);
+      const VOWELS = new Set(["A", "E", "I", "O", "U"]);
+      for (const lang of [EN, ES, FR]) {
+        for (const [difficulty, floor] of [[EASY, 3], [NORMAL, 2], [HARD, 2]] as const) {
+          const id = await openFree(ctx, ctx.alice.address, difficulty, lang);
+          const chars = (await ctx.lexiq.getLetters(id))
+            .map((b: string) => Buffer.from(b.slice(2), "hex").toString());
+          expect(chars.filter((c) => VOWELS.has(c)).length,
+            `lang ${lang} diff ${difficulty} drew ${chars.join("")}`).to.be.greaterThanOrEqual(floor);
+          expect(chars.every((c) => /^[A-Z]$/.test(c))).to.equal(true);
+        }
+      }
+    }).timeout(60_000);
+
+    it("draws differently per language from the same seed", async () => {
+      const ctx = await loadFixture(deploy);
+      const seed = ethers.hexlify(ethers.randomBytes(32));
+      const draws: string[] = [];
+
+      for (const lang of [EN, ES, FR]) {
+        const nonce = await ctx.lexiq.roundNonce(ctx.alice.address);
+        const deadline = (await time()) + DAY;
+        const sig = await ctx.gameSigner.signTypedData(ctx.domain, SEED_TYPES, {
+          player: ctx.alice.address, nonce, difficulty: NORMAL, lang, seed, deadline,
+        });
+        await ctx.lexiq.connect(ctx.relayer)
+          .startRoundFor(ctx.alice.address, NORMAL, lang, seed, deadline, sig);
+        const id = (await ctx.lexiq.totalRounds()) - 1n;
+        draws.push((await ctx.lexiq.getLetters(id))
+          .map((b: string) => Buffer.from(b.slice(2), "hex").toString()).join(""));
+      }
+
+      expect(new Set(draws).size, `same draw across languages: ${draws.join(" / ")}`)
+        .to.be.greaterThan(1);
+    });
+
+    it("rejects a seed signed for a different language", async () => {
+      const ctx = await loadFixture(deploy);
+      // Signed for French (an E-heavy table); replayed as English so the player could pair a
+      // favourable draw with a different dictionary.
+      const { seed, deadline, sig } = await signSeed(ctx, ctx.alice.address, NORMAL, FR);
+      await expect(
+        ctx.lexiq.connect(ctx.relayer).startRoundFor(ctx.alice.address, NORMAL, EN, seed, deadline, sig),
+      ).to.be.revertedWithCustomError(ctx.lexiq, "BadAttestation");
+    });
+
+    it("rejects an out-of-range language", async () => {
+      const ctx = await loadFixture(deploy);
+      const { seed, deadline, sig } = await signSeed(ctx, ctx.alice.address, NORMAL, 3);
+      await expect(
+        ctx.lexiq.connect(ctx.relayer).startRoundFor(ctx.alice.address, NORMAL, 3, seed, deadline, sig),
+      ).to.be.revertedWithCustomError(ctx.lexiq, "BadAttestation");
     });
 
     it("refuses to challenge a round that is still active", async () => {

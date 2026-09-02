@@ -30,6 +30,10 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
     uint8 public constant DIFFICULTY_NORMAL = 1;
     uint8 public constant DIFFICULTY_HARD   = 2;
 
+    uint8 public constant LANG_EN = 0;
+    uint8 public constant LANG_ES = 1;
+    uint8 public constant LANG_FR = 2;
+
     /// @notice Bounds what one round can pull from a player's approval.
     uint256 public constant MAX_STAKE = 100e18;
 
@@ -43,8 +47,9 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
 
     struct Round {
         address    player;     // ─┐
-        uint32     startedAt;  //  │ 29 bytes — one slot
+        uint32     startedAt;  //  │ 30 bytes — one slot
         uint8      difficulty; //  │
+        uint8      lang;       //  │
         uint16     score;      //  │
         uint8      wordCount;  //  │
         RoundState state;      // ─┘
@@ -66,11 +71,11 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
     uint256 public platformFeeBalance;
 
     bytes32 private constant SEED_TYPEHASH =
-        keccak256("Seed(address player,uint256 nonce,uint8 difficulty,bytes32 seed,uint256 deadline)");
+        keccak256("Seed(address player,uint256 nonce,uint8 difficulty,uint8 lang,bytes32 seed,uint256 deadline)");
     bytes32 private constant SCORE_TYPEHASH =
         keccak256("Score(uint256 roundId,address player,uint16 score,uint8 wordCount,uint256 deadline)");
 
-    event RoundStarted(uint256 indexed roundId, address indexed player, uint8 difficulty, uint256 stake);
+    event RoundStarted(uint256 indexed roundId, address indexed player, uint8 difficulty, uint8 lang, uint256 stake);
     event ChallengeStarted(uint256 indexed roundId, uint256 indexed originalRoundId, address indexed challenger);
     event RoundFinished(uint256 indexed roundId, address indexed player, uint16 score, uint8 wordCount);
     event StakeReturned(uint256 indexed roundId, address indexed player, uint256 amount);
@@ -119,13 +124,14 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
     function startRoundFor(
         address player,
         uint8   difficulty,
+        uint8   lang,
         bytes32 seed,
         uint256 deadline,
         bytes calldata seedSig
     ) external nonReentrant returns (uint256) {
         if (msg.sender != relayer) revert NotRelayer();
-        _verifySeed(player, difficulty, seed, deadline, seedSig);
-        return _open(player, 0, difficulty, seed);
+        _verifySeed(player, difficulty, lang, seed, deadline, seedSig);
+        return _open(player, 0, difficulty, lang, seed);
     }
 
     /// @notice Start a staked round. Sent by the player: `transferFrom` needs their approval,
@@ -134,12 +140,13 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
     function startRound(
         uint256 stakeAmount,
         uint8   difficulty,
+        uint8   lang,
         bytes32 seed,
         uint256 deadline,
         bytes calldata seedSig
     ) external nonReentrant returns (uint256) {
-        _verifySeed(msg.sender, difficulty, seed, deadline, seedSig);
-        return _open(msg.sender, stakeAmount, difficulty, seed);
+        _verifySeed(msg.sender, difficulty, lang, seed, deadline, seedSig);
+        return _open(msg.sender, stakeAmount, difficulty, lang, seed);
     }
 
     /// @notice Race a finished round's letters. Inherits its seed and difficulty.
@@ -148,14 +155,14 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
     {
         Round storage orig = rounds[originalRoundId];
         if (orig.state != RoundState.FINISHED) revert NotActive();
-        roundId = _open(msg.sender, stakeAmount, orig.difficulty, orig.seed);
+        roundId = _open(msg.sender, stakeAmount, orig.difficulty, orig.lang, orig.seed);
         emit ChallengeStarted(roundId, originalRoundId, msg.sender);
     }
 
-    function _open(address player, uint256 stakeAmount, uint8 difficulty, bytes32 seed)
+    function _open(address player, uint256 stakeAmount, uint8 difficulty, uint8 lang, bytes32 seed)
         private returns (uint256 roundId)
     {
-        if (difficulty > DIFFICULTY_HARD) revert BadAttestation();
+        if (difficulty > DIFFICULTY_HARD || lang > LANG_FR) revert BadAttestation();
         if (stakeAmount > MAX_STAKE) revert StakeTooLarge();
         if (stakeAmount > 0) {
             require(usdm.transferFrom(player, address(this), stakeAmount), "Stake failed");
@@ -166,12 +173,13 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
         r.player     = player;
         r.startedAt  = uint32(block.timestamp);
         r.difficulty = difficulty;
+        r.lang       = lang;
         r.state      = RoundState.ACTIVE;
         r.seed       = seed;
         r.stake      = stakeAmount;
 
         playerRounds[player].push(roundId);
-        emit RoundStarted(roundId, player, difficulty, stakeAmount);
+        emit RoundStarted(roundId, player, difficulty, lang, stakeAmount);
     }
 
     // ── Finishing rounds ─────────────────────────────────────────────────────
@@ -234,6 +242,7 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
     function _verifySeed(
         address player,
         uint8   difficulty,
+        uint8   lang,
         bytes32 seed,
         uint256 deadline,
         bytes calldata sig
@@ -241,7 +250,7 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
         if (block.timestamp > deadline) revert AttestationExpired();
         uint256 nonce = roundNonce[player];
         bytes32 digest = _hashTypedDataV4(
-            keccak256(abi.encode(SEED_TYPEHASH, player, nonce, difficulty, seed, deadline))
+            keccak256(abi.encode(SEED_TYPEHASH, player, nonce, difficulty, lang, seed, deadline))
         );
         if (digest.recover(sig) != gameSigner) revert BadAttestation();
         roundNonce[player] = nonce + 1;
@@ -251,16 +260,16 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
 
     function getLetters(uint256 roundId) external view returns (bytes1[7] memory) {
         Round storage r = rounds[roundId];
-        return _lettersFor(r.seed, r.difficulty);
+        return _lettersFor(r.seed, r.difficulty, r.lang);
     }
 
     /// @dev Every draw is topped up to a vowel floor: a flat table produces an all-consonant
     ///      hand ~2% of the time, which is an unplayable round and, with a stake on it, a loss
     ///      the player could do nothing about.
-    function _lettersFor(bytes32 seed, uint8 difficulty)
+    function _lettersFor(bytes32 seed, uint8 difficulty, uint8 lang)
         internal pure returns (bytes1[7] memory letters)
     {
-        bytes memory freq = _freqTable(difficulty);
+        bytes memory freq = _freqTable(difficulty, lang);
         uint8 vowels;
 
         for (uint8 i = 0; i < 7; i++) {
@@ -280,7 +289,27 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
         }
     }
 
-    function _freqTable(uint8 difficulty) private pure returns (bytes memory) {
+    /// @dev A draw weighted for the language being played. Dealing English frequencies to a
+    ///      French or Spanish player leaves far fewer findable words on the board.
+    function _freqTable(uint8 difficulty, uint8 lang) private pure returns (bytes memory) {
+        if (lang == LANG_ES) {
+            if (difficulty == DIFFICULTY_EASY) {
+                return "AAAAAAAAAAAAAAEEEEEEEEEEEEEEOOOOOOOOOOIIIIIIIUUUUUSSSSSSSNNNNNNNRRRRRRLLLLLLDDDDDTTTTTCCCCMMMPPPB";
+            }
+            if (difficulty == DIFFICULTY_HARD) {
+                return "AAAAAEEEEEOOOOIIIUUUBBBCCCDDDFFFGGGHHHJJJLLLMMMNNNPPPQQRRRSSSTTTVVVXXYYZZZ";
+            }
+            return "AAAAAAAAAAAAEEEEEEEEEEEEEEOOOOOOOOSSSSSSSNNNNNNNRRRRRRRIIIIIIILLLLLDDDDDDTTTTTCCCCUUUUMMMPPBBGVYFHZ";
+        }
+        if (lang == LANG_FR) {
+            if (difficulty == DIFFICULTY_EASY) {
+                return "EEEEEEEEEEEEEEEEEEEEAAAAAAAAAAIIIIIIIIOOOOOOOUUUUUUSSSSSSSTTTTTTTNNNNNNNRRRRRRLLLLLLDDDDDCCCCMMMPPP";
+            }
+            if (difficulty == DIFFICULTY_HARD) {
+                return "AAAAEEEEEEEIIIIOOOOUUUBBBCCCDDDFFFGGGHHHJJKKLLLMMMNNNPPPQQQRRRSSSTTTVVVWXXYYZZ";
+            }
+            return "EEEEEEEEEEEEEEEEEAAAAAAAASSSSSSSIIIIIIIITTTTTTTNNNNNNNRRRRRRRUUUUUULLLLLOOOOODDDCCCMMMPPPVVGFBQHZ";
+        }
         if (difficulty == DIFFICULTY_EASY) {
             return "AAAAAAAAAAAAEEEEEEEEEEEEEEEEIIIIIIIIIIOOOOOOOOOOUUUUUURRRRRRRSSSSSSSTTTTTTTNNNNNNLLLLLDDDDCCCMMMPPPHHHGGYY";
         }
@@ -297,11 +326,11 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
     // ── Views ────────────────────────────────────────────────────────────────
 
     function getRound(uint256 roundId) external view returns (
-        address player, bytes32 seed, uint32 startedAt, uint8 difficulty,
+        address player, bytes32 seed, uint32 startedAt, uint8 difficulty, uint8 lang,
         uint16 score, uint8 wordCount, RoundState state, uint256 stake
     ) {
         Round storage r = rounds[roundId];
-        return (r.player, r.seed, r.startedAt, r.difficulty, r.score, r.wordCount, r.state, r.stake);
+        return (r.player, r.seed, r.startedAt, r.difficulty, r.lang, r.score, r.wordCount, r.state, r.stake);
     }
 
     /// @notice Advisory only — the clock is enforced by the server when it signs a score.

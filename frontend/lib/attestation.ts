@@ -40,6 +40,7 @@ const SEED_TYPES = {
     { name: "player",     type: "address" },
     { name: "nonce",      type: "uint256" },
     { name: "difficulty", type: "uint8"   },
+    { name: "lang",       type: "uint8"   },
     { name: "seed",       type: "bytes32" },
     { name: "deadline",   type: "uint256" },
   ],
@@ -76,12 +77,12 @@ export function deriveSeed(player: string, nonce: bigint): `0x${string}` {
   );
 }
 
-export async function signSeed(player: string, nonce: bigint, difficulty: number) {
+export async function signSeed(player: string, nonce: bigint, difficulty: number, lang: number) {
   const seed = deriveSeed(player, nonce);
   const deadline = BigInt(nowSeconds() + SEED_TTL_SECONDS);
   const signature = await signerAccount().signTypedData({
     domain, types: SEED_TYPES, primaryType: "Seed",
-    message: { player: player as `0x${string}`, nonce, difficulty, seed, deadline },
+    message: { player: player as `0x${string}`, nonce, difficulty, lang, seed, deadline },
   });
   return { seed, deadline, signature };
 }

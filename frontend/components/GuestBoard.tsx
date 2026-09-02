@@ -99,7 +99,7 @@ export default function GuestBoard({
         const res = await fetch("/api/round/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guestId, difficulty }),
+          body: JSON.stringify({ guestId, difficulty, lang }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Could not deal a round");
@@ -113,7 +113,7 @@ export default function GuestBoard({
       }
     })();
     return () => { cancelled = true; };
-  }, [guestId, difficulty]);
+  }, [guestId, difficulty, lang]);
 
   // Countdown — only when active
   useEffect(() => {
@@ -142,7 +142,7 @@ export default function GuestBoard({
       fetch("/api/round/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roundId, words: words.map(w => w.word), lang, playToken: getPlayToken() }),
+        body: JSON.stringify({ roundId, words: words.map(w => w.word), playToken: getPlayToken() }),
       })
         .then(r => r.ok ? r.json() : Promise.reject(r.status))
         .then(() => setChainTx("ok"))

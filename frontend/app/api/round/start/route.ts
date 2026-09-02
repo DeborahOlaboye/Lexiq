@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress, decodeEventLog } from "viem";
-import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
+import { LEXIQ_ADDRESS, LEXIQ_ABI, LANG_ID } from "@/lib/contracts";
 import { FEE_CURRENCY } from "@/lib/minipay";
 import { publicClient, relayerWallet, signSeed, relayFees } from "@/lib/attestation";
 import { guestAddress, issuePlayToken } from "@/lib/playtoken";
@@ -15,10 +15,11 @@ const START_GAS = 300_000n;
  * real on-chain rounds with real letters rather than a client-side approximation.
  */
 export async function POST(req: NextRequest) {
-  let body: { player?: string; guestId?: string; difficulty?: number };
+  let body: { player?: string; guestId?: string; difficulty?: number; lang?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
   const difficulty = [0, 1, 2].includes(body.difficulty ?? -1) ? body.difficulty! : 1;
+  const lang = LANG_ID[body.lang ?? "en"] ?? 0;
 
   let player: `0x${string}`;
   if (body.player && isAddress(body.player)) {
@@ -33,12 +34,12 @@ export async function POST(req: NextRequest) {
     const nonce = await publicClient.readContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "roundNonce", args: [player],
     });
-    const { seed, deadline, signature } = await signSeed(player, nonce as bigint, difficulty);
+    const { seed, deadline, signature } = await signSeed(player, nonce as bigint, difficulty, lang);
 
     const tag = getServerAttributionTag();
     const hash = await relayerWallet().writeContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startRoundFor",
-      args: [player, difficulty, seed, deadline, signature],
+      args: [player, difficulty, lang, seed, deadline, signature],
       gas: START_GAS,
       ...(await relayFees(FEE_CURRENCY)),
       ...(tag ? { dataSuffix: tag } : {}),
