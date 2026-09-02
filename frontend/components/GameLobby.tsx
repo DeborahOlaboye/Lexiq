@@ -87,7 +87,12 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
 
   const stakeNum = parseFloat(stake) || 0;
   const stakeBN  = stakeNum > 0 ? parseUnits(stakeNum.toFixed(18), 18) : 0n;
-  const insufficientBalance = stakeBN > 0n && usdmBalance !== undefined && stakeBN > (usdmBalance as bigint);
+  // Every round is an on-chain write, and MiniPay settles the network fee in USDm — so even
+  // a free round needs a small balance. Gating this on `stakeBN > 0n` meant zero-balance
+  // players were handed a raw "insufficient funds" failure instead of the Deposit prompt
+  // MiniPay requires. A round costs ~0.002 USDm; 0.01 leaves comfortable headroom.
+  const FEE_BUFFER = parseUnits("0.01", 18);
+  const insufficientBalance = usdmBalance !== undefined && stakeBN + FEE_BUFFER > (usdmBalance as bigint);
   const busy     = approving || starting;
   const prizeFormatted = prizePool ? (Number(prizePool) / 1e18).toFixed(2) : "—";
 
@@ -316,7 +321,16 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
           )}
         </AnimatePresence>
 
-        {txError && (
+        {insufficientBalance && (
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45", marginTop: 10, marginBottom: 0, lineHeight: 1.45 }}>
+            {stakeBN > 0n
+              ? "Not enough USDm for that stake plus the network fee."
+              : "You need a little USDm to cover the network fee."}{" "}
+            <a href={addCashDeeplink("USDm")} target="_blank" rel="noopener noreferrer" style={{ color: "#FF5B45", textDecoration: "underline" }}>Deposit</a>
+          </p>
+        )}
+
+        {txError && !insufficientBalance && (
           <p role="alert" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45", marginTop: 10, marginBottom: 0, lineHeight: 1.45, wordBreak: "break-word" }}>
             {friendlyTxError(txError)}
           </p>
