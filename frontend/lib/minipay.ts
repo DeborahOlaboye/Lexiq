@@ -11,11 +11,19 @@ export function isMiniPay(): boolean {
 export const FEE_CURRENCY = "0x765DE816845861e75A25fCA122bb6898B8B1282a" as const;
 
 /**
- * Spread into writeContract() calls.
- * Enforces chainId: celo.id and pays gas in USDm via CIP-64 fee abstraction.
- * Users only need USDm — no native CELO required.
+ * Spread into writeContract() calls. Always pins chainId; only names a fee currency
+ * outside MiniPay.
+ *
+ * Inside MiniPay, do NOT pass feeCurrency. MiniPay selects the fee token itself — the one
+ * the user holds most of — and per its FAQ "may ignore" whatever we pass. Hardcoding USDm
+ * here broke every write for wallets holding a different stablecoin: viem estimates the fee
+ * against the named token locally, so a zero USDm balance failed with "insufficient funds"
+ * before the transaction was ever sent, even with USDT available to pay with.
+ *
+ * Staking settles in USDm; the network fee does not have to. They are separate concerns.
  */
-export function celoFee(): { chainId: number; feeCurrency: `0x${string}` } {
+export function celoFee(): { chainId: number; feeCurrency?: `0x${string}` } {
+  if (isMiniPay()) return { chainId: celo.id };
   return { chainId: celo.id, feeCurrency: FEE_CURRENCY };
 }
 

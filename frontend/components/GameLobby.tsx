@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { parseUnits } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ERC20_ABI, USDM_ADDRESS } from "@/lib/contracts";
-import { celoFee, addCashDeeplink, isMiniPay } from "@/lib/minipay";
+import { celoFee, addCashDeeplink } from "@/lib/minipay";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlayerStreak } from "@/hooks/usePlayerStreak";
 import UsernamePrompt from "./UsernamePrompt";
@@ -19,9 +19,6 @@ const LANGS: { id: Lang; label: string }[] = [
 
 const MIN_STAKE = 0.01;
 
-// Every round is an on-chain write, and MiniPay settles the network fee in USDm — so even a
-// free round needs a small balance. A round costs ~0.002 USDm; 0.01 leaves headroom.
-const FEE_BUFFER = parseUnits("0.01", 18);
 
 /**
  * Render a wallet/transaction failure in wording a player can act on.
@@ -33,7 +30,7 @@ function friendlyTxError(err: unknown): string {
   const raw = e?.shortMessage ?? e?.message ?? "Something went wrong.";
   const s = raw.toLowerCase();
   if (s.includes("user rejected") || s.includes("denied")) return "Transaction cancelled.";
-  if (s.includes("insufficient")) return "Not enough USDm to cover the stake and network fee.";
+  if (s.includes("insufficient")) return "Not enough balance to cover this. Top up in MiniPay and try again.";
   return raw.length > 160 ? `${raw.slice(0, 160)}…` : raw;
 }
 
@@ -72,7 +69,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   const [challengeId, setChallengeId] = useState("");
   const [showChallenge, setShowChallenge] = useState(false);
 
-  const { data: usdmBalance, refetch: refetchBalance } = useReadContract({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined });
+  const { data: usdmBalance } = useReadContract({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined });
   const { data: prizePool } = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "weeklyPrizePool" });
   const { data: myRounds }  = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "getPlayerRounds", args: address ? [address] : undefined });
   const { data: myHigh }    = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "highScore",       args: address ? [address] : undefined });
@@ -89,30 +86,12 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   const txError = approveError ?? startError ?? approveReceiptError ?? startReceiptError;
   useEffect(() => { if (txError) setStatus(null); }, [txError]);
 
-  // A MiniPay wallet with no USDm cannot pay a network fee, so it cannot play at all —
-  // fee abstraction picks the token, it does not sponsor the fee. Top such wallets up once
-  // from the relayer so the player signs their own rounds and keeps on-chain attribution.
-  const [dripping, setDripping] = useState(false);
-  const [dripTried, setDripTried] = useState(false);
-  useEffect(() => {
-    if (dripTried || !address || !isMiniPay()) return;
-    if (usdmBalance === undefined || (usdmBalance as bigint) >= FEE_BUFFER) return;
-    setDripTried(true);
-    setDripping(true);
-    fetch("/api/fee-drip", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ address }),
-    })
-      .then(r => r.json())
-      .then(res => { if (res?.ok) return refetchBalance(); })
-      .catch(() => { /* fall through to the Deposit prompt below */ })
-      .finally(() => setDripping(false));
-  }, [address, usdmBalance, dripTried, refetchBalance]);
 
   const stakeNum = parseFloat(stake) || 0;
   const stakeBN  = stakeNum > 0 ? parseUnits(stakeNum.toFixed(18), 18) : 0n;
-  const insufficientBalance = usdmBalance !== undefined && stakeBN + FEE_BUFFER > (usdmBalance as bigint);
+  // USDm is needed for the stake only. The network fee is paid in whatever stablecoin the
+  // wallet holds — MiniPay chooses it — so a zero USDm balance does not block a free round.
+  const insufficientBalance = stakeBN > 0n && usdmBalance !== undefined && stakeBN > (usdmBalance as bigint);
   const busy     = approving || starting;
   const prizeFormatted = prizePool ? (Number(prizePool) / 1e18).toFixed(2) : "—";
 
@@ -341,13 +320,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
           )}
         </AnimatePresence>
 
-        {dripping && (
-          <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#CBC0AE", marginTop: 10, marginBottom: 0 }}>
-            Setting up your wallet…
-          </p>
-        )}
-
-        {insufficientBalance && !dripping && (
+        {insufficientBalance && (
           <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45", marginTop: 10, marginBottom: 0, lineHeight: 1.45 }}>
             {stakeBN > 0n
               ? "Not enough USDm for that stake plus the network fee."
