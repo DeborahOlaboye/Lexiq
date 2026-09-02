@@ -3,19 +3,31 @@ import { isAddress, decodeEventLog } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
 import { FEE_CURRENCY } from "@/lib/minipay";
 import { publicClient, relayerWallet, signSeed, relayFees } from "@/lib/attestation";
+import { guestAddress, issuePlayToken } from "@/lib/playtoken";
 import { getServerAttributionTag } from "@/lib/attribution";
 
 /** startRoundFor: ~150k on mainnet. */
 const START_GAS = 300_000n;
 
-/** Opens a free round on the player's behalf. The relayer pays; the round belongs to them. */
+/**
+ * Opens a free round and returns the letters it drew. Used by signed-in players and guests
+ * alike — a guest plays under an address derived from their browser id, so their rounds are
+ * real on-chain rounds with real letters rather than a client-side approximation.
+ */
 export async function POST(req: NextRequest) {
-  let body: { player?: string; difficulty?: number };
+  let body: { player?: string; guestId?: string; difficulty?: number };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
-  const player = body.player ?? "";
-  if (!isAddress(player)) return NextResponse.json({ error: "Bad player" }, { status: 400 });
   const difficulty = [0, 1, 2].includes(body.difficulty ?? -1) ? body.difficulty! : 1;
+
+  let player: `0x${string}`;
+  if (body.player && isAddress(body.player)) {
+    player = body.player;
+  } else if (body.guestId) {
+    player = guestAddress(body.guestId);
+  } else {
+    return NextResponse.json({ error: "Bad player" }, { status: 400 });
+  }
 
   try {
     const nonce = await publicClient.readContract({
@@ -48,7 +60,19 @@ export async function POST(req: NextRequest) {
     }
     if (roundId === null) throw new Error("RoundStarted not found in receipt");
 
-    return NextResponse.json({ ok: true, roundId: roundId.toString(), txHash: hash });
+    const rawLetters = await publicClient.readContract({
+      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "getLetters", args: [roundId],
+    }) as readonly `0x${string}`[];
+    const letters = rawLetters.map((b) => String.fromCharCode(parseInt(b.slice(2), 16))).join("");
+
+    return NextResponse.json({
+      ok: true,
+      roundId: roundId.toString(),
+      letters,
+      player,
+      playToken: issuePlayToken(player),
+      txHash: hash,
+    });
   } catch (err) {
     console.error("[round/start]", err);
     return NextResponse.json({ error: "Could not start round" }, { status: 500 });

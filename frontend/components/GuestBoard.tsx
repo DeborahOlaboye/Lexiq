@@ -3,9 +3,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { isValidWord } from "@/lib/dictionary";
 import { scoreWord, MIN_WORD_LENGTH } from "@/lib/scoring";
-import { generateGuestLetters, type Lang } from "@/lib/guestLetters";
+import type { Lang } from "@/lib/guestLetters";
 import { getGuestId, getStoredUsername, displayName, getSelectedSkin, SKINS, recordPlay, getRankTitle, getXP, addXP } from "@/lib/player";
 import ShareCard from "./ShareCard";
+import { savePlayToken, getPlayToken } from "@/lib/playSession";
 
 const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -48,14 +49,19 @@ export default function GuestBoard({
   onBack: () => void;
   onLeaderboard?: () => void;
 }) {
-  const letterStr   = useRef(generateGuestLetters(lang)).current;
+  // Letters come from the round the relayer opened on-chain, so a guest plays exactly the
+  // draw the contract recorded. Generating them in the browser meant the words a guest
+  // found could not be checked against the round they were settled into.
+  const [letterStr, setLetterStr] = useState("");
+  const [roundId, setRoundId]     = useState<string | null>(null);
+  const [dealError, setDealError] = useState<string | null>(null);
   const guestId     = useRef(typeof window !== "undefined" ? getGuestId() : "").current;
   const duration    = DURATIONS[difficulty] ?? 90;
 
   const [input, setInput]           = useState("");
   const [words, setWords]           = useState<WordEntry[]>([]);
   const [timeLeft, setTimeLeft]     = useState(duration);
-  const [phase, setPhase]           = useState<"idle" | "active" | "done">("active");
+  const [phase, setPhase]           = useState<"idle" | "active" | "done">("idle");
   const [showResults, setShowResults] = useState(false);
   const [showShareCard, setShowShareCard] = useState(false);
   const [pops, setPops]             = useState<Pop[]>([]);
@@ -84,6 +90,31 @@ export default function GuestBoard({
       .catch(() => {});
   }, [guestId]);
 
+  // Open the round, then start the clock once the letters are on screen.
+  useEffect(() => {
+    if (!guestId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/round/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ guestId, difficulty }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Could not deal a round");
+        if (cancelled) return;
+        savePlayToken(data.playToken);
+        setLetterStr(data.letters);
+        setRoundId(data.roundId);
+        setPhase("active");
+      } catch (err) {
+        if (!cancelled) setDealError((err as Error)?.message ?? "Could not deal a round");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [guestId, difficulty]);
+
   // Countdown — only when active
   useEffect(() => {
     if (phase !== "active") return;
@@ -104,13 +135,14 @@ export default function GuestBoard({
     const { count } = recordPlay();
     setStreak(count);
 
-    // Relay words to Celo mainnet — fire and forget, doesn't block UX
-    if (words.length > 0) {
+    // Settle on-chain through the same endpoint signed-in players use — the server rechecks
+    // every word against this round's letters and signs the score.
+    if (words.length > 0 && roundId) {
       setChainTx("pending");
-      fetch("/api/relay-score", {
+      fetch("/api/round/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ words: words.map(w => w.word), difficulty, lang }),
+        body: JSON.stringify({ roundId, words: words.map(w => w.word), lang, playToken: getPlayToken() }),
       })
         .then(r => r.ok ? r.json() : Promise.reject(r.status))
         .then(() => setChainTx("ok"))
@@ -210,6 +242,33 @@ export default function GuestBoard({
   }
 
   /* ── RESULTS SCREEN ── */
+  // Letters are dealt by the chain, so the board waits on the round rather than inventing one.
+  if (phase === "idle" || !letterStr) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4" style={{ paddingTop: "clamp(60px,18vw,120px)" }}>
+        {dealError ? (
+          <>
+            <p style={{ fontSize: 14, color: "#FF5B45", textAlign: "center", margin: 0 }}>{dealError}</p>
+            <button onClick={onBack} style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#CFE94B", background: "none", border: "none", cursor: "pointer" }}>
+              ← Back to lobby
+            </button>
+          </>
+        ) : (
+          <>
+            <motion.div
+              animate={{ opacity: [0.35, 1, 0.35] }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+              style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(20px,5vw,26px)", color: "#CFE94B" }}>
+              Dealing your letters…
+            </motion.div>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557" }}>Drawing them on Celo</span>
+          </>
+        )}
+      </div>
+    );
+  }
+
+
   if (showResults) {
     return (
       <motion.div

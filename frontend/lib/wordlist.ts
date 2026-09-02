@@ -47,16 +47,10 @@ export function usesAvailableLetters(word: string, letters: string): boolean {
 
 /**
  * Server-side gate on a submission. The contract no longer sees the words at all, so this is
- * the only thing standing between a player and an arbitrary score.
- *
- * `letters` null skips the board check, and is only for guest rounds: guests play letters
- * generated in the browser, while the relayed round draws its own from the chain seed, so
- * the two never match. Guests are unranked and unstaked, so the dictionary check alone is
- * enough there — but never pass null on a wallet round.
+ * the only thing standing between a player and an arbitrary score — it checks the dictionary
+ * and that every letter was actually on that round's board.
  */
-export function acceptWords(
-  words: string[], letters: string | null, lang: Lang, max: number,
-): string[] {
+export function acceptWords(words: string[], letters: string, lang: Lang, max: number): string[] {
   const dict = dictFor(lang);
   const seen = new Set<string>();
   const out: string[] = [];
@@ -64,7 +58,7 @@ export function acceptWords(
     const w = normalize(raw);
     if (seen.has(w)) continue;
     if (!dict.has(w)) continue;
-    if (letters !== null && !usesAvailableLetters(w, letters)) continue;
+    if (!usesAvailableLetters(w, letters)) continue;
     seen.add(w);
     out.push(w);
     if (out.length >= max) break;

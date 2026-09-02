@@ -14,6 +14,7 @@ import { getStoredUsername, displayName, getSelectedSkin, SKINS } from "@/lib/pl
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
 import { submitScore } from "@/hooks/usePlayerStreak";
+import { getPlayToken } from "@/lib/playSession";
 
 /** Seconds per difficulty, mirroring roundDuration() in Lexiq.sol. The timer used to be
  *  hardcoded to 90s, so picking Easy or Hard changed nothing on the clock. */
@@ -163,7 +164,7 @@ export default function GameBoard({
       const res = await fetch("/api/round/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roundId: roundId.toString(), words: words.map((w) => w.word), lang }),
+        body: JSON.stringify({ roundId: roundId.toString(), words: words.map((w) => w.word), lang, playToken: getPlayToken() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not submit round");

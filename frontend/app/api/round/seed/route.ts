@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAddress } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
 import { publicClient, signSeed } from "@/lib/attestation";
+import { issuePlayToken } from "@/lib/playtoken";
 
 /**
  * Hands a player a signed seed so they can send a staked round themselves. The seed is
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
     const { seed, deadline, signature } = await signSeed(player, nonce as bigint, difficulty);
     return NextResponse.json({
       seed, deadline: deadline.toString(), signature, nonce: (nonce as bigint).toString(), difficulty,
+      playToken: issuePlayToken(player),
     });
   } catch (err) {
     console.error("[round/seed]", err);

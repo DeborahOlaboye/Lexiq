@@ -3,6 +3,7 @@ import { LEXIQ_ADDRESS, LEXIQ_ABI, ROUND, ROUND_ACTIVE } from "@/lib/contracts";
 import { FEE_CURRENCY } from "@/lib/minipay";
 import { publicClient, relayerWallet, signScore, relayFees, nowSeconds } from "@/lib/attestation";
 import { getServerAttributionTag } from "@/lib/attribution";
+import { verifyPlayToken } from "@/lib/playtoken";
 import { acceptWords } from "@/lib/wordlist";
 import { scoreWords, MAX_WORDS } from "@/lib/scoring";
 import type { Lang } from "@/lib/guestLetters";
@@ -20,7 +21,7 @@ const GRACE_SECONDS = 30;
 const DURATION: Record<number, number> = { 0: 120, 1: 90, 2: 60 };
 
 export async function POST(req: NextRequest) {
-  let body: { roundId?: string; words?: string[]; lang?: Lang };
+  let body: { roundId?: string; words?: string[]; lang?: Lang; playToken?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
   if (!body.roundId) return NextResponse.json({ error: "Bad round" }, { status: 400 });
@@ -40,6 +41,12 @@ export async function POST(req: NextRequest) {
 
     if (state !== ROUND_ACTIVE) {
       return NextResponse.json({ error: "Round already finished" }, { status: 409 });
+    }
+
+    // RoundStarted is a public event, so without this anyone watching the chain could settle
+    // a stranger's active round with no words and forfeit their stake.
+    if (!verifyPlayToken(body.playToken, player)) {
+      return NextResponse.json({ error: "Not your round" }, { status: 403 });
     }
 
     const limit = (DURATION[difficulty] ?? 90) + GRACE_SECONDS;

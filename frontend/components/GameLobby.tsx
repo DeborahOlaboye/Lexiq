@@ -12,6 +12,7 @@ import { getLevel, getRankTitle, getRankProgress, SKINS, getSelectedSkin, saveSk
 import { usePlayerPoints } from "@/hooks/usePlayerPoints";
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
+import { savePlayToken } from "@/lib/playSession";
 
 const LANGS: { id: Lang; label: string }[] = [
   { id: "en", label: "EN" },
@@ -129,6 +130,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start round");
+      savePlayToken(data.playToken);
       setStatus(null);
       onEnterGame(BigInt(data.roundId));
     } catch (err) {
@@ -176,6 +178,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
         });
         const seed = await res.json();
         if (!res.ok) throw new Error(seed.error ?? "Could not start round");
+        savePlayToken(seed.playToken);
         start({
           address: contract, abi: LEXIQ_ABI, functionName: "startRound",
           args: [pendingStake, difficulty, seed.seed, BigInt(seed.deadline), seed.signature],
