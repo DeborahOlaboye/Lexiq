@@ -1,27 +1,31 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Hanken_Grotesk, Space_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const displayFont = Bricolage_Grotesque({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
+// Self-hosted rather than next/font/google: that fetches from fonts.gstatic.com during the
+// build, which fails on a machine whose Docker build has no egress to it. Serving is
+// unchanged — next/font already hosted these from our own origin — but the build no longer
+// depends on the network, and there is one fewer external origin to declare for MiniPay.
+const displayFont = localFont({
+  src: [{ path: "./fonts/BricolageGrotesque.woff2", weight: "600 800", style: "normal" }],
   variable: "--font-display",
   display: "swap",
 });
 
-const uiFont = Hanken_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+const uiFont = localFont({
+  src: [{ path: "./fonts/HankenGrotesk.woff2", weight: "400 800", style: "normal" }],
   variable: "--font-ui",
   display: "swap",
 });
 
-const monoFont = Space_Mono({
-  subsets: ["latin"],
-  weight: ["400", "700"],
+const monoFont = localFont({
+  src: [
+    { path: "./fonts/SpaceMono-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/SpaceMono-Bold.woff2",    weight: "700", style: "normal" },
+  ],
   variable: "--font-mono",
   display: "swap",
 });
