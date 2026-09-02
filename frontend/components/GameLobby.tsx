@@ -18,6 +18,21 @@ const LANGS: { id: Lang; label: string }[] = [
 ];
 
 const MIN_STAKE = 0.01;
+
+/**
+ * Render a wallet/transaction failure in wording a player can act on.
+ * Keeps the underlying message (truncated) rather than a generic string — inside MiniPay
+ * that text is often the only diagnostic available, since there is no console to read.
+ */
+function friendlyTxError(err: unknown): string {
+  const e = err as { shortMessage?: string; message?: string } | null;
+  const raw = e?.shortMessage ?? e?.message ?? "Something went wrong.";
+  const s = raw.toLowerCase();
+  if (s.includes("user rejected") || s.includes("denied")) return "Transaction cancelled.";
+  if (s.includes("insufficient")) return "Not enough USDm to cover the stake and network fee.";
+  return raw.length > 160 ? `${raw.slice(0, 160)}…` : raw;
+}
+
 const LINE = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
 
@@ -60,10 +75,15 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   const { data: myTotal }   = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "totalScore",      args: address ? [address] : undefined });
   const { data: played }    = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "gamesPlayed",     args: address ? [address] : undefined });
 
-  const { writeContract: approve, data: approveTx } = useWriteContract();
-  const { writeContract: start,   data: startTx   } = useWriteContract();
-  const { isSuccess: approveOk, isLoading: approving } = useWaitForTransactionReceipt({ hash: approveTx });
-  const { isSuccess: startOk, isLoading: starting, data: startReceipt } = useWaitForTransactionReceipt({ hash: startTx });
+  const { writeContract: approve, data: approveTx, error: approveError } = useWriteContract();
+  const { writeContract: start,   data: startTx,   error: startError   } = useWriteContract();
+  const { isSuccess: approveOk, isLoading: approving, error: approveReceiptError } = useWaitForTransactionReceipt({ hash: approveTx });
+  const { isSuccess: startOk, isLoading: starting, data: startReceipt, error: startReceiptError } = useWaitForTransactionReceipt({ hash: startTx });
+
+  // Without this the write path fails silently: a rejected or reverted transaction left
+  // `status` pinned on "Starting round…" forever with nothing on screen to explain why.
+  const txError = approveError ?? startError ?? approveReceiptError ?? startReceiptError;
+  useEffect(() => { if (txError) setStatus(null); }, [txError]);
 
   const stakeNum = parseFloat(stake) || 0;
   const stakeBN  = stakeNum > 0 ? parseUnits(stakeNum.toFixed(18), 18) : 0n;
@@ -295,6 +315,12 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
             </motion.div>
           )}
         </AnimatePresence>
+
+        {txError && (
+          <p role="alert" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45", marginTop: 10, marginBottom: 0, lineHeight: 1.45, wordBreak: "break-word" }}>
+            {friendlyTxError(txError)}
+          </p>
+        )}
 
         {/* Sub-row: stake toggle + challenge toggle */}
         <div style={{ marginTop: 14, display: "flex", gap: 16, flexWrap: "wrap" }}>
