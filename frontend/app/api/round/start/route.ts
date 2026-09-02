@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress, decodeEventLog } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, LANG_ID } from "@/lib/contracts";
-import { publicClient, relayerWallet, signSeed, relayFees } from "@/lib/attestation";
+import { publicClient, relayerWallet, signSeed, relayFees, lettersForRound } from "@/lib/attestation";
 import { guestAddress, issuePlayToken } from "@/lib/playtoken";
 import { getServerAttributionTag } from "@/lib/attribution";
 
@@ -68,10 +68,7 @@ export async function POST(req: NextRequest) {
     }
     if (roundId === null) throw new Error("RoundStarted not found in receipt");
 
-    const rawLetters = await publicClient.readContract({
-      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "getLetters", args: [roundId],
-    }) as readonly `0x${string}`[];
-    const letters = rawLetters.map((b) => String.fromCharCode(parseInt(b.slice(2), 16))).join("");
+    const letters = await lettersForRound(roundId, player);
 
     return NextResponse.json({
       ok: true,

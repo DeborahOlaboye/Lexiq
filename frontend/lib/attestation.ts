@@ -2,7 +2,7 @@ import "server-only";
 import { createWalletClient, createPublicClient, http, keccak256, encodePacked } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { celo } from "viem/chains";
-import { LEXIQ_ADDRESS } from "./contracts";
+import { LEXIQ_ADDRESS, LEXIQ_ABI, ROUND } from "./contracts";
 
 export const RPC = "https://forno.celo.org";
 
@@ -112,4 +112,34 @@ export async function relayFees() {
     maxFeePerGas: gp + gp / 5n,
     maxPriorityFeePerGas: gp / 10n,
   };
+}
+
+/**
+ * Reads a round's letters, waiting until the node actually has the round.
+ *
+ * `getLetters` on a round that does not exist does not revert — it derives from a zeroed
+ * struct and returns letters that look entirely plausible. A public RPC is load balanced, so
+ * a read issued right after a receipt can land on a node a block or two behind and hand back
+ * those phantom letters, which the player then plays and cannot possibly score against.
+ * Confirm the round is really there before trusting them.
+ */
+export async function lettersForRound(
+  roundId: bigint, expectedPlayer: `0x${string}`, attempts = 10,
+): Promise<string> {
+  for (let i = 0; i < attempts; i++) {
+    const round = await publicClient.readContract({
+      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "getRound", args: [roundId],
+    }) as readonly unknown[];
+
+    if ((round[ROUND.player] as string).toLowerCase() === expectedPlayer.toLowerCase()) {
+      const raw = await publicClient.readContract({
+        address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "getLetters", args: [roundId],
+      }) as readonly `0x${string}`[];
+      const letters = raw.map((b) => String.fromCharCode(parseInt(b.slice(2), 16))).join("");
+      // A zeroed struct still yields seven letters, so re-check rather than trust the shape.
+      if (/^[A-Z]{7}$/.test(letters)) return letters;
+    }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  throw new Error(`round ${roundId} not visible on-chain after ${attempts} attempts`);
 }

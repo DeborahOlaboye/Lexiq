@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ROUND, ROUND_ACTIVE, LANG_BY_ID } from "@/lib/contracts";
-import { publicClient, relayerWallet, signScore, relayFees, nowSeconds } from "@/lib/attestation";
+import { publicClient, relayerWallet, signScore, relayFees, nowSeconds, lettersForRound } from "@/lib/attestation";
 import { getServerAttributionTag } from "@/lib/attribution";
 import { verifyPlayToken } from "@/lib/playtoken";
 import { acceptWords } from "@/lib/wordlist";
@@ -56,12 +56,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Round expired" }, { status: 410 });
     }
 
-    const rawLetters = await publicClient.readContract({
-      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "getLetters", args: [roundId],
-    }) as readonly `0x${string}`[];
-    const letters = rawLetters
-      .map((b) => String.fromCharCode(parseInt(b.slice(2), 16)))
-      .join("");
+    const letters = await lettersForRound(roundId, player);
 
     const accepted = acceptWords(submitted, letters, lang, MAX_WORDS);
     const score = scoreWords(accepted);
