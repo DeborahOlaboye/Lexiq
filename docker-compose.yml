@@ -11,8 +11,12 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_PRIVY_APP_ID: ${NEXT_PUBLIC_PRIVY_APP_ID}
+        NEXT_PUBLIC_LEXIQ_ADDRESS: ${NEXT_PUBLIC_LEXIQ_ADDRESS}
     restart: unless-stopped
     env_file: .env.production
+    environment:
+      # lib/redis.ts reads REDIS_URL; the compose service is reachable by its name.
+      REDIS_URL: redis://redis:6379
     ports:
       - "3000:3000"
     depends_on:
