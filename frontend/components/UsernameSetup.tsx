@@ -3,7 +3,29 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { saveUsername } from "@/lib/player";
 
-export default function UsernameSetup({ onDone }: { onDone: (name?: string) => void }) {
+/**
+ * Sign-up screen, shared by the guest and connected flows so both see the same thing.
+ *
+ * A guest's name is device-local, so skipping is harmless and they can play immediately.
+ * A connected wallet is a persistent identity that owns rounds on-chain, so that flow
+ * saves to the server first and does not offer a skip — hence `allowSkip` and `onSubmit`.
+ */
+export default function UsernameSetup({
+  onDone,
+  onSubmit,
+  allowSkip = true,
+  subtitle,
+  busy = false,
+  externalError,
+}: {
+  onDone: (name?: string) => void;
+  /** Return false to keep the screen open (e.g. the save failed). */
+  onSubmit?: (name: string) => Promise<boolean> | boolean;
+  allowSkip?: boolean;
+  subtitle?: React.ReactNode;
+  busy?: boolean;
+  externalError?: string | null;
+}) {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
 
@@ -13,11 +35,18 @@ export default function UsernameSetup({ onDone }: { onDone: (name?: string) => v
     setError("");
   }
 
-  function handleContinue() {
+  async function handleContinue() {
+    if (busy) return;
     const name = draft.trim();
     if (!name) { setError("Pick a username to continue"); return; }
     if (name.length < 2) { setError("At least 2 characters"); return; }
-    saveUsername(name);
+
+    if (onSubmit) {
+      const ok = await onSubmit(name);
+      if (!ok) return; // caller surfaces the reason via externalError
+    } else {
+      saveUsername(name);
+    }
     onDone(name);
   }
 
@@ -40,7 +69,7 @@ export default function UsernameSetup({ onDone }: { onDone: (name?: string) => v
           What should we call you?
         </h1>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "#9A8C77", margin: "0 0 28px", lineHeight: 1.5 }}>
-          This is how you appear on the leaderboard.<br />You can always change it later.
+          {subtitle ?? <>This is how you appear on the leaderboard.<br />You can always change it later.</>}
         </p>
 
         <div style={{ marginBottom: 16 }}>
@@ -53,30 +82,32 @@ export default function UsernameSetup({ onDone }: { onDone: (name?: string) => v
             maxLength={16}
             style={{ width: "100%", background: "#15110D", border: error ? "1px solid rgba(255,91,69,.6)" : "1px solid var(--line2)", borderRadius: 13, padding: "14px 16px", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, letterSpacing: "0.04em", color: "#F5EFE2", outline: "none", textAlign: "center", boxSizing: "border-box" }}
           />
-          {error && <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45", marginTop: 6, marginBottom: 0 }}>{error}</p>}
-          {!error && <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", marginTop: 6, marginBottom: 0 }}>
+          {(error || externalError) && <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45", marginTop: 6, marginBottom: 0 }}>{error || externalError}</p>}
+          {!error && !externalError && <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", marginTop: 6, marginBottom: 0 }}>
             Letters, numbers, underscores · {16 - draft.length} chars left
           </p>}
         </div>
 
         <motion.button
           onClick={handleContinue}
-          disabled={draft.length < 2}
+          disabled={draft.length < 2 || busy}
           animate={draft.length >= 2 ? { boxShadow: ["0 5px 0 #A9C931", "0 5px 20px rgba(207,233,75,.5)", "0 5px 0 #A9C931"] } : {}}
           transition={draft.length >= 2 ? { duration: 1.8, repeat: Infinity, ease: "easeInOut" } : {}}
           whileHover={draft.length >= 2 ? { scale: 1.02, y: -2 } : undefined}
           whileTap={draft.length >= 2 ? { scale: 0.97 } : undefined}
           style={{ width: "100%", padding: "15px", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, cursor: draft.length < 2 ? "default" : "pointer", opacity: draft.length < 2 ? 0.35 : 1, marginBottom: 12 }}
         >
-          Continue →
+          {busy ? "Saving…" : "Continue →"}
         </motion.button>
 
-        <button
-          onClick={() => onDone()}
-          style={{ background: "none", border: "none", fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557", cursor: "pointer", padding: "4px 8px" }}
-        >
-          Skip for now
-        </button>
+        {allowSkip && (
+          <button
+            onClick={() => onDone()}
+            style={{ background: "none", border: "none", fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557", cursor: "pointer", padding: "4px 8px" }}
+          >
+            Skip for now
+          </button>
+        )}
       </motion.div>
     </div>
   );

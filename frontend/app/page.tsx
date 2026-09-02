@@ -17,6 +17,7 @@ import UsernameSetup from "@/components/UsernameSetup";
 import LegalLinks from "@/components/LegalLinks";
 import { getStoredUsername, getRankTitle, getLevel, getXP, getLocalStreak } from "@/lib/player";
 import { isMiniPay } from "@/lib/minipay";
+import { useProfile } from "@/hooks/useProfile";
 import type { Lang } from "@/lib/guestLetters";
 
 type View = "lobby" | "game" | "leaderboard";
@@ -64,6 +65,9 @@ export default function Home() {
     const t = setTimeout(() => setConnectTimedOut(true), 6000);
     return () => clearTimeout(t);
   }, [inMiniPay, wagmiConnected]);
+
+  // Wallet-keyed identity. Gates the connected flow behind sign-up.
+  const profile = useProfile(address);
 
   const [view, setView]             = useState<View>("lobby");
   const [activeRoundId, setActiveRoundId] = useState<bigint | null>(null);
@@ -207,6 +211,24 @@ export default function Home() {
 
   // ── LANDING ─────────────────────────────────────────────────────────────────
   if (!isConnected) return <Landing onGuestPlay={handleGuestPlay} onConnect={login} />;
+
+  // ── SIGN UP ─────────────────────────────────────────────────────────────────
+  // Same screen a guest sees, so both flows look identical. The difference is storage:
+  // a guest's name is a device cookie, a connected wallet's is saved server-side against
+  // the address, so it survives reinstalls and follows the player across devices.
+  // No skip here — a wallet that owns rounds on-chain should carry a name on the board.
+  if (profile.needsSignUp) {
+    return (
+      <UsernameSetup
+        allowSkip={false}
+        busy={profile.saving}
+        externalError={profile.error}
+        subtitle={<>Pick a name to play under.<br />This is how you appear on the leaderboard.</>}
+        onSubmit={profile.setUsername}
+        onDone={() => setView("lobby")}
+      />
+    );
+  }
 
   const isWrongChain = chainId !== celo.id;
 
