@@ -23,7 +23,7 @@ function normalize(raw: string | null): string | null {
 }
 
 /** Same rules the sign-up input enforces, applied again server-side. */
-export function cleanUsername(raw: unknown): string | null {
+function cleanUsername(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const name = raw.trim().replace(/[^a-zA-Z0-9_]/g, "").slice(0, 16);
   return name.length >= 2 ? name : null;

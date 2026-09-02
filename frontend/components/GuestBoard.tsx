@@ -2,10 +2,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { isValidWord } from "@/lib/dictionary";
-import { scoreWord } from "@/lib/contracts";
+import { scoreWord, MIN_WORD_LENGTH } from "@/lib/scoring";
 import { generateGuestLetters, type Lang } from "@/lib/guestLetters";
-import { getGuestId, getStoredUsername, displayName, getSelectedSkin, SKINS, recordPlay, getRankTitle, getLevel, getXP } from "@/lib/player";
-import { submitScore } from "@/hooks/usePlayerStreak";
+import { getGuestId, getStoredUsername, displayName, getSelectedSkin, SKINS, recordPlay, getRankTitle, getXP, addXP } from "@/lib/player";
 import ShareCard from "./ShareCard";
 
 const LINE  = "1px solid var(--line)";
@@ -99,7 +98,9 @@ export default function GuestBoard({
     if (phase !== "done" || submitted || !guestId) return;
     const myScore = words.reduce((s, w) => s + w.pts, 0);
     setSubmitted(true);
-    submitScore({ playerId: guestId, username: getStoredUsername() ?? displayName(), score: myScore });
+    // Guests are deliberately absent from the leaderboard — it is wallet-only, so signing
+    // in is what puts you on the board. XP still accrues locally so ranks move in guest mode.
+    addXP(myScore);
     const { count } = recordPlay();
     setStreak(count);
 
@@ -132,7 +133,7 @@ export default function GuestBoard({
   // Debounced dictionary check
   useEffect(() => {
     const w = input.trim().toUpperCase();
-    if (w.length < 2 || !canBuild(w, letterStr)) { setWordValid("unchecked"); return; }
+    if (w.length < MIN_WORD_LENGTH || !canBuild(w, letterStr)) { setWordValid("unchecked"); return; }
     setWordValid("unchecked");
     const t = setTimeout(async () => {
       const ok = await isValidWord(w, lang);
@@ -151,12 +152,12 @@ export default function GuestBoard({
   const topWord     = sortedWords[0];
   const beatBest    = myScore > bestScore && bestScore > 0;
   const progressPct = bestScore > 0 ? Math.min(100, Math.round((myScore / bestScore) * 100)) : 0;
-  const rankTitle   = typeof window !== "undefined" ? getRankTitle(getLevel(getXP())) : "Rookie";
+  const rankTitle   = typeof window !== "undefined" ? getRankTitle(getXP()) : "Rookie";
 
   const submitWord = useCallback(() => {
     if (!isActive) return;
     const word = input.trim().toUpperCase();
-    if (word.length < 2 || !canBuild(word, letterStr) || words.find(w => w.word === word) || wordValid !== "valid") return;
+    if (word.length < MIN_WORD_LENGTH || !canBuild(word, letterStr) || words.find(w => w.word === word) || wordValid !== "valid") return;
     const pts = scoreWord(word);
     setWords(prev => [...prev, { word, pts }]);
     setInput("");
@@ -544,7 +545,7 @@ export default function GuestBoard({
                   style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}>⌫</motion.button>
               </div>
               <AnimatePresence mode="wait">
-                {input.length >= 2 && wordValid !== "unchecked" && (
+                {input.length >= MIN_WORD_LENGTH && wordValid !== "unchecked" && (
                   <motion.div key={wordValid} initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.18 }}
                     style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginBottom: 6, paddingLeft: 4, color: wordValid === "valid" ? "#CFE94B" : "#FF5B45" }}>
                     {wordValid === "valid" ? "✓ Valid word" : "✗ Not in dictionary"}
@@ -552,7 +553,7 @@ export default function GuestBoard({
                 )}
               </AnimatePresence>
               {(() => {
-                const submitDisabled = input.length < 2 || !canBuild(input, letterStr) || !!words.find(w => w.word === input) || wordValid !== "valid";
+                const submitDisabled = input.length < MIN_WORD_LENGTH || !canBuild(input, letterStr) || !!words.find(w => w.word === input) || wordValid !== "valid";
                 return (
                   <motion.button onClick={submitWord} disabled={submitDisabled}
                     animate={!submitDisabled ? { boxShadow: ["0 5px 0 #A9C931", "0 5px 22px rgba(207,233,75,0.55)", "0 5px 0 #A9C931"] } : { boxShadow: "none" }}
@@ -560,7 +561,7 @@ export default function GuestBoard({
                     whileHover={!submitDisabled ? { scale: 1.02, y: -2 } : undefined}
                     whileTap={!submitDisabled ? { scale: 0.97 } : undefined}
                     style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: submitDisabled ? "default" : "pointer", opacity: submitDisabled ? 0.4 : 1 }}>
-                    {wordValid === "invalid" ? "Not a word" : input.length >= 2 && canBuild(input, letterStr) && scoreWord(input) > 0 ? `Submit  +${scoreWord(input)}` : "Submit"}
+                    {wordValid === "invalid" ? "Not a word" : input.length >= MIN_WORD_LENGTH && canBuild(input, letterStr) && scoreWord(input) > 0 ? `Submit  +${scoreWord(input)}` : "Submit"}
                   </motion.button>
                 );
               })()}

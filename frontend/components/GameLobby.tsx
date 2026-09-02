@@ -1,13 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useGasPrice } from "wagmi";
 import { parseUnits } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ERC20_ABI, USDM_ADDRESS } from "@/lib/contracts";
 import { celoFee, addCashDeeplink } from "@/lib/minipay";
+import { useFeeCurrency } from "@/hooks/useFeeCurrency";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlayerStreak } from "@/hooks/usePlayerStreak";
 import UsernamePrompt from "./UsernamePrompt";
-import { getXP, getLevel, getRankTitle, SKINS, getSelectedSkin, saveSkin } from "@/lib/player";
+import { getLevel, getRankTitle, getRankProgress, SKINS, getSelectedSkin, saveSkin } from "@/lib/player";
+import { usePlayerPoints } from "@/hooks/usePlayerPoints";
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
 
@@ -55,11 +57,13 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   const { streak, longestStreak, lastPlayedToday } = usePlayerStreak(address ?? undefined);
   const [stake, setStake]             = useState("");
   const [selectedSkinId, setSelectedSkinId] = useState(() => typeof window !== "undefined" ? getSelectedSkin().id : "classic");
-  const xp       = typeof window !== "undefined" ? getXP() : 0;
-  const level    = getLevel(xp);
-  const rankTitle = getRankTitle(level);
-  const xpProgress = (xp % 60) / 60 * 100;
+  const points     = usePlayerPoints();
+  const level      = getLevel(points);
+  const rankTitle  = getRankTitle(points);
+  const rankAhead  = getRankProgress(points);
+  const xpProgress = rankAhead.percent;
   const [stakeError, setStakeError]   = useState<string | null>(null);
+  const [relayError, setRelayError]   = useState<string | null>(null);
   const [status, setStatus]           = useState<string | null>(null);
   const [pendingStake, setPendingStake] = useState(0n);
   const [showStake, setShowStake]     = useState(false);
@@ -68,6 +72,10 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   // Challenge: enter a round ID from a friend
   const [challengeId, setChallengeId] = useState("");
   const [showChallenge, setShowChallenge] = useState(false);
+
+  const { data: gasPrice } = useGasPrice({ chainId: 42220 });
+  // Charge fees against whichever stablecoin the player actually holds.
+  const fee = useFeeCurrency(address, gasPrice);
 
   const { data: usdmBalance } = useReadContract({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined });
   const { data: prizePool } = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "weeklyPrizePool" });
@@ -92,6 +100,9 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   // USDm is needed for the stake only. The network fee is paid in whatever stablecoin the
   // wallet holds — MiniPay chooses it — so a zero USDm balance does not block a free round.
   const insufficientBalance = stakeBN > 0n && usdmBalance !== undefined && stakeBN > (usdmBalance as bigint);
+  // Only the staked path costs the player gas (approve + startRound). Free rounds are
+  // relayed end to end, so a zero balance must never block one.
+  const cannotAffordFees = stakeBN > 0n && !fee.loading && !fee.canAffordRound;
   const busy     = approving || starting;
   const prizeFormatted = prizePool ? (Number(prizePool) / 1e18).toFixed(2) : "—";
 
@@ -102,43 +113,79 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
     else setStakeError(null);
   }
 
+  /**
+   * Free rounds are opened by the relayer, so the player signs nothing and pays nothing.
+   * Staked rounds they send themselves: `transferFrom` needs their approval, and an approval
+   * can only be signed by the key that owns the tokens.
+   */
+  async function startFreeRound() {
+    setStatus("Starting round…");
+    setRelayError(null);
+    try {
+      const res = await fetch("/api/round/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player: address, difficulty }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not start round");
+      setStatus(null);
+      onEnterGame(BigInt(data.roundId));
+    } catch (err) {
+      setStatus(null);
+      setRelayError(friendlyTxError(err));
+    }
+  }
+
+  /** Approve exactly the stake — never unlimited, so the relayer can never pull more. */
+  function approveStake() {
+    const tag = getAttributionTag();
+    setPendingStake(stakeBN);
+    setStatus("Approving USDm…");
+    approve({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "approve", args: [contract, stakeBN], ...celoFee(fee.address), ...(tag ? { dataSuffix: tag } : {}) } as any);
+  }
+
   function handleStart() {
     if (stakeError) return;
-    const tag = getAttributionTag();
-    if (stakeBN > 0n) {
-      setPendingStake(stakeBN);
-      setStatus("Approving USDm…");
-      approve({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "approve", args: [contract, stakeBN], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
-    } else {
-      setStatus("Starting round…");
-      start({ address: contract, abi: LEXIQ_ABI, functionName: "startRound", args: [0n, difficulty], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
-    }
+    if (stakeBN > 0n) approveStake();
+    else startFreeRound();
   }
 
   function handleChallenge() {
-    const id = BigInt(challengeId.trim());
+    if (stakeBN > 0n) { approveStake(); return; }
     const tag = getAttributionTag();
-    if (stakeBN > 0n) {
-      setPendingStake(stakeBN);
-      setStatus("Approving USDm…");
-      approve({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "approve", args: [contract, stakeBN], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
-    } else {
-      setStatus("Accepting challenge…");
-      start({ address: contract, abi: LEXIQ_ABI, functionName: "startChallenge", args: [id, 0n], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
-    }
+    setStatus("Accepting challenge…");
+    start({ address: contract, abi: LEXIQ_ABI, functionName: "startChallenge", args: [BigInt(challengeId.trim()), 0n], ...celoFee(fee.address), ...(tag ? { dataSuffix: tag } : {}) } as any);
   }
 
+  // Once the approval lands, fetch the signed seed and send the staked round.
   useEffect(() => {
-    if (approveOk && pendingStake > 0n && !startTx) {
+    if (!approveOk || pendingStake === 0n || startTx) return;
+    (async () => {
       setStatus("Starting…");
       const tag = getAttributionTag();
-      if (showChallenge && challengeId) {
-        const id = BigInt(challengeId.trim());
-        start({ address: contract, abi: LEXIQ_ABI, functionName: "startChallenge", args: [id, pendingStake], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
-      } else {
-        start({ address: contract, abi: LEXIQ_ABI, functionName: "startRound", args: [pendingStake, difficulty], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
+      try {
+        if (showChallenge && challengeId) {
+          start({ address: contract, abi: LEXIQ_ABI, functionName: "startChallenge", args: [BigInt(challengeId.trim()), pendingStake], ...celoFee(fee.address), ...(tag ? { dataSuffix: tag } : {}) } as any);
+          return;
+        }
+        const res = await fetch("/api/round/seed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ player: address, difficulty }),
+        });
+        const seed = await res.json();
+        if (!res.ok) throw new Error(seed.error ?? "Could not start round");
+        start({
+          address: contract, abi: LEXIQ_ABI, functionName: "startRound",
+          args: [pendingStake, difficulty, seed.seed, BigInt(seed.deadline), seed.signature],
+          ...celoFee(fee.address), ...(tag ? { dataSuffix: tag } : {}),
+        } as any);
+      } catch (err) {
+        setStatus(null);
+        setRelayError(friendlyTxError(err));
       }
-    }
+    })();
   }, [approveOk]); // eslint-disable-line
 
   useEffect(() => {
@@ -201,7 +248,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
               <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: "#CFE94B" }}>Lv {level}</span>
               <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77", padding: "2px 8px", borderRadius: 6, border: "1px solid var(--line)", background: "#1E1710" }}>{rankTitle}</span>
             </div>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557" }}>{xp % 60}/60 XP</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557" }}>{rankAhead.next ? `${rankAhead.remaining} to ${rankAhead.next}` : "Max rank"}</span>
           </div>
           <div style={{ height: 6, borderRadius: 999, background: "#1E1710", overflow: "hidden", border: "1px solid var(--line)" }}>
             <motion.div
@@ -216,14 +263,14 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 8 }}>Tile skin</div>
           <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
             {SKINS.map(s => {
-              const locked = level < s.minLevel;
+              const locked = points < s.minPoints;
               const active = selectedSkinId === s.id;
               return (
                 <motion.button key={s.id}
                   onClick={() => { if (!locked) { saveSkin(s.id); setSelectedSkinId(s.id); } }}
                   whileHover={!locked ? { scale: 1.08 } : undefined}
                   whileTap={!locked ? { scale: 0.94 } : undefined}
-                  title={locked ? `Unlock at Lv ${s.minLevel}` : s.name}
+                  title={locked ? `Unlock at ${s.minPoints} pts` : s.name}
                   style={{ width: 36, height: 40, borderRadius: 8, background: s.bg, border: active ? `2px solid #CFE94B` : `2px solid transparent`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 18, color: s.ink, cursor: locked ? "not-allowed" : "pointer", opacity: locked ? 0.35 : 1, boxShadow: `inset 0 -3px 0 ${s.edge}`, position: "relative" }}>
                   L
                   {locked && <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#9A8C77" }}>🔒</span>}
@@ -294,7 +341,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
         <AnimatePresence mode="wait">
           {!showChallenge ? (
             <motion.div key="play" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <motion.button onClick={handleStart} disabled={busy || !!stakeError || insufficientBalance}
+              <motion.button onClick={handleStart} disabled={busy || !!stakeError || insufficientBalance || cannotAffordFees}
                 animate={!busy && !stakeError && !insufficientBalance ? { boxShadow: ["0 6px 0 #A9C931", "0 6px 24px rgba(207,233,75,0.6)", "0 6px 0 #A9C931"], y: [0, -3, 0] } : { boxShadow: "0 6px 0 #A9C931", y: 0 }}
                 transition={!busy && !stakeError && !insufficientBalance ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" } : {}}
                 whileHover={!busy && !stakeError && !insufficientBalance ? { scale: 1.03, y: -4 } : undefined}
@@ -320,6 +367,13 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
           )}
         </AnimatePresence>
 
+        {cannotAffordFees && !insufficientBalance && (
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45", marginTop: 10, marginBottom: 0, lineHeight: 1.45 }}>
+            Not enough {fee.symbol} to cover this round&apos;s network fees.{" "}
+            <a href={addCashDeeplink(fee.symbol)} target="_blank" rel="noopener noreferrer" style={{ color: "#FF5B45", textDecoration: "underline" }}>Deposit</a>
+          </p>
+        )}
+
         {insufficientBalance && (
           <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45", marginTop: 10, marginBottom: 0, lineHeight: 1.45 }}>
             {stakeBN > 0n
@@ -329,9 +383,9 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
           </p>
         )}
 
-        {txError && !insufficientBalance && (
+        {(txError || relayError) && !insufficientBalance && (
           <p role="alert" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45", marginTop: 10, marginBottom: 0, lineHeight: 1.45, wordBreak: "break-word" }}>
-            {friendlyTxError(txError)}
+            {relayError ?? friendlyTxError(txError)}
           </p>
         )}
 

@@ -1,119 +1,85 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createWalletClient, createPublicClient, http, keccak256, encodePacked } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { celo } from "viem/chains";
+import { decodeEventLog } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
+import { FEE_CURRENCY } from "@/lib/minipay";
+import {
+  publicClient, relayerWallet, relayerAccount, signSeed, signScore, relayFees,
+} from "@/lib/attestation";
 import { getServerAttributionTag } from "@/lib/attribution";
+import { acceptWords } from "@/lib/wordlist";
+import { scoreWords, MAX_WORDS } from "@/lib/scoring";
 import type { Lang } from "@/lib/guestLetters";
-import rawEn from "an-array-of-english-words";
-import rawEs from "an-array-of-spanish-words";
-import rawFr from "an-array-of-french-words";
 
-const SCORE: Record<number, number> = { 2: 1, 3: 2, 4: 3, 5: 5, 6: 8, 7: 11 };
+const START_GAS  = 300_000n;
+const SUBMIT_GAS = 250_000n;
 
-function normalize(w: string): string {
-  return w.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
-}
-function buildDict(raw: unknown): Set<string> {
-  return new Set((raw as string[]).map(normalize).filter(w => /^[A-Z]{2,7}$/.test(w)));
-}
-const DICTS: Record<string, Set<string>> = {
-  en: buildDict(rawEn),
-  es: buildDict(rawEs),
-  fr: buildDict(rawFr),
-};
-
-function randomSalt(): `0x${string}` {
-  const arr = new Uint8Array(32);
-  crypto.getRandomValues(arr);
-  return `0x${Array.from(arr, b => b.toString(16).padStart(2, "0")).join("")}` as `0x${string}`;
-}
-
-function hashWord(word: string, salt: `0x${string}`): `0x${string}` {
-  return keccak256(encodePacked(["string", "bytes32"], [word.toUpperCase(), salt]));
-}
-
-const RPC = "https://forno.celo.org";
-
+/**
+ * Guest rounds. A guest has no wallet, so the relayer plays as itself — these rounds carry
+ * no stake and never reach the leaderboard, which is wallet-only. They still settle on-chain
+ * so guest play counts toward the app's attributed transaction volume.
+ */
 export async function POST(req: NextRequest) {
-  const pk = process.env.RELAYER_PRIVATE_KEY as `0x${string}` | undefined;
-  if (!pk) return NextResponse.json({ error: "Relay not configured" }, { status: 503 });
-
   let body: { words?: string[]; difficulty?: number; lang?: Lang };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
-  const rawWords: string[] = (body.words ?? []).map(w => normalize(w));
-  const difficulty: 0 | 1 | 2 = ([0, 1, 2].includes(body.difficulty ?? -1) ? body.difficulty : 1) as 0 | 1 | 2;
+  const difficulty = [0, 1, 2].includes(body.difficulty ?? -1) ? body.difficulty! : 1;
   const lang: Lang = (["en", "es", "fr"].includes(body.lang ?? "") ? body.lang : "en") as Lang;
-
-  // Server-side validation — dedupe and check dictionary
-  const dict = DICTS[lang] ?? DICTS.en;
-  const seen = new Set<string>();
-  const validWords = rawWords.filter(w => dict.has(w) && !seen.has(w) && seen.add(w));
-  if (validWords.length === 0) return NextResponse.json({ error: "No valid words" }, { status: 400 });
-
-  const account = privateKeyToAccount(pk);
-  const walletClient = createWalletClient({ account, chain: celo, transport: http(RPC) });
-  const publicClient = createPublicClient({ chain: celo, transport: http(RPC) });
-
-  // Fetch a fresh gas price before each write so it always clears the current block base fee
-  async function freshGasPrice() {
-    const gp = await publicClient.getGasPrice();
-    return gp + gp / 5n; // +20% buffer — enough to clear base fee without bloating the simulation cost
-  }
-
-  // ERC-8021 suffix, same code the browser attaches to user-signed writes. Relayed guest
-  // rounds are most of Lexiq's on-chain volume, so leaving these untagged undercounts the
-  // app's ecosystem impact. Costs a few hundred gas; the limits below already have headroom.
-  const tag = getServerAttributionTag();
-  const suffix = tag ? { dataSuffix: tag } : {};
+  const submitted = Array.isArray(body.words) ? body.words.slice(0, 100) : [];
+  if (submitted.length === 0) return NextResponse.json({ error: "No words" }, { status: 400 });
 
   try {
-    // 1. Simulate startRound to get the roundId before writing
-    const { result: roundId } = await publicClient.simulateContract({
-      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startRound",
-      args: [0n, difficulty], account,
-    });
+    const player = relayerAccount().address;
+    const wallet = relayerWallet();
+    const tag = getServerAttributionTag();
+    const suffix = tag ? { dataSuffix: tag } : {};
 
-    // 2. Submit startRound — actual gas usage on Celo L2 is ~157k; 250k gives comfortable headroom
-    const startHash = await walletClient.writeContract({
-      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startRound",
-      args: [0n, difficulty], gasPrice: await freshGasPrice(), gas: 250_000n, ...suffix,
+    // 1. Open the round so its letters are fixed on-chain before they are scored.
+    const nonce = await publicClient.readContract({
+      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "roundNonce", args: [player],
+    });
+    const seed = await signSeed(player, nonce as bigint, difficulty);
+
+    const startHash = await wallet.writeContract({
+      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startRoundFor",
+      args: [player, difficulty, seed.seed, seed.deadline, seed.signature],
+      gas: START_GAS, ...(await relayFees(FEE_CURRENCY)), ...suffix,
     });
     const startReceipt = await publicClient.waitForTransactionReceipt({ hash: startHash });
-    if (startReceipt.status === "reverted") throw new Error(`startRound reverted (${startHash})`);
+    if (startReceipt.status === "reverted") throw new Error(`startRoundFor reverted (${startHash})`);
 
-    // 3. commitWords — generate salts server-side so hashes are trustworthy
-    const salts = validWords.map(() => randomSalt());
-    const hashes = validWords.map((w, i) => hashWord(w, salts[i]));
+    let roundId: bigint | null = null;
+    for (const log of startReceipt.logs) {
+      if (log.address.toLowerCase() !== LEXIQ_ADDRESS.toLowerCase()) continue;
+      try {
+        const ev = decodeEventLog({ abi: LEXIQ_ABI, data: log.data, topics: log.topics });
+        if (ev.eventName === "RoundStarted") {
+          roundId = (ev.args as unknown as { roundId: bigint }).roundId;
+          break;
+        }
+      } catch { /* not our event */ }
+    }
+    if (roundId === null) throw new Error("RoundStarted not found in receipt");
 
-    // 80k base + 30k per word — generous headroom for Celo L2 storage writes
-    const commitGas = BigInt(80_000 + validWords.length * 30_000);
+    // 2. Dictionary only — see acceptWords: a guest's letters are generated in the browser
+    //    and will not match the ones this round drew on-chain.
+    const accepted = acceptWords(submitted, null, lang, MAX_WORDS);
+    const score = scoreWords(accepted);
+    const attestation = await signScore(roundId, player, score, accepted.length);
 
-    const commitHash = await walletClient.writeContract({
-      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "commitWords",
-      args: [roundId as bigint, hashes], gasPrice: await freshGasPrice(), gas: commitGas, ...suffix,
+    const submitHash = await wallet.writeContract({
+      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "submitRound",
+      args: [roundId, score, accepted.length, attestation.deadline, attestation.signature],
+      gas: SUBMIT_GAS, ...(await relayFees(FEE_CURRENCY)), ...suffix,
     });
-    const commitReceipt = await publicClient.waitForTransactionReceipt({ hash: commitHash });
-    if (commitReceipt.status === "reverted") throw new Error(`commitWords reverted (${commitHash})`);
+    const submitReceipt = await publicClient.waitForTransactionReceipt({ hash: submitHash });
+    if (submitReceipt.status === "reverted") throw new Error(`submitRound reverted (${submitHash})`);
 
-    // 4. revealWords — 120k base + 40k per word
-    const revealGas = BigInt(120_000 + validWords.length * 40_000);
-
-    const revealHash = await walletClient.writeContract({
-      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "revealWords",
-      args: [roundId as bigint, validWords, salts], gasPrice: await freshGasPrice(), gas: revealGas, ...suffix,
-    });
-    const revealReceipt = await publicClient.waitForTransactionReceipt({ hash: revealHash });
-    if (revealReceipt.status === "reverted") throw new Error(`revealWords reverted (${revealHash})`);
-
-    const score = validWords.reduce((s, w) => s + (SCORE[w.length] ?? 11), 0);
     return NextResponse.json({
       ok: true,
-      roundId: (roundId as bigint).toString(),
+      roundId: roundId.toString(),
       score,
-      wordCount: validWords.length,
-      txHash: revealHash,
+      wordCount: accepted.length,
+      txHash: submitHash,
     });
   } catch (err) {
     console.error("[relay-score]", err);

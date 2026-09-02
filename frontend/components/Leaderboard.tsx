@@ -4,7 +4,7 @@ import { useAccount, useReadContract } from "wagmi";
 import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
 import { motion, AnimatePresence } from "framer-motion";
 import UsernamePrompt from "./UsernamePrompt";
-import { getStoredUsername, getGuestId, getRankTitle, getLevel, ALL_BADGES, getBadges } from "@/lib/player";
+import { getStoredUsername, getRankTitle, getLevel, ALL_BADGES, getBadges } from "@/lib/player";
 
 const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -33,7 +33,8 @@ const SCORING = [
   { label: "7 L+", pts: "11", hot: true  },
 ];
 
-type Row = { playerId: string; username: string; score: number };
+/** `score` is the best single round; `points` is cumulative lifetime, which drives rank. */
+type Row = { playerId: string; username: string; score: number; points: number };
 
 export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
   const { address } = useAccount();
@@ -49,7 +50,7 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
   const { data: myTotal } = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "totalScore", args: address ? [address] : undefined });
   const { data: played }  = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "gamesPlayed",args: address ? [address] : undefined });
 
-  const myPlayerId = address ?? (typeof window !== "undefined" ? getGuestId() : "");
+  const myPlayerId = address ?? "";
   const myBadges   = typeof window !== "undefined" ? getBadges() : [];
 
   async function fetchLeaderboard() {
@@ -121,8 +122,8 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
         const myRank = rows.findIndex(r => r.playerId === myPlayerId || r.playerId.toLowerCase() === (address ?? "").toLowerCase());
         const myRow  = myRank >= 0 ? rows[myRank] : null;
         if (!myRow) return null;
-        const level = getLevel(myRow.score);
-        const rank  = getRankTitle(level);
+        const level = getLevel(myRow.points);
+        const rank  = getRankTitle(myRow.points);
         return (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
             style={{ background: "rgba(207,233,75,.07)", border: "1px solid rgba(207,233,75,.28)", borderRadius: 18, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
@@ -169,7 +170,7 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
           </div>
         ) : (
           <AnimatePresence initial={false}>
-            {rows.map(({ playerId, username: uname, score }, i) => {
+            {rows.map(({ playerId, username: uname, score, points }, i) => {
               const isMe = playerId === myPlayerId || playerId.toLowerCase() === (address ?? "").toLowerCase();
               return (
                 <motion.div key={playerId}
@@ -181,7 +182,7 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
                     <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: isMe ? "#CFE94B" : "#CBC0AE", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {uname}{isMe ? " (you)" : ""}
                     </span>
-                    <RankChip title={getRankTitle(getLevel(score))} />
+                    <RankChip title={getRankTitle(points)} />
                   </div>
                   <motion.span
                     animate={isMe ? { textShadow: ["0 0 0 rgba(207,233,75,0)", "0 0 10px rgba(207,233,75,0.5)", "0 0 0 rgba(207,233,75,0)"] } : {}}

@@ -15,7 +15,8 @@ import StreakBadge from "@/components/StreakBadge";
 import UsernamePrompt from "@/components/UsernamePrompt";
 import UsernameSetup from "@/components/UsernameSetup";
 import LegalLinks from "@/components/LegalLinks";
-import { getStoredUsername, getRankTitle, getLevel, getXP, getLocalStreak } from "@/lib/player";
+import { getStoredUsername, getRankTitle, getXP, getLocalStreak } from "@/lib/player";
+import { usePlayerPoints } from "@/hooks/usePlayerPoints";
 import { isMiniPay } from "@/lib/minipay";
 import { useProfile } from "@/hooks/useProfile";
 import type { Lang } from "@/lib/guestLetters";
@@ -56,6 +57,7 @@ export default function Home() {
     return () => clearInterval(t);
   }, []);
   const isConnected = inMiniPay === true ? wagmiConnected : ready && authenticated;
+  const points = usePlayerPoints();
 
   // Give MiniPay's auto-connect a few seconds before offering guest play as an escape
   // hatch, so a wallet handshake that never resolves can't dead-end the user.
@@ -115,8 +117,7 @@ export default function Home() {
     const lastPlayedToday = lastDate === today;
     const username = typeof window !== "undefined" ? getStoredUsername() : null;
     const xp    = typeof window !== "undefined" ? getXP() : 0;
-    const level = getLevel(xp);
-    const rank  = getRankTitle(level);
+    const rank  = getRankTitle(xp);
 
     return (
       <div className="min-h-dvh bg-ink text-cream font-ui flex flex-col">
@@ -184,7 +185,20 @@ export default function Home() {
                 onLeaderboard={() => setGuestView("leaderboard")}
               />
             )}
-            {guestView === "leaderboard" && <Leaderboard isGuest />}
+            {guestView === "leaderboard" && (
+              <div style={{ background: "#241C13", border: LINE, borderRadius: 18, padding: "clamp(24px,6vw,40px)", textAlign: "center" }}>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,4vw,22px)", marginBottom: 8 }}>
+                  Sign in to compete
+                </div>
+                <p style={{ color: "#9A8C77", fontSize: 14, lineHeight: 1.5, margin: "0 0 20px" }}>
+                  The leaderboard and the weekly prize pool are for signed-in players.
+                  Your guest progress stays on this device.
+                </p>
+                <button onClick={login} style={{ padding: "13px 26px", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
+                  Sign In
+                </button>
+              </div>
+            )}
           </div>
         </main>
 
@@ -244,7 +258,7 @@ export default function Home() {
           <div className="flex items-center gap-2 min-w-0">
             <StreakBadge />
             {(() => {
-              const title = typeof window !== "undefined" ? getRankTitle(getLevel(getXP())) : null;
+              const title = getRankTitle(points);
               return title ? (
                 <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 11, letterSpacing: "0.04em", color: "#15110D", background: "#CFE94B", padding: "6px 10px", borderRadius: 9, flexShrink: 0 }}>
                   {title.toUpperCase()}

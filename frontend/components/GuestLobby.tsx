@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getGuestId, getStoredUsername, getLocalStreak, getXP, getLevel, getRankTitle, getSelectedSkin, saveSkin, SKINS } from "@/lib/player";
+import { getGuestId, getStoredUsername, getLocalStreak, getXP, getLevel, getRankTitle, getRankProgress, getSelectedSkin, saveSkin, SKINS } from "@/lib/player";
 import type { Lang } from "@/lib/guestLetters";
 import UsernamePrompt from "./UsernamePrompt";
 
@@ -44,10 +44,9 @@ export default function GuestLobby({
 
   const xp       = typeof window !== "undefined" ? getXP() : 0;
   const level    = getLevel(xp);
-  const xpPerLv  = 60;
-  const xpInLv   = xp % xpPerLv;
-  const xpToNext = xpPerLv - xpInLv;
-  const xpPct    = Math.round((xpInLv / xpPerLv) * 100);
+  const ahead    = getRankProgress(xp);
+  const xpToNext = ahead.remaining;
+  const xpPct    = ahead.percent;
 
   const [difficulty, setDifficulty] = useState<0 | 1 | 2>(1);
   const [showDiff, setShowDiff]     = useState(false);
@@ -75,7 +74,7 @@ export default function GuestLobby({
   function pickSkin(id: string) {
     const sk = SKINS.find(s => s.id === id);
     if (!sk) return;
-    if (sk.minLevel > level) return; // locked
+    if (sk.minPoints > xp) return; // locked
     saveSkin(id);
     setSelectedSkinId(id);
   }
@@ -224,7 +223,7 @@ export default function GuestLobby({
       <motion.div {...fadeUp(0.18)} style={{ background: "#241C13", border: LINE, borderRadius: 16, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 16 }}>
-            Level {level} · <span style={{ color: "#CFE94B" }}>{getRankTitle(level)}</span>
+            Level {level} · <span style={{ color: "#CFE94B" }}>{getRankTitle(xp)}</span>
           </div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#9A8C77" }}>{xpToNext} XP to next</div>
         </div>
@@ -239,18 +238,18 @@ export default function GuestLobby({
         {/* Skin picker */}
         <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
           {SKINS.map(sk => {
-            const locked   = sk.minLevel > level;
+            const locked   = sk.minPoints > xp;
             const selected = sk.id === selectedSkinId;
             return (
               <motion.button key={sk.id}
                 onClick={() => pickSkin(sk.id)}
                 whileHover={!locked ? { scale: 1.05 } : undefined}
                 whileTap={!locked ? { scale: 0.96 } : undefined}
-                title={locked ? `Unlock at Level ${sk.minLevel}` : sk.name}
+                title={locked ? `Unlock at ${sk.minPoints} pts` : sk.name}
                 style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 12px", borderRadius: 11, cursor: locked ? "not-allowed" : "pointer", background: "#1E1710", border: selected ? "1px solid #CFE94B" : LINE, opacity: locked ? 0.4 : 1 }}>
                 <span style={{ width: 16, height: 16, borderRadius: 4, background: sk.bg, boxShadow: `inset 0 -2px 0 ${sk.edge}`, display: "inline-block", flexShrink: 0 }} />
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: selected ? "#CFE94B" : "#CBC0AE" }}>{sk.name}</span>
-                {locked && <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557" }}>Lv{sk.minLevel}</span>}
+                {locked && <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557" }}>{sk.minPoints}p</span>}
               </motion.button>
             );
           })}

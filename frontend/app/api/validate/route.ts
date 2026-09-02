@@ -1,31 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import rawEn from "an-array-of-english-words";
-import rawEs from "an-array-of-spanish-words";
-import rawFr from "an-array-of-french-words";
+import { isWord } from "@/lib/wordlist";
+import type { Lang } from "@/lib/guestLetters";
 
-// Strip diacritics and upper-case: "école" → "ECOLE"
-function normalize(w: string): string {
-  return w.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
-}
-
-function buildSet(raw: unknown): Set<string> {
-  return new Set(
-    (raw as string[])
-      .map(normalize)
-      .filter((w) => /^[A-Z]{2,7}$/.test(w))
-  );
-}
-
-const SETS: Record<string, Set<string>> = {
-  en: buildSet(rawEn),
-  es: buildSet(rawEs),
-  fr: buildSet(rawFr),
-};
-
+/**
+ * Live check as a player types. Shares the dictionary with the scoring path so the board can
+ * never accept a word the server would later refuse — including the minimum word length.
+ */
 export function GET(req: NextRequest) {
   const word = req.nextUrl.searchParams.get("w");
-  const lang = req.nextUrl.searchParams.get("lang") ?? "en";
+  const lang = (req.nextUrl.searchParams.get("lang") ?? "en") as Lang;
   if (!word) return NextResponse.json({ valid: false });
-  const set = SETS[lang] ?? SETS.en;
-  return NextResponse.json({ valid: set.has(word.toUpperCase()) });
+  return NextResponse.json({ valid: isWord(word, lang) });
 }

@@ -73,6 +73,14 @@ export function recordPlay(): StreakData {
 
 // ── XP / Level / Rank ───────────────────────────────────────────────────────
 
+/**
+ * Rank and level are driven by *cumulative lifetime points*. For signed-in players that is
+ * the contract's totalScore; guests accumulate locally in a cookie.
+ *
+ * The previous curve divided a single round's score by 60, so leaving Rookie needed a 60
+ * point round — while addXP() was never called from anywhere, leaving the cookie at zero
+ * forever. Between them, every player was permanently Rookie.
+ */
 export function getXP(): number {
   return parseInt(getCookie("lx_xp") || "0", 10) || 0;
 }
@@ -83,33 +91,48 @@ export function addXP(pts: number): number {
   return next;
 }
 
-export function getLevel(xp?: number): number {
-  return Math.floor((xp ?? getXP()) / 60) + 1;
+/** Ticks over roughly once a round, so progress is visible immediately. */
+export function getLevel(points: number): number {
+  return Math.floor(Math.max(0, points) / 100) + 1;
 }
 
-const TITLES = [
-  { minLevel: 7, name: "Legend"   },
-  { minLevel: 5, name: "Ultimate" },
-  { minLevel: 4, name: "Master"   },
-  { minLevel: 3, name: "Ace"      },
-  { minLevel: 2, name: "Wordsmith"},
-  { minLevel: 1, name: "Rookie"   },
-];
+const RANKS = [
+  { min: 5000, name: "Legend"    },
+  { min: 2500, name: "Ultimate"  },
+  { min: 1200, name: "Master"    },
+  { min:  500, name: "Ace"       },
+  { min:  150, name: "Wordsmith" },
+  { min:    0, name: "Rookie"    },
+] as const;
 
-export function getRankTitle(level?: number): string {
-  const lv = level ?? getLevel();
-  return TITLES.find(t => t.minLevel <= lv)?.name ?? "Rookie";
+export function getRankTitle(points: number): string {
+  return RANKS.find((r) => points >= r.min)?.name ?? "Rookie";
+}
+
+/** Points still needed for the next rank, and how far through the current one you are. */
+export function getRankProgress(points: number): { next: string | null; remaining: number; percent: number } {
+  const idx = RANKS.findIndex((r) => points >= r.min);
+  if (idx <= 0) return { next: null, remaining: 0, percent: 100 }; // already Legend
+  const current = RANKS[idx];
+  const next    = RANKS[idx - 1];
+  const span    = next.min - current.min;
+  return {
+    next: next.name,
+    remaining: next.min - points,
+    percent: Math.min(100, Math.round(((points - current.min) / span) * 100)),
+  };
 }
 
 // ── Tile skins ───────────────────────────────────────────────────────────────
 
-export type Skin = { id: string; name: string; minLevel: number; bg: string; ink: string; edge: string };
+/** `minPoints` matches the rank thresholds, so a skin unlocks exactly when a rank does. */
+export type Skin = { id: string; name: string; minPoints: number; bg: string; ink: string; edge: string };
 
 export const SKINS: Skin[] = [
-  { id: "classic", name: "Classic", minLevel: 1, bg: "#F3ECDB", ink: "#2A2017", edge: "#CFC1A6" },
-  { id: "coral",   name: "Coral",   minLevel: 2, bg: "#FF5B45", ink: "#fff",    edge: "#E2402A" },
-  { id: "slate",   name: "Slate",   minLevel: 3, bg: "#2A2F3A", ink: "#EDEFF3", edge: "#151922" },
-  { id: "gold",    name: "Gold",    minLevel: 5, bg: "#F4C84B", ink: "#3c2e05", edge: "#C9992C" },
+  { id: "classic", name: "Classic", minPoints:    0, bg: "#F3ECDB", ink: "#2A2017", edge: "#CFC1A6" },
+  { id: "coral",   name: "Coral",   minPoints:  150, bg: "#FF5B45", ink: "#fff",    edge: "#E2402A" },
+  { id: "slate",   name: "Slate",   minPoints:  500, bg: "#2A2F3A", ink: "#EDEFF3", edge: "#151922" },
+  { id: "gold",    name: "Gold",    minPoints: 1200, bg: "#F4C84B", ink: "#3c2e05", edge: "#C9992C" },
 ];
 
 export function getSelectedSkin(): Skin {

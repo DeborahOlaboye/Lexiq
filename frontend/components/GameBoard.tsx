@@ -1,10 +1,12 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useAccount, useReadContract } from "wagmi";
+import { useAccount, useReadContract, useGasPrice } from "wagmi";
 import { writeContract, waitForTransactionReceipt } from "@wagmi/core";
 import { keccak256, encodePacked } from "viem";
-import { LEXIQ_ADDRESS, LEXIQ_ABI, scoreWord } from "@/lib/contracts";
+import { LEXIQ_ADDRESS, LEXIQ_ABI, ROUND, ROUND_FINISHED } from "@/lib/contracts";
+import { scoreWord, MIN_WORD_LENGTH } from "@/lib/scoring";
 import { celoFee } from "@/lib/minipay";
+import { useFeeCurrency } from "@/hooks/useFeeCurrency";
 import { wagmiConfig } from "@/lib/wagmi";
 import { isValidWord, validateWords } from "@/lib/dictionary";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,6 +14,10 @@ import { getStoredUsername, displayName, getSelectedSkin, SKINS } from "@/lib/pl
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
 import { submitScore } from "@/hooks/usePlayerStreak";
+
+/** Seconds per difficulty, mirroring roundDuration() in Lexiq.sol. The timer used to be
+ *  hardcoded to 90s, so picking Easy or Hard changed nothing on the clock. */
+const DURATION: Record<number, number> = { 0: 120, 1: 90, 2: 60 };
 
 const LINE = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -59,6 +65,9 @@ export default function GameBoard({
   onLeaderboard: () => void;
 }) {
   const { address } = useAccount();
+  const { data: gasPrice } = useGasPrice({ chainId: 42220 });
+  // Same stablecoin the lobby charged the round against.
+  const fee = useFeeCurrency(address, gasPrice);
   const contract = LEXIQ_ADDRESS;
   const [input, setInput] = useState("");
   const [words, setWords] = useState<WordEntry[]>([]);
@@ -115,7 +124,7 @@ export default function GameBoard({
   // Debounced async dictionary check whenever input changes
   useEffect(() => {
     const w = input.trim().toUpperCase();
-    if (w.length < 2 || !canBuild(w, letterStr)) { setWordValid("unchecked"); return; }
+    if (w.length < MIN_WORD_LENGTH || !canBuild(w, letterStr)) { setWordValid("unchecked"); return; }
     setWordValid("unchecked");
     const t = setTimeout(async () => {
       const ok = await isValidWord(w, lang);
@@ -126,69 +135,51 @@ export default function GameBoard({
 
   useEffect(() => {
     if (!round) return;
-    if ((round as readonly unknown[])[5] === 1) setPhase("done");
+    if (Number((round as readonly unknown[])[ROUND.state]) === ROUND_FINISHED) setPhase("done");
   }, [round]);
 
   useEffect(() => {
     if (phase !== "active" || !round) return;
-    const startedAt = Number((round as readonly unknown[])[2]);
-    const end = startedAt + 90;
+    const r = round as readonly unknown[];
+    const startedAt = Number(r[ROUND.startedAt]);
+    const end = startedAt + DURATION[Number(r[ROUND.difficulty])];
     const tick = () => setTimeLeft(Math.max(0, end - Math.floor(Date.now() / 1000)));
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [phase, round]);
 
-  // Single tap: commit all words then reveal
+  /**
+   * One relayed call. The server re-checks every word against the dictionary and the round's
+   * letters, scores it, and signs the result for the contract — so this sends words, not a
+   * score, and the player signs nothing and pays nothing.
+   */
   async function doSubmit() {
     if (!roundId || submitting || words.length === 0) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
-      // Re-validate every word against the dictionary before touching the chain.
-      // This catches anything that slipped in while the debounce was in-flight.
-      setSubmitProgress("Checking words…");
-      const validSet = await validateWords(words.map((w) => w.word), lang);
-      const validWords = words.filter((w) => validSet.has(w.word.toUpperCase()));
-      if (validWords.length === 0) {
-        setSubmitError("No valid dictionary words to submit.");
-        setSubmitProgress(null);
-        setSubmitting(false);
-        return;
-      }
-      // Use only validated words from here on
-      const wordsToSubmit = validWords;
-
-      // Step 1 — commit all hashes in one tx (no time restriction on new contract)
-      setSubmitProgress(`Committing ${wordsToSubmit.length} word${wordsToSubmit.length !== 1 ? "s" : ""}…`);
-      const hashes = wordsToSubmit.map((w) => hashWord(w.word, w.salt));
-      const tag = getAttributionTag();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const commitHash = await (writeContract as any)(wagmiConfig, {
-        address: contract, abi: LEXIQ_ABI, functionName: "commitWords",
-        args: [roundId, hashes],
-        ...celoFee(),
-        ...(tag ? { dataSuffix: tag } : {}),
+      setSubmitProgress("Scoring your words…");
+      const res = await fetch("/api/round/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roundId: roundId.toString(), words: words.map((w) => w.word), lang }),
       });
-      await waitForTransactionReceipt(wagmiConfig, { hash: commitHash });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not submit round");
 
-      // Step 2 — reveal
-      setSubmitProgress("Revealing…");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const revealHash = await (writeContract as any)(wagmiConfig, {
-        address: contract, abi: LEXIQ_ABI, functionName: "revealWords",
-        args: [roundId, wordsToSubmit.map((w) => w.word), wordsToSubmit.map((w) => w.salt)],
-        ...celoFee(),
-        ...(tag ? { dataSuffix: tag } : {}),
-      });
-      await waitForTransactionReceipt(wagmiConfig, { hash: revealHash });
       setSubmitProgress(null);
-      // Submit to shared leaderboard (username, score)
-      const finalPts = validWords.reduce((s, w) => s + w.pts, 0);
-      if (address) submitScore({ playerId: address, username: getStoredUsername() ?? displayName(address), score: finalPts });
+      if (address) {
+        submitScore({
+          playerId: address,
+          username: getStoredUsername() ?? displayName(address),
+          score: data.score,
+        });
+      }
       setTimeout(() => refetch(), 1000);
-    } catch {
-      setSubmitError("Transaction failed — tap to retry.");
+    } catch (err) {
+      const msg = (err as Error)?.message;
+      setSubmitError(msg && msg.length < 120 ? msg : "Could not submit — tap to retry.");
       setSubmitProgress(null);
     } finally {
       setSubmitting(false);
@@ -210,7 +201,7 @@ export default function GameBoard({
   const submitWord = useCallback(() => {
     if (!isActive || !roundId) return;
     const word = input.trim().toUpperCase();
-    if (word.length < 2 || !canBuild(word, letterStr) || words.find((w) => w.word === word) || wordValid !== "valid") return;
+    if (word.length < MIN_WORD_LENGTH || !canBuild(word, letterStr) || words.find((w) => w.word === word) || wordValid !== "valid") return;
     const salt = randomSalt();
     const pts = scoreWord(word);
     setWords((prev) => [...prev, { word, salt, pts }]);
@@ -259,9 +250,10 @@ export default function GameBoard({
     </div>
   );
 
-  const [,, , , finalScore, state, stake] = round as unknown as [
-    `0x${string}`, `0x${string}`, number, number, number, number, bigint, number
-  ];
+  const r          = round as readonly unknown[];
+  const finalScore = Number(r[ROUND.score]);
+  const state      = Number(r[ROUND.state]);
+  const stake      = r[ROUND.stake] as bigint;
   const isNewBest = finalScore > best && best > 0;
   const sortedWords = [...words].sort((a, b) => b.pts - a.pts);
   const displayScore = state === 1 ? finalScore : myScore;
@@ -464,7 +456,7 @@ export default function GameBoard({
                   style={{ width: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#241C13", border: LINE, borderRadius: 13, fontSize: 18, color: "#CBC0AE", cursor: "pointer" }}>⌫</motion.button>
               </div>
               <AnimatePresence mode="wait">
-                {input.length >= 2 && wordValid !== "unchecked" && (
+                {input.length >= MIN_WORD_LENGTH && wordValid !== "unchecked" && (
                   <motion.div
                     key={wordValid}
                     initial={{ opacity: 0, y: -4 }}
@@ -478,7 +470,7 @@ export default function GameBoard({
                 )}
               </AnimatePresence>
               {(() => {
-                const submitDisabled = input.length < 2 || !canBuild(input, letterStr) || !!words.find((w) => w.word === input) || wordValid !== "valid";
+                const submitDisabled = input.length < MIN_WORD_LENGTH || !canBuild(input, letterStr) || !!words.find((w) => w.word === input) || wordValid !== "valid";
                 return (
                   <motion.button
                     onClick={submitWord}
@@ -490,7 +482,7 @@ export default function GameBoard({
                     style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: submitDisabled ? "default" : "pointer", opacity: submitDisabled ? 0.4 : 1 }}>
                     {wordValid === "invalid"
                       ? "Not a word"
-                      : input.length >= 2 && canBuild(input, letterStr) && scoreWord(input) > 0
+                      : input.length >= MIN_WORD_LENGTH && canBuild(input, letterStr) && scoreWord(input) > 0
                       ? `Submit  +${scoreWord(input)}`
                       : "Submit"}
                   </motion.button>
