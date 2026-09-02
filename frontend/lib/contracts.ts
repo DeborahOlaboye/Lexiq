@@ -38,6 +38,9 @@ export const LEXIQ_ABI = [
   { name: "startChallenge", type: "function", stateMutability: "nonpayable",
     inputs: [{ name: "originalRoundId", type: "uint256" }, { name: "stakeAmount", type: "uint256" }],
     outputs: [{ name: "", type: "uint256" }] },
+  { name: "startChallengeFor", type: "function", stateMutability: "nonpayable",
+    inputs: [{ name: "player", type: "address" }, { name: "originalRoundId", type: "uint256" }],
+    outputs: [{ name: "", type: "uint256" }] },
 
   // ── Finishing ──
   { name: "submitRound", type: "function", stateMutability: "nonpayable",

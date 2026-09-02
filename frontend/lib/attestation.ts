@@ -99,15 +99,17 @@ export async function signScore(
 }
 
 /**
- * CIP-64 fee abstraction for relayed writes, so the relayer never needs CELO. It is a typed
- * (0x7b) transaction carrying EIP-1559 fields, so gasPrice can't be paired with feeCurrency —
- * the price is expressed as maxFeePerGas instead.
+ * Fees for relayed writes, paid in native CELO.
+ *
+ * Deliberately no feeCurrency: CIP-64 fee abstraction exists so a MiniPay user holding only
+ * stablecoins can transact. The relayer is our own server wallet and holds CELO, so naming a
+ * fee currency would spend down its stablecoin balance while its CELO sat idle. Player-signed
+ * transactions still use celoFee() — they are the ones who need abstraction.
  */
-export async function relayFees(feeCurrency: `0x${string}`) {
+export async function relayFees() {
   const gp = await publicClient.getGasPrice();
   return {
     maxFeePerGas: gp + gp / 5n,
     maxPriorityFeePerGas: gp / 10n,
-    feeCurrency,
   };
 }

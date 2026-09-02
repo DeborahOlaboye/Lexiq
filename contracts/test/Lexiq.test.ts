@@ -442,6 +442,30 @@ describe("Lexiq", () => {
       ).to.be.revertedWithCustomError(ctx.lexiq, "BadAttestation");
     });
 
+    it("lets the relayer open a free challenge, credited to the player", async () => {
+      const ctx = await loadFixture(deploy);
+      const orig = await openFree(ctx, ctx.alice.address, HARD, ES);
+      await settle(ctx, orig, ctx.alice.address, 60);
+
+      await ctx.lexiq.connect(ctx.relayer).startChallengeFor(ctx.bob.address, orig);
+      const id = (await ctx.lexiq.totalRounds()) - 1n;
+
+      const [player, , , difficulty, roundLang, , , , stake] = await ctx.lexiq.getRound(id);
+      expect(player).to.equal(ctx.bob.address);
+      expect(difficulty).to.equal(HARD);
+      expect(roundLang).to.equal(ES);
+      expect(stake).to.equal(0n);
+      expect(await ctx.lexiq.getLetters(id)).to.deep.equal(await ctx.lexiq.getLetters(orig));
+    });
+
+    it("only the relayer may open a free challenge", async () => {
+      const ctx = await loadFixture(deploy);
+      const orig = await openFree(ctx, ctx.alice.address);
+      await settle(ctx, orig, ctx.alice.address, 60);
+      await expect(ctx.lexiq.connect(ctx.bob).startChallengeFor(ctx.bob.address, orig))
+        .to.be.revertedWithCustomError(ctx.lexiq, "NotRelayer");
+    });
+
     it("refuses to challenge a round that is still active", async () => {
       const ctx = await loadFixture(deploy);
       const orig = await openFree(ctx, ctx.alice.address);

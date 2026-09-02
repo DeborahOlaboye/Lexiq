@@ -149,14 +149,30 @@ contract Lexiq is Ownable, ReentrancyGuard, EIP712 {
         return _open(msg.sender, stakeAmount, difficulty, lang, seed);
     }
 
-    /// @notice Race a finished round's letters. Inherits its seed and difficulty.
+    /// @notice Open a free challenge for a player. Relayer pays the gas, and the stake is
+    ///         forced to zero — the relayer must never be able to move a player's tokens.
+    function startChallengeFor(address player, uint256 originalRoundId)
+        external nonReentrant returns (uint256)
+    {
+        if (msg.sender != relayer) revert NotRelayer();
+        return _challenge(player, originalRoundId, 0);
+    }
+
+    /// @notice Race a finished round's letters. Inherits its seed, difficulty and language.
+    ///         Sent by the player when staking, for the same reason startRound is.
     function startChallenge(uint256 originalRoundId, uint256 stakeAmount)
-        external nonReentrant returns (uint256 roundId)
+        external nonReentrant returns (uint256)
+    {
+        return _challenge(msg.sender, originalRoundId, stakeAmount);
+    }
+
+    function _challenge(address player, uint256 originalRoundId, uint256 stakeAmount)
+        private returns (uint256 roundId)
     {
         Round storage orig = rounds[originalRoundId];
         if (orig.state != RoundState.FINISHED) revert NotActive();
-        roundId = _open(msg.sender, stakeAmount, orig.difficulty, orig.lang, orig.seed);
-        emit ChallengeStarted(roundId, originalRoundId, msg.sender);
+        roundId = _open(player, stakeAmount, orig.difficulty, orig.lang, orig.seed);
+        emit ChallengeStarted(roundId, originalRoundId, player);
     }
 
     function _open(address player, uint256 stakeAmount, uint8 difficulty, uint8 lang, bytes32 seed)

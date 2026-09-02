@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ROUND, ROUND_ACTIVE, LANG_BY_ID } from "@/lib/contracts";
-import { FEE_CURRENCY } from "@/lib/minipay";
 import { publicClient, relayerWallet, signScore, relayFees, nowSeconds } from "@/lib/attestation";
 import { getServerAttributionTag } from "@/lib/attribution";
 import { verifyPlayToken } from "@/lib/playtoken";
@@ -74,7 +73,7 @@ export async function POST(req: NextRequest) {
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "submitRound",
       args: [roundId, score, accepted.length, deadline, signature],
       gas: SUBMIT_GAS,
-      ...(await relayFees(FEE_CURRENCY)),
+      ...(await relayFees()),
       ...(tag ? { dataSuffix: tag } : {}),
     });
 

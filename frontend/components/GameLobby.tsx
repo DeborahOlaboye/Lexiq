@@ -153,11 +153,26 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
     else startFreeRound();
   }
 
-  function handleChallenge() {
+  async function handleChallenge() {
     if (stakeBN > 0n) { approveStake(); return; }
-    const tag = getAttributionTag();
+    // No stake means nothing of the player's to move, so the relayer can open it for free.
     setStatus("Accepting challenge…");
-    start({ address: contract, abi: LEXIQ_ABI, functionName: "startChallenge", args: [BigInt(challengeId.trim()), 0n], ...celoFee(fee.address), ...(tag ? { dataSuffix: tag } : {}) } as any);
+    setRelayError(null);
+    try {
+      const res = await fetch("/api/round/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player: address, challengeRoundId: challengeId.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not accept challenge");
+      savePlayToken(data.playToken);
+      setStatus(null);
+      onEnterGame(BigInt(data.roundId));
+    } catch (err) {
+      setStatus(null);
+      setRelayError(friendlyTxError(err));
+    }
   }
 
   // Once the approval lands, fetch the signed seed and send the staked round.

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress, decodeEventLog } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, LANG_ID } from "@/lib/contracts";
-import { FEE_CURRENCY } from "@/lib/minipay";
 import { publicClient, relayerWallet, signSeed, relayFees } from "@/lib/attestation";
 import { guestAddress, issuePlayToken } from "@/lib/playtoken";
 import { getServerAttributionTag } from "@/lib/attribution";
@@ -15,7 +14,7 @@ const START_GAS = 300_000n;
  * real on-chain rounds with real letters rather than a client-side approximation.
  */
 export async function POST(req: NextRequest) {
-  let body: { player?: string; guestId?: string; difficulty?: number; lang?: string };
+  let body: { player?: string; guestId?: string; difficulty?: number; lang?: string; challengeRoundId?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
   const difficulty = [0, 1, 2].includes(body.difficulty ?? -1) ? body.difficulty! : 1;
@@ -31,22 +30,30 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const nonce = await publicClient.readContract({
-      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "roundNonce", args: [player],
-    });
-    const { seed, deadline, signature } = await signSeed(player, nonce as bigint, difficulty, lang);
-
     const tag = getServerAttributionTag();
-    const hash = await relayerWallet().writeContract({
-      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startRoundFor",
-      args: [player, difficulty, lang, seed, deadline, signature],
-      gas: START_GAS,
-      ...(await relayFees(FEE_CURRENCY)),
-      ...(tag ? { dataSuffix: tag } : {}),
-    });
+    const fees = { gas: START_GAS, ...(await relayFees()), ...(tag ? { dataSuffix: tag } : {}) };
+
+    // A challenge inherits the original round's seed, difficulty and language, so it needs no
+    // seed attestation. Free ones are relayed like any other free round; staked ones are sent
+    // by the player, since the relayer must never move their tokens.
+    const hash = body.challengeRoundId
+      ? await relayerWallet().writeContract({
+          address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startChallengeFor",
+          args: [player, BigInt(body.challengeRoundId)], ...fees,
+        })
+      : await (async () => {
+          const nonce = await publicClient.readContract({
+            address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "roundNonce", args: [player],
+          });
+          const { seed, deadline, signature } = await signSeed(player, nonce as bigint, difficulty, lang);
+          return relayerWallet().writeContract({
+            address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startRoundFor",
+            args: [player, difficulty, lang, seed, deadline, signature], ...fees,
+          });
+        })();
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    if (receipt.status === "reverted") throw new Error(`startRoundFor reverted (${hash})`);
+    if (receipt.status === "reverted") throw new Error(`round did not open (${hash})`);
 
     let roundId: bigint | null = null;
     for (const log of receipt.logs) {
