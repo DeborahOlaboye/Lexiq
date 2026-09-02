@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, useSetActiveWallet } from "@privy-io/wagmi";
 import { PrivyProvider, useWallets } from "@privy-io/react-auth";
@@ -68,19 +68,35 @@ function SyncPrivyToWagmi() {
   return null;
 }
 
-/** Auto-connect when running inside MiniPay. */
+/**
+ * Auto-connect when running inside MiniPay.
+ *
+ * Runs on every relevant change rather than once on mount: the injected connector is not
+ * always registered on the first frame, and a handshake that errors must be retried.
+ * A MiniPay user who never connects has no way back — the UI shows them no wallet button.
+ */
 function MiniPayAutoConnect() {
   const { connect, connectors } = useConnect();
   const { isConnected } = useAccount();
+  const inFlight = useRef(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (isConnected) return;
+    if (isConnected || inFlight.current || attempt >= 3) return;
     const eth = (window as unknown as { ethereum?: { isMiniPay?: boolean } }).ethereum;
-    if (eth?.isMiniPay) {
-      const connector = connectors.find(c => c.type === "injected");
-      if (connector) connect({ connector });
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!eth?.isMiniPay) return;
+    // Connectors can still be registering — bail and let the effect re-run when they land.
+    const connector = connectors.find(c => c.type === "injected");
+    if (!connector) return;
+
+    inFlight.current = true;
+    connect({ connector }, {
+      onError: () => {
+        inFlight.current = false;
+        setTimeout(() => setAttempt(a => a + 1), 600);
+      },
+    });
+  }, [isConnected, connectors, connect, attempt]);
 
   return null;
 }

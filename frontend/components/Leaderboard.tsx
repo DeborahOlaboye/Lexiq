@@ -96,7 +96,7 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
             transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
             style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(32px,8vw,44px)", color: "#CFE94B", lineHeight: 1, marginBottom: 4 }}
           >{prizeFormatted}</motion.div>
-          <div style={{ fontSize: 12, color: "#CBC0AE" }}>USDM</div>
+          <div style={{ fontSize: 12, color: "#CBC0AE" }}>USDm</div>
         </div>
       )}
 

@@ -30,10 +30,10 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://playlexiq.xyz"),
   title: "Lexiq — 90-second word race on Celo",
   description:
-    "Build as many words as you can from 7 random letters. Stake USDM, beat your best, and climb the weekly prize board.",
+    "Build as many words as you can from 7 random letters. Stake USDm, beat your best, and climb the weekly prize board.",
   openGraph: {
     title: "Lexiq — 90-second word race on Celo",
-    description: "Build as many words as you can from 7 random letters. Stake USDM, beat your best, and climb the weekly prize board.",
+    description: "Build as many words as you can from 7 random letters. Stake USDm, beat your best, and climb the weekly prize board.",
     url: "https://playlexiq.xyz",
     siteName: "Lexiq",
     type: "website",

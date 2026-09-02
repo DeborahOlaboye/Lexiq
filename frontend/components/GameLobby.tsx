@@ -74,7 +74,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   function validateStake(val: string) {
     const n = parseFloat(val);
     if (val && (isNaN(n) || n < 0)) setStakeError("Enter a valid amount");
-    else if (n > 0 && n < MIN_STAKE) setStakeError("Minimum " + MIN_STAKE + " USDM");
+    else if (n > 0 && n < MIN_STAKE) setStakeError("Minimum " + MIN_STAKE + " USDm");
     else setStakeError(null);
   }
 
@@ -83,7 +83,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
     const tag = getAttributionTag();
     if (stakeBN > 0n) {
       setPendingStake(stakeBN);
-      setStatus("Approving USDM…");
+      setStatus("Approving USDm…");
       approve({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "approve", args: [contract, stakeBN], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
     } else {
       setStatus("Starting round…");
@@ -96,7 +96,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
     const tag = getAttributionTag();
     if (stakeBN > 0n) {
       setPendingStake(stakeBN);
-      setStatus("Approving USDM…");
+      setStatus("Approving USDm…");
       approve({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "approve", args: [contract, stakeBN], ...celoFee(), ...(tag ? { dataSuffix: tag } : {}) } as any);
     } else {
       setStatus("Accepting challenge…");
@@ -277,7 +277,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
                 whileTap={!busy && !stakeError && !insufficientBalance ? { scale: 0.97 } : undefined}
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", padding: "clamp(14px,3vw,17px)", borderRadius: 15, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", cursor: busy || !!stakeError || insufficientBalance ? "not-allowed" : "pointer", opacity: busy || !!stakeError || insufficientBalance ? 0.4 : 1 }}>
                 <span style={{ fontSize: 13 }}>▶</span>
-                {busy ? (status ?? "Working…") : showStake && stakeNum > 0 ? `Play · Stake ${stakeNum} USDM` : `Play for Free · ${diffLabel}`}
+                {busy ? (status ?? "Working…") : showStake && stakeNum > 0 ? `Play · Stake ${stakeNum} USDm` : `Play for Free · ${diffLabel}`}
               </motion.button>
             </motion.div>
           ) : (
@@ -301,7 +301,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
           <motion.button onClick={() => { setShowStake(v => !v); if (showStake) { setStake(""); setStakeError(null); } }} whileHover={{ opacity: 0.8 }}
             style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557" }}>
-              {showStake ? "▾ Hide stake" : "▸ Stake USDM for a bonus"}
+              {showStake ? "▾ Hide stake" : "▸ Stake USDm for a bonus"}
             </span>
           </motion.button>
           <motion.button onClick={() => setShowChallenge(v => !v)} whileHover={{ opacity: 0.8 }}
@@ -321,16 +321,18 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
                 <input value={stake} onChange={e => { setStake(e.target.value); validateStake(e.target.value); }}
                   placeholder="e.g. 0.5" type="number" min="0" step="0.01" inputMode="decimal" autoFocus
                   style={{ flex: 1, background: "transparent", fontFamily: "var(--font-mono)", fontSize: 14, color: "#F5EFE2", outline: "none", border: "none" }} />
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "#CBC0AE", marginLeft: 8 }}>USDM</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "#CBC0AE", marginLeft: 8 }}>USDm</span>
               </div>
               {stakeError
                 ? <p style={{ fontSize: 11, color: "#FF5B45", marginTop: 6, marginBottom: 0 }}>{stakeError}</p>
                 : insufficientBalance
                 ? <p style={{ fontSize: 11, color: "#FF5B45", marginTop: 6, marginBottom: 0 }}>
-                    Not enough USDM to stake that much.{" "}
-                    <a href={addCashDeeplink()} target="_blank" rel="noopener noreferrer" style={{ color: "#FF5B45", textDecoration: "underline" }}>Deposit</a>
+                    Not enough USDm to stake that much.{" "}
+                    {/* Scope the deposit to USDm only — topping up USDC or USDT would leave
+                        the user still unable to stake, since staking settles in USDm. */}
+                    <a href={addCashDeeplink("USDm")} target="_blank" rel="noopener noreferrer" style={{ color: "#FF5B45", textDecoration: "underline" }}>Deposit</a>
                   </p>
-                : <p style={{ fontSize: 11, color: "#6E6557", marginTop: 6, marginBottom: 0 }}>Score 10+ pts → stake returned minus 1% fee</p>}
+                : <p style={{ fontSize: 11, color: "#6E6557", marginTop: 6, marginBottom: 0 }}>Staking uses USDm only · Score 10+ pts → stake returned minus 1% fee</p>}
             </motion.div>
           )}
         </AnimatePresence>
@@ -339,7 +341,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
       {/* Stat grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 11 }}>
         {[
-          { label: "Prize pool", value: prizeFormatted, unit: "USDM", lime: true,  glow: true,  delay: 0.08 },
+          { label: "Prize pool", value: prizeFormatted, unit: "USDm", lime: true,  glow: true,  delay: 0.08 },
           { label: "Your best",  value: myHigh?.toString() ?? "—",   unit: "pts",  lime: false, glow: false, delay: 0.15 },
           { label: "Total score",value: myTotal?.toString() ?? "—",               lime: false, glow: false, delay: 0.22 },
           { label: "Rounds",     value: played?.toString() ?? "—",                lime: false, glow: false, delay: 0.29 },

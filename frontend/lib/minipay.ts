@@ -22,8 +22,11 @@ export function celoFee(): { chainId: number; feeCurrency: `0x${string}` } {
 /**
  * MiniPay's Add Cash flow — send users here when their stablecoin balance
  * is too low to complete an action, instead of letting a transaction fail.
+ *
+ * Defaults to USDm because that is the only stablecoin Lexiq settles stakes in.
+ * Offering USDC/USDT here would let a user top up and still be unable to play.
  * https://docs.minipay.xyz/technical-references/deeplinks.html
  */
-export function addCashDeeplink(tokens: string = "USDm,USDC,USDT"): string {
+export function addCashDeeplink(tokens: string = "USDm"): string {
   return `https://link.minipay.xyz/add_cash?tokens=${tokens}`;
 }

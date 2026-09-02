@@ -77,7 +77,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
           </motion.h1>
 
           <motion.p {...fadeUp(0.22)} style={{ fontSize: "clamp(15px,2vw,18px)", lineHeight: 1.55, color: "#CBC0AE", maxWidth: 430, marginTop: 20, marginBottom: 0 }}>
-            Build as many words as you can from 7 random letters. Longer words score more. Stake USDM, beat your best, and climb the weekly prize board.
+            Build as many words as you can from 7 random letters. Longer words score more. Stake USDm, beat your best, and climb the weekly prize board.
           </motion.p>
 
           <motion.div {...fadeUp(0.34)} className="flex flex-wrap gap-[14px]" style={{ marginTop: "clamp(20px,3vw,30px)" }}>
@@ -148,7 +148,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
             { val: "90s",    label: "per round",         lime: false },
             { val: "7",      label: "random letters",    lime: false },
             { val: "11 pts", label: "top word score",    lime: true  },
-            { val: "USDM",   label: "weekly prize pool", lime: false },
+            { val: "USDm",   label: "weekly prize pool", lime: false },
           ].map(({ val, label, lime }, i) => (
             <motion.div key={val} {...inView(i * 0.1)}>
               <motion.div
@@ -261,7 +261,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
             style={{ borderRadius: 20, padding: "clamp(20px,3vw,30px)", background: "linear-gradient(135deg,rgba(255,91,69,.16),rgba(207,233,75,.10))", border: "1px solid rgba(255,91,69,.35)" }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#FF5B45", textTransform: "uppercase" }}>Stake to sweat</div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,2.5vw,26px)", marginTop: 12, marginBottom: 8 }}>Score 10+ or lose it</div>
-            <p style={{ color: "#CBC0AE", fontSize: 15, lineHeight: 1.5, margin: 0 }}>Stake USDM before the round. Beat 10 points and it comes back (minus 1%). Fall short and it drops into the weekly pool.</p>
+            <p style={{ color: "#CBC0AE", fontSize: 15, lineHeight: 1.5, margin: 0 }}>Stake USDm before the round. Beat 10 points and it comes back (minus 1%). Fall short and it drops into the weekly pool.</p>
           </motion.div>
         </div>
         <motion.div {...inView(0.15)}
@@ -273,7 +273,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
               transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
               style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(32px,6vw,46px)", color: "#CFE94B", lineHeight: 1, marginTop: 8 }}
             >
-              128.40{" "}<span style={{ fontSize: "clamp(16px,2.5vw,22px)", color: "#CBC0AE", fontWeight: 700 }}>USDM</span>
+              128.40{" "}<span style={{ fontSize: "clamp(16px,2.5vw,22px)", color: "#CBC0AE", fontWeight: 700 }}>USDm</span>
             </motion.div>
           </div>
           <div style={{ textAlign: "right" }}>

@@ -35,9 +35,35 @@ export default function Home() {
 
   // Inside MiniPay the wallet auto-connects via wagmi (no Privy login flow runs),
   // so gate on the wagmi connection there instead of waiting on Privy's authenticated state.
-  const [inMiniPay, setInMiniPay] = useState(false);
-  useEffect(() => { setInMiniPay(isMiniPay()); }, []);
-  const isConnected = inMiniPay ? wagmiConnected : ready && authenticated;
+  //
+  // `null` means "not detected yet". We must not treat that as `false`: rendering the
+  // pre-detection frame as a non-MiniPay one flashes <Landing>, which carries a Sign In
+  // button — and MiniPay's zero-click-connect rule forbids showing one inside MiniPay.
+  const [inMiniPay, setInMiniPay] = useState<boolean | null>(null);
+  useEffect(() => {
+    // MiniPay normally injects window.ethereum before page scripts run, but poll briefly
+    // so a provider that lands a tick late still resolves as MiniPay rather than falling
+    // through to the sign-in landing page.
+    let tries = 0;
+    const settle = () => {
+      if (isMiniPay()) { setInMiniPay(true); return true; }
+      if (++tries >= 10) { setInMiniPay(false); return true; }
+      return false;
+    };
+    if (settle()) return;
+    const t = setInterval(() => { if (settle()) clearInterval(t); }, 100);
+    return () => clearInterval(t);
+  }, []);
+  const isConnected = inMiniPay === true ? wagmiConnected : ready && authenticated;
+
+  // Give MiniPay's auto-connect a few seconds before offering guest play as an escape
+  // hatch, so a wallet handshake that never resolves can't dead-end the user.
+  const [connectTimedOut, setConnectTimedOut] = useState(false);
+  useEffect(() => {
+    if (inMiniPay !== true || wagmiConnected) return;
+    const t = setTimeout(() => setConnectTimedOut(true), 6000);
+    return () => clearTimeout(t);
+  }, [inMiniPay, wagmiConnected]);
 
   const [view, setView]             = useState<View>("lobby");
   const [activeRoundId, setActiveRoundId] = useState<bigint | null>(null);
@@ -54,6 +80,28 @@ export default function Home() {
     } else {
       setGuestView("lobby");
     }
+  }
+
+  // ── MINIPAY HANDSHAKE ───────────────────────────────────────────────────────
+  // Covers both "still detecting" and "detected MiniPay, wallet not connected yet".
+  // Deliberately renders before every other branch so no sign-in affordance can appear
+  // inside MiniPay. The only escape hatch offered is guest play, never a wallet button.
+  if (inMiniPay === null || (inMiniPay && !wagmiConnected && !guestMode)) {
+    return (
+      <div className="min-h-dvh bg-ink text-cream font-ui flex flex-col items-center justify-center gap-4" style={{ padding: 24 }}>
+        <Logo size="md" />
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557" }}>
+          {inMiniPay === null ? "Starting…" : "Connecting your wallet…"}
+        </span>
+        {connectTimedOut && (
+          <button onClick={handleGuestPlay}
+            style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, padding: "9px 18px", borderRadius: 10, border: LINE2, background: "none", color: "#F5EFE2", cursor: "pointer" }}>
+            Play free instead
+          </button>
+        )}
+        <LegalLinks />
+      </div>
+    );
   }
 
   // ── GUEST MODE ──────────────────────────────────────────────────────────────
@@ -92,10 +140,12 @@ export default function Home() {
               <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 11, letterSpacing: "0.04em", color: "#15110D", background: "#CFE94B", padding: "6px 10px", borderRadius: 9 }}>
                 {rank.toUpperCase()}
               </span>
-              {/* Sign in */}
-              <button onClick={login} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 12, padding: "7px 13px", borderRadius: 9, background: "rgba(207,233,75,.15)", border: "1px solid rgba(207,233,75,.3)", color: "#CFE94B", cursor: "pointer" }}>
-                Sign In
-              </button>
+              {/* Sign in — never inside MiniPay, where the wallet connects with zero clicks */}
+              {!inMiniPay && (
+                <button onClick={login} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 12, padding: "7px 13px", borderRadius: 9, background: "rgba(207,233,75,.15)", border: "1px solid rgba(207,233,75,.3)", color: "#CFE94B", cursor: "pointer" }}>
+                  Sign In
+                </button>
+              )}
             </div>
           </div>
         </header>

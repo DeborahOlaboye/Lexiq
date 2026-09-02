@@ -1,6 +1,7 @@
 "use client";
 
-// TODO: replace with your real support channel (Telegram, WhatsApp, email, or a web portal).
+// MiniPay requires a support channel reachable from inside the Mini App, and a 24h
+// response on critical issues. This inbox must stay monitored to keep the listing.
 const SUPPORT_URL = "mailto:contact@playlexiq.xyz";
 
 const linkStyle: React.CSSProperties = { color: "inherit", textDecoration: "none" };

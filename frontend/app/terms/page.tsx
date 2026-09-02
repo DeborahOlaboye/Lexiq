@@ -16,7 +16,7 @@ export default function TermsPage() {
 
         <section>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#F5EFE2", marginBottom: 6 }}>2. Staking</h2>
-          <p>Lexiq lets you optionally stake USDM on a round. Staking is entirely optional and is not required to play. If you stake and score at or above the round's threshold, your stake is returned minus a small fee; if you score below the threshold, your stake is forfeited to the weekly prize pool. You are responsible for understanding this mechanic before staking — stakes are held and settled by the Lexiq smart contract and are not reversible once a round starts.</p>
+          <p>Lexiq lets you optionally stake USDm on a round. Staking is entirely optional and is not required to play. If you stake and score at or above the round's threshold, your stake is returned minus a small fee; if you score below the threshold, your stake is forfeited to the weekly prize pool. You are responsible for understanding this mechanic before staking — stakes are held and settled by the Lexiq smart contract and are not reversible once a round starts.</p>
         </section>
 
         <section>
