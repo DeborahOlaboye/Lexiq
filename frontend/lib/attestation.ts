@@ -15,7 +15,7 @@ export const RPC = "https://forno.celo.org";
  * whitespace, a missing 0x. Passing those straight through fails with "invalid private key,
  * expected hex or 32 bytes, got string", which points at the code rather than at the value.
  */
-function accountFrom(envVar: string) {
+export function accountFrom(envVar: string) {
   const raw = process.env[envVar];
   if (!raw) throw new Error(`${envVar} not configured`);
   const cleaned = raw.trim().replace(/^["']|["']$/g, "");

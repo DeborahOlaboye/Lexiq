@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
-import { privateKeyToAccount } from "viem/accounts";
 import { configReport } from "@/lib/config";
-import { publicClient } from "@/lib/attestation";
+import { publicClient, accountFrom } from "@/lib/attestation";
 import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
 import { getServerAttributionTag } from "@/lib/attribution";
 
-/** Derives an address from a key without ever revealing the key. */
+/**
+ * Derives an address from a key without ever revealing it, through the same normaliser the
+ * signing path uses — a separate copy here drifted and reported a usable key as broken.
+ */
 function addressOf(envVar: string): { ok: boolean; address?: string; error?: string } {
-  const raw = process.env[envVar];
-  if (!raw) return { ok: false, error: "not set" };
   try {
-    const key = (raw.trim().startsWith("0x") ? raw.trim() : `0x${raw.trim()}`) as `0x${string}`;
-    return { ok: true, address: privateKeyToAccount(key).address };
+    return { ok: true, address: accountFrom(envVar).address };
   } catch (err) {
-    return { ok: false, error: (err as Error)?.message?.slice(0, 80) ?? "invalid" };
+    return { ok: false, error: (err as Error)?.message?.slice(0, 100) ?? "invalid" };
   }
 }
 
