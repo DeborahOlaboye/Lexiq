@@ -3,6 +3,7 @@ import { isAddress } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, LANG_ID } from "@/lib/contracts";
 import { publicClient, signSeed } from "@/lib/attestation";
 import { issuePlayToken } from "@/lib/playtoken";
+import { missingConfig } from "@/lib/config";
 
 /**
  * Hands a player a signed seed so they can send a staked round themselves. The seed is
@@ -11,6 +12,12 @@ import { issuePlayToken } from "@/lib/playtoken";
  */
 export async function POST(req: NextRequest) {
   let body: { player?: string; difficulty?: number; lang?: string };
+  const missing = missingConfig();
+  if (missing.length) {
+    console.error("[config] missing", missing.join(", "));
+    return NextResponse.json({ error: `Server not configured: ${missing.join(", ")}` }, { status: 503 });
+  }
+
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
   const player = body.player ?? "";

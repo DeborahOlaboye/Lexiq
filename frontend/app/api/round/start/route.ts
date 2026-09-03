@@ -4,6 +4,7 @@ import { LEXIQ_ADDRESS, LEXIQ_ABI, LANG_ID } from "@/lib/contracts";
 import { publicClient, relayerWallet, signSeed, relayFees, lettersForRound } from "@/lib/attestation";
 import { guestAddress, issuePlayToken } from "@/lib/playtoken";
 import { getServerAttributionTag } from "@/lib/attribution";
+import { missingConfig } from "@/lib/config";
 
 /** startRoundFor: ~150k on mainnet. */
 const START_GAS = 300_000n;
@@ -15,6 +16,12 @@ const START_GAS = 300_000n;
  */
 export async function POST(req: NextRequest) {
   let body: { player?: string; guestId?: string; difficulty?: number; lang?: string; challengeRoundId?: string };
+  const missing = missingConfig();
+  if (missing.length) {
+    console.error("[config] missing", missing.join(", "));
+    return NextResponse.json({ error: `Server not configured: ${missing.join(", ")}` }, { status: 503 });
+  }
+
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
   const difficulty = [0, 1, 2].includes(body.difficulty ?? -1) ? body.difficulty! : 1;

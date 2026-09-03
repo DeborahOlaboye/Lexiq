@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ROUND, ROUND_ACTIVE, LANG_BY_ID } from "@/lib/contracts";
 import { publicClient, relayerWallet, signScore, relayFees, nowSeconds, lettersForRound } from "@/lib/attestation";
 import { getServerAttributionTag } from "@/lib/attribution";
+import { missingConfig } from "@/lib/config";
 import { verifyPlayToken } from "@/lib/playtoken";
 import { acceptWords } from "@/lib/wordlist";
 import { scoreWords, MAX_WORDS } from "@/lib/scoring";
@@ -21,6 +22,12 @@ const DURATION: Record<number, number> = { 0: 120, 1: 90, 2: 60 };
 
 export async function POST(req: NextRequest) {
   let body: { roundId?: string; words?: string[]; playToken?: string };
+  const missing = missingConfig();
+  if (missing.length) {
+    console.error("[config] missing", missing.join(", "));
+    return NextResponse.json({ error: `Server not configured: ${missing.join(", ")}` }, { status: 503 });
+  }
+
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
   if (!body.roundId) return NextResponse.json({ error: "Bad round" }, { status: 400 });
