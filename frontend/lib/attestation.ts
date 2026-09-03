@@ -10,16 +10,28 @@ export const RPC = "https://forno.celo.org";
  * Signs the score and seed attestations the contract verifies. This key is authoritative
  * over scoring — it must never be the relayer key, which only pays gas.
  */
+/**
+ * Tolerates how a key actually arrives in an environment file — surrounding quotes, trailing
+ * whitespace, a missing 0x. Passing those straight through fails with "invalid private key,
+ * expected hex or 32 bytes, got string", which points at the code rather than at the value.
+ */
+function accountFrom(envVar: string) {
+  const raw = process.env[envVar];
+  if (!raw) throw new Error(`${envVar} not configured`);
+  const cleaned = raw.trim().replace(/^["']|["']$/g, "");
+  const key = (cleaned.startsWith("0x") ? cleaned : `0x${cleaned}`) as `0x${string}`;
+  if (!/^0x[0-9a-fA-F]{64}$/.test(key)) {
+    throw new Error(`${envVar} is not a 32-byte hex key (got ${cleaned.length} chars)`);
+  }
+  return privateKeyToAccount(key);
+}
+
 function signerAccount() {
-  const pk = process.env.GAME_SIGNER_PRIVATE_KEY as `0x${string}` | undefined;
-  if (!pk) throw new Error("GAME_SIGNER_PRIVATE_KEY not configured");
-  return privateKeyToAccount(pk);
+  return accountFrom("GAME_SIGNER_PRIVATE_KEY");
 }
 
 export function relayerAccount() {
-  const pk = process.env.RELAYER_PRIVATE_KEY as `0x${string}` | undefined;
-  if (!pk) throw new Error("RELAYER_PRIVATE_KEY not configured");
-  return privateKeyToAccount(pk);
+  return accountFrom("RELAYER_PRIVATE_KEY");
 }
 
 export const publicClient = createPublicClient({ chain: celo, transport: http(RPC) });

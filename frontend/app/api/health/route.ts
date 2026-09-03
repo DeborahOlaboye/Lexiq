@@ -1,36 +1,70 @@
 import { NextResponse } from "next/server";
+import { privateKeyToAccount } from "viem/accounts";
 import { configReport } from "@/lib/config";
 import { publicClient } from "@/lib/attestation";
 import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
+import { getServerAttributionTag } from "@/lib/attribution";
+
+/** Derives an address from a key without ever revealing the key. */
+function addressOf(envVar: string): { ok: boolean; address?: string; error?: string } {
+  const raw = process.env[envVar];
+  if (!raw) return { ok: false, error: "not set" };
+  try {
+    const key = (raw.trim().startsWith("0x") ? raw.trim() : `0x${raw.trim()}`) as `0x${string}`;
+    return { ok: true, address: privateKeyToAccount(key).address };
+  } catch (err) {
+    return { ok: false, error: (err as Error)?.message?.slice(0, 80) ?? "invalid" };
+  }
+}
 
 /**
- * Post-deploy check. Reports whether the app is actually able to run a round, so a
- * misconfiguration shows up here rather than the first time a real player tries to start one.
- * Reports only presence and public values — never a secret.
+ * Post-deploy check. Reports whether the app can actually run a round.
+ *
+ * Presence is not enough: a key that is malformed, or simply belongs to a different account
+ * than the contract was deployed with, looks identical to a correct one in the environment
+ * and only fails when somebody tries to play. So derive both addresses and compare them
+ * against what the contract itself says it trusts.
  */
 export async function GET() {
   const config = configReport();
+  const signer = addressOf("GAME_SIGNER_PRIVATE_KEY");
+  const relayer = addressOf("RELAYER_PRIVATE_KEY");
 
-  let chain: { reachable: boolean; totalRounds?: string; relayerCelo?: string; error?: string };
+  let chain: Record<string, unknown>;
+  let keysMatchChain = false;
   try {
-    const [rounds, balance] = await Promise.all([
+    const [rounds, onChainSigner, onChainRelayer] = await Promise.all([
       publicClient.readContract({ address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "totalRounds" }),
-      // The relayer funds every sponsored round; an empty one stops play as surely as a
-      // missing key, and does it silently.
-      process.env.RELAYER_PRIVATE_KEY
-        ? import("@/lib/attestation").then(async (m) =>
-            publicClient.getBalance({ address: m.relayerAccount().address }))
-        : Promise.resolve(null),
+      publicClient.readContract({ address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "gameSigner" }),
+      publicClient.readContract({ address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "relayer" }),
     ]);
+    const same = (a?: string, b?: string) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
+    keysMatchChain = same(signer.address, onChainSigner as string) && same(relayer.address, onChainRelayer as string);
+
     chain = {
       reachable: true,
       totalRounds: (rounds as bigint).toString(),
-      relayerCelo: balance === null ? undefined : (Number(balance) / 1e18).toFixed(4),
+      gameSigner: { configured: signer.address ?? signer.error, onChain: onChainSigner, match: same(signer.address, onChainSigner as string) },
+      relayer:    { configured: relayer.address ?? relayer.error, onChain: onChainRelayer, match: same(relayer.address, onChainRelayer as string) },
+      relayerCelo: relayer.address
+        ? (Number(await publicClient.getBalance({ address: relayer.address as `0x${string}` })) / 1e18).toFixed(4)
+        : null,
     };
   } catch (err) {
-    chain = { reachable: false, error: (err as Error)?.message?.slice(0, 120) };
+    chain = { reachable: false, error: (err as Error)?.message?.slice(0, 160) };
   }
 
-  const ok = config.missing.length === 0 && config.contractLooksValid && chain.reachable;
-  return NextResponse.json({ ok, config, chain }, { status: ok ? 200 : 503 });
+  // The attribution package is ESM-only and has failed at runtime inside a route before,
+  // where the error was swallowed and transactions silently went out untagged.
+  let attribution: string;
+  try {
+    attribution = getServerAttributionTag() ? "ok" : "no tag derived";
+  } catch (err) {
+    attribution = `FAILING: ${(err as Error)?.message?.slice(0, 80)}`;
+  }
+
+  const ok = config.missing.length === 0 && config.contractLooksValid
+    && signer.ok && relayer.ok && chain.reachable === true && keysMatchChain;
+
+  return NextResponse.json({ ok, config, chain, attribution }, { status: ok ? 200 : 503 });
 }
