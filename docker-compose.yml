@@ -17,10 +17,32 @@ services:
     environment:
       # lib/redis.ts reads REDIS_URL; the compose service is reachable by its name.
       REDIS_URL: redis://redis:6379
+    # Bound to loopback, not 0.0.0.0: Caddy reaches the app over the compose network, so
+    # publishing it publicly would serve the site over plain HTTP alongside the TLS one.
+    # Still reachable as localhost:3000 when you are on the box.
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - redis
 
+  # Caddy terminates TLS and proxies to `app` by service name, which is what the Caddyfile
+  # expects. It belongs here rather than being set up by hand on the server: configured
+  # outside the repo, a git pull replaces docker-compose.yml and silently removes it, which
+  # takes the whole site down with a connection refused rather than a bad gateway.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
 volumes:
   redis_data:
+  caddy_data:
+  caddy_config:
