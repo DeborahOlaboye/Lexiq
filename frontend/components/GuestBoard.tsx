@@ -54,6 +54,11 @@ export default function GuestBoard({
   // draw the contract recorded. Generating them in the browser meant the words a guest
   // found could not be checked against the round they were settled into.
   const [letterStr, setLetterStr] = useState("");
+  /** Unix seconds the round ends. Counting down against the clock rather than ticking a
+   *  counter matters on a phone: mobile browsers suspend timers when the screen locks, so a
+   *  decrementing count simply froze — and the player kept playing against a server deadline
+   *  that had already passed, losing the round at submit. */
+  const [endsAt, setEndsAt] = useState<number | null>(null);
   const [roundId, setRoundId]     = useState<string | null>(null);
   const [dealError, setDealError] = useState<string | null>(null);
   const guestId     = useRef(typeof window !== "undefined" ? getGuestId() : "").current;
@@ -108,6 +113,7 @@ export default function GuestBoard({
         savePlayToken(data.playToken);
         setBoardWords(data.wordHashes);
         setLetterStr(data.letters);
+        if (data.startedAt && data.seconds) setEndsAt(data.startedAt + data.seconds);
         setRoundId(data.roundId);
         setPhase("active");
       } catch (err) {
@@ -119,12 +125,16 @@ export default function GuestBoard({
 
   // Countdown — only when active
   useEffect(() => {
-    if (phase !== "active") return;
-    const id = setInterval(() => {
-      setTimeLeft(t => { if (t <= 1) { clearInterval(id); setPhase("done"); return 0; } return t - 1; });
-    }, 1000);
+    if (phase !== "active" || endsAt === null) return;
+    const tick = () => {
+      const left = Math.max(0, endsAt - Math.floor(Date.now() / 1000));
+      setTimeLeft(left);
+      if (left === 0) setPhase("done");
+    };
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [phase]);
+  }, [phase, endsAt]);
 
   // Submit score + record streak + relay to chain when game ends
   useEffect(() => {

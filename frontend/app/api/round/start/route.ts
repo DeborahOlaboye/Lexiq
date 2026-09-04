@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAddress, decodeEventLog } from "viem";
-import { LEXIQ_ADDRESS, LEXIQ_ABI, LANG_ID } from "@/lib/contracts";
+import { LEXIQ_ADDRESS, LEXIQ_ABI, LANG_ID, ROUND } from "@/lib/contracts";
 import { publicClient, relayerWallet, signSeed, relayFees, lettersForRound } from "@/lib/attestation";
 import { guestAddress, issuePlayToken } from "@/lib/playtoken";
 import { solveBoard } from "@/lib/wordlist";
@@ -9,6 +9,8 @@ import { LANG_BY_ID } from "@/lib/contracts";
 import { getServerAttributionTag } from "@/lib/attribution";
 import { missingConfig } from "@/lib/config";
 import { todayKey, dailyDifficulty, claimTodaysAttempt, markRoundAsDaily } from "@/lib/daily";
+
+const ROUND_SECONDS: Record<number, number> = { 0: 120, 1: 90, 2: 60 };
 
 /** startRoundFor: ~150k on mainnet. */
 const START_GAS = 300_000n;
@@ -93,6 +95,14 @@ export async function POST(req: NextRequest) {
 
     const letters = await lettersForRound(roundId, player);
 
+    // The client counts down against this rather than its own start moment, so its clock
+    // agrees with the deadline the server enforces at settlement.
+    const round = await publicClient.readContract({
+      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "getRound", args: [roundId],
+    }) as readonly unknown[];
+    const startedAt = Number(round[ROUND.startedAt]);
+    const seconds = ROUND_SECONDS[difficulty] ?? 90;
+
     // Hashes, not words: the client can check a guess instantly and offline, without being
     // handed a readable answer key.
     const wordHashes = hashAll(solveBoard(letters, LANG_BY_ID[lang] ?? "en").map((w) => w.word));
@@ -106,6 +116,8 @@ export async function POST(req: NextRequest) {
       wordHashes,
       daily: !!body.daily,
       difficulty,
+      startedAt,
+      seconds,
       player,
       playToken: issuePlayToken(player),
       txHash: hash,
