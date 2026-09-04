@@ -5,7 +5,8 @@ import { writeContract, waitForTransactionReceipt } from "@wagmi/core";
 import { keccak256, encodePacked } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ROUND, ROUND_FINISHED } from "@/lib/contracts";
 import { scoreWord, MIN_WORD_LENGTH } from "@/lib/scoring";
-import { celoFee } from "@/lib/minipay";
+import { celoFee, isMiniPay } from "@/lib/minipay";
+import { selfSubmitRound } from "@/lib/selfPlay";
 import { useFeeCurrency } from "@/hooks/useFeeCurrency";
 import { wagmiConfig } from "@/lib/wagmi";
 import { isValidWord, isValidWordSync, validateWords, setBoardWords, clearBoardWords } from "@/lib/dictionary";
@@ -188,22 +189,31 @@ export default function GameBoard({
     setSubmitError(null);
     try {
       setSubmitProgress("Scoring your words…");
-      const res = await fetch("/api/round/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roundId: roundId.toString(), words: words.map((w) => w.word), playToken: getPlayToken() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not submit round");
+      const username = address ? getStoredUsername() ?? displayName(address) : "Anonymous";
+      const wordList = words.map((w) => w.word);
+
+      // MiniPay players settle their own round and pay the fee in the stablecoin they hold.
+      // Guests and signed-in players are relayed — neither has a funded wallet to pay from.
+      let score: number;
+      if (isMiniPay() && address) {
+        setSubmitProgress("Confirm in MiniPay…");
+        const settled = await selfSubmitRound({
+          roundId, words: wordList, username, feeCurrency: fee.address,
+        });
+        score = settled.score;
+      } else {
+        const res = await fetch("/api/round/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roundId: roundId.toString(), words: wordList, playToken: getPlayToken(), username }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Could not submit round");
+        score = data.score;
+      }
 
       setSubmitProgress(null);
-      if (address) {
-        submitScore({
-          playerId: address,
-          username: getStoredUsername() ?? displayName(address),
-          score: data.score,
-        });
-      }
+      if (address) submitScore({ playerId: address, username, score });
       setTimeout(() => refetch(), 1000);
     } catch (err) {
       const msg = (err as Error)?.message;

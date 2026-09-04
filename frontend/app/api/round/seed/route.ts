@@ -4,6 +4,7 @@ import { LEXIQ_ADDRESS, LEXIQ_ABI, LANG_ID } from "@/lib/contracts";
 import { publicClient, signSeed } from "@/lib/attestation";
 import { issuePlayToken } from "@/lib/playtoken";
 import { missingConfig } from "@/lib/config";
+import { todayKey, dailyDifficulty, claimTodaysAttempt, rememberDailySeed } from "@/lib/daily";
 
 /**
  * Hands a player a signed seed so they can send a staked round themselves. The seed is
@@ -11,7 +12,7 @@ import { missingConfig } from "@/lib/config";
  * shop for good letters and only then commit a stake.
  */
 export async function POST(req: NextRequest) {
-  let body: { player?: string; difficulty?: number; lang?: string };
+  let body: { player?: string; difficulty?: number; lang?: string; daily?: boolean };
   const missing = missingConfig();
   if (missing.length) {
     console.error("[config] missing", missing.join(", "));
@@ -22,16 +23,28 @@ export async function POST(req: NextRequest) {
 
   const player = body.player ?? "";
   if (!isAddress(player)) return NextResponse.json({ error: "Bad player" }, { status: 400 });
-  const difficulty = [0, 1, 2].includes(body.difficulty ?? -1) ? body.difficulty! : 1;
+  const today = todayKey();
+  // The daily runs at one difficulty for everybody, so its length is not something a player
+  // can pick to flatter their own score.
+  const difficulty = body.daily
+    ? dailyDifficulty(today)
+    : ([0, 1, 2].includes(body.difficulty ?? -1) ? body.difficulty! : 1);
   const lang = LANG_ID[body.lang ?? "en"] ?? 0;
+
+  // Claimed here rather than on settlement: otherwise a player could take a seed, dislike the
+  // draw, never send the transaction, and come back for another.
+  if (body.daily && !(await claimTodaysAttempt(player, today))) {
+    return NextResponse.json({ error: "You have already played today's challenge" }, { status: 409 });
+  }
 
   try {
     const nonce = await publicClient.readContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "roundNonce", args: [player],
     });
     const { seed, deadline, signature } = await signSeed(player, nonce as bigint, difficulty, lang);
+    if (body.daily) await rememberDailySeed(player, seed, today);
     return NextResponse.json({
-      seed, deadline: deadline.toString(), signature, nonce: (nonce as bigint).toString(), difficulty, lang,
+      seed, deadline: deadline.toString(), signature, nonce: (nonce as bigint).toString(), difficulty, lang, daily: !!body.daily,
       playToken: issuePlayToken(player),
     });
   } catch (err) {

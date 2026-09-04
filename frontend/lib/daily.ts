@@ -53,6 +53,37 @@ export async function claimTodaysAttempt(playerId: string, date = todayKey()): P
   return added === 1;
 }
 
+/**
+ * Remembers the seed issued for a player's daily attempt.
+ *
+ * When a MiniPay player sends the round themselves we never see the roundId, so we cannot tag
+ * it. Matching on the seed instead is unforgeable: the seed is derived from (player, nonce) and
+ * signed, so a player cannot present some other, better round as their daily one.
+ */
+export async function rememberDailySeed(player: string, seed: string, date = todayKey()): Promise<void> {
+  const kv = getRedis();
+  if (!kv) return;
+  await kv.set(`lx:daily:seed:${date}:${player.toLowerCase()}`, seed, "EX", KEEP_SECONDS);
+}
+
+async function dailySeedFor(player: string, date = todayKey()): Promise<string | null> {
+  const kv = getRedis();
+  if (!kv) return null;
+  return kv.get(`lx:daily:seed:${date}:${player.toLowerCase()}`);
+}
+
+/** Was this round the player's daily attempt? Checks the relayed tag and the self-sent seed. */
+export async function resolveDailyDate(
+  roundId: string, player: string, roundSeed: string,
+): Promise<string | null> {
+  const tagged = await dailyDateForRound(roundId);
+  if (tagged) return tagged;
+
+  const today = todayKey();
+  const seed = await dailySeedFor(player, today);
+  return seed && seed.toLowerCase() === roundSeed.toLowerCase() ? today : null;
+}
+
 export async function markRoundAsDaily(roundId: string, date = todayKey()): Promise<void> {
   const kv = getRedis();
   if (!kv) return;

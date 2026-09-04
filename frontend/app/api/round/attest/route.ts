@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
-import { publicClient, relayerWallet, relayFees } from "@/lib/attestation";
-import { getServerAttributionTag } from "@/lib/attribution";
 import { missingConfig } from "@/lib/config";
 import { scoreSubmission } from "@/lib/settle";
 import { resolveDailyDate, recordDailyResult } from "@/lib/daily";
 
-/** submitRound, including the stake transfer on the staked path. */
-const SUBMIT_GAS = 350_000n;
-
 /**
- * Settles a round and pays the network fee for it.
+ * Scores a round and returns the signed attestation without sending anything.
  *
- * For guests and signed-in players, who cannot pay for themselves: a guest has no wallet at
- * all, and a Privy embedded wallet is created empty. MiniPay players settle their own rounds
- * via /api/round/attest — Celo fees are sub-cent and payable in the stablecoin they already
- * hold, so there is nothing there worth sponsoring.
+ * For MiniPay players, who settle their own rounds. Celo fees are sub-cent and payable in the
+ * stablecoin they already hold, so there is nothing to sponsor — and sponsoring would mean
+ * carrying the cost of the traffic we most expect. Guests and signed-in players still go
+ * through /api/round/submit, which relays: a guest has no wallet at all, and a Privy embedded
+ * wallet is created empty, so neither can pay for anything.
  *
  * Scoring is shared with that route, so what a round is worth never depends on who paid.
  */
@@ -36,18 +31,9 @@ export async function POST(req: NextRequest) {
     const result = await scoreSubmission(roundId, submitted, body.playToken);
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
 
-    const tag = getServerAttributionTag();
-    const hash = await relayerWallet().writeContract({
-      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "submitRound",
-      args: [roundId, result.score, result.words.length, result.deadline, result.signature],
-      gas: SUBMIT_GAS,
-      ...(await relayFees()),
-      ...(tag ? { dataSuffix: tag } : {}),
-    });
-
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    if (receipt.status === "reverted") throw new Error(`submitRound reverted (${hash})`);
-
+    // Recorded here rather than after the transaction lands: the player sends it themselves,
+    // so we never see the receipt. The attestation is single-use — the round's ACTIVE→FINISHED
+    // transition enforces that on-chain — so this cannot be replayed for a better placing.
     const dailyDate = await resolveDailyDate(roundId.toString(), result.player, result.seed);
     if (dailyDate) {
       await recordDailyResult({
@@ -61,14 +47,16 @@ export async function POST(req: NextRequest) {
       score: result.score,
       maxScore: result.maxScore,
       percent: result.percent,
-      daily: dailyDate ?? null,
       words: result.words,
       wordCount: result.words.length,
       rejected: submitted.length - result.words.length,
-      txHash: hash,
+      daily: dailyDate ?? null,
+      // What the player needs to call submitRound themselves.
+      deadline: result.deadline.toString(),
+      signature: result.signature,
     });
   } catch (err) {
-    console.error("[round/submit]", err);
-    return NextResponse.json({ error: "Could not submit round" }, { status: 500 });
+    console.error("[round/attest]", err);
+    return NextResponse.json({ error: "Could not score round" }, { status: 500 });
   }
 }

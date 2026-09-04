@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useGasPrice } from "wagmi";
 import { parseUnits } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ERC20_ABI, USDM_ADDRESS } from "@/lib/contracts";
-import { celoFee, addCashDeeplink } from "@/lib/minipay";
+import { celoFee, addCashDeeplink, isMiniPay } from "@/lib/minipay";
+import { selfStartRound } from "@/lib/selfPlay";
 import { useFeeCurrency } from "@/hooks/useFeeCurrency";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlayerStreak } from "@/hooks/usePlayerStreak";
@@ -127,6 +128,18 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
     setStatus("Starting round…");
     setRelayError(null);
     try {
+      // MiniPay wallets arrive funded and Celo fees are sub-cent in stablecoins, so those
+      // players send their own round. Guests and signed-in players are relayed: a guest has no
+      // wallet, and a Privy embedded wallet is created empty.
+      if (isMiniPay() && address) {
+        const id = await selfStartRound({
+          player: address, difficulty, lang, feeCurrency: fee.address,
+        });
+        setStatus(null);
+        onEnterGame(id);
+        return;
+      }
+
       const res = await fetch("/api/round/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
