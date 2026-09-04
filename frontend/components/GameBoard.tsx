@@ -17,6 +17,7 @@ import { getAttributionTag } from "@/lib/attribution";
 import { submitScore } from "@/hooks/usePlayerStreak";
 import { getPlayToken } from "@/lib/playSession";
 import MissedWord from "./MissedWord";
+import MatchResult from "./MatchResult";
 import { hasBoardWords } from "@/lib/dictionary";
 
 /** Seconds per difficulty, mirroring roundDuration() in Lexiq.sol. The timer used to be
@@ -361,6 +362,7 @@ export default function GameBoard({
                 ))}
               </div>
             )}
+            <MatchResult />
             {missedWords.length > 0 && (
               <div style={{ width: "100%", marginTop: 14, background: "#241C13", border: LINE, borderRadius: 14, padding: 14, textAlign: "left" }}>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 9 }}>

@@ -215,7 +215,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
         <motion.p {...inView(0.08)} style={{ color: "#9A8C77", fontSize: 16, marginBottom: 36 }}>Free rounds, real opponents, and progress that actually adds up.</motion.p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16 }}>
           {[
-            { icon: "⚔",  title: "Play vs anyone",  body: "Get matched with another player, same letters, same clock — whoever scores more wins.", iconColor: "#FF5B45" },
+            { icon: "⚔",  title: "Play vs anyone",  body: "Get matched with another signed-in player. Same seven letters, same clock, higher score wins.", iconColor: "#FF5B45" },
             { icon: "▲",  title: "Level up",         body: "Every round earns XP. Climb levels to unlock new tile skins for your board.",             iconColor: "#CFE94B" },
             { icon: "★",  title: "Season badges",    body: "Earn badges for combos, jackpot words, and weekly rankings before the season resets.",    iconColor: "#F4C84B" },
             { icon: "↗",  title: "Share your score", body: "Every result becomes a shareable card — challenge friends to beat it.",                    iconColor: "#CBC0AE" },

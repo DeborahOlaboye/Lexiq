@@ -28,12 +28,10 @@ const LANGS: { id: Lang; flag: string; label: string }[] = [
 
 export default function GuestLobby({
   onPlay,
-  onMatchmaking,
   lang = "en",
   onLangChange,
 }: {
   onPlay: (difficulty: 0 | 1 | 2) => void;
-  onMatchmaking?: () => void;
   lang?: Lang;
   onLangChange?: (l: Lang) => void;
 }) {
@@ -183,19 +181,14 @@ export default function GuestLobby({
         </p>
       </motion.div>
 
-      {/* Head to head card */}
-      <motion.div {...fadeUp(0.08)}
-        style={{ background: "linear-gradient(135deg, rgba(255,91,69,.16), rgba(207,233,75,.10))", border: "1px solid rgba(255,91,69,.35)", borderRadius: 22, padding: "clamp(18px,4vw,26px)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: -18, right: -10, width: 90, height: 90, borderRadius: "50%", background: "rgba(255,91,69,.18)", pointerEvents: "none" }} />
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#FF5B45", textTransform: "uppercase", position: "relative" }}>Head to head</div>
-        <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,4vw,28px)", letterSpacing: "-0.02em", margin: "8px 0 4px", position: "relative" }}>Play vs someone</div>
-        <div style={{ fontSize: 14, color: "#CBC0AE", position: "relative" }}>Same 7 letters, same clock — whoever scores more wins</div>
-        <motion.button
-          onClick={onMatchmaking}
-          whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.97 }}
-          style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", padding: 16, borderRadius: 14, background: "#FF5B45", color: "#fff", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 17, boxShadow: "0 6px 0 #E2402A", marginTop: 16, cursor: "pointer", border: "none" }}>
-          ⚔ Find opponent
-        </motion.button>
+      {/* Head to head — wallet only, so this is a prompt rather than a button that does nothing */}
+      <motion.div {...fadeUp(0.1)}
+        style={{ background: "linear-gradient(135deg, rgba(255,91,69,.12), rgba(207,233,75,.08))", border: "1px solid rgba(255,91,69,.28)", borderRadius: 22, padding: "clamp(18px,4vw,26px)" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#FF5B45", textTransform: "uppercase" }}>Head to head</div>
+        <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(20px,4vw,26px)", letterSpacing: "-0.02em", margin: "8px 0 4px" }}>Play someone</div>
+        <div style={{ fontSize: 14, color: "#CBC0AE", lineHeight: 1.5 }}>
+          Same seven letters, same clock, higher score wins. Sign in to play head to head and to appear on the boards.
+        </div>
       </motion.div>
 
       {/* Stats grid */}

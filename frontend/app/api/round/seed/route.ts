@@ -5,6 +5,7 @@ import { publicClient, signSeed } from "@/lib/attestation";
 import { issuePlayToken } from "@/lib/playtoken";
 import { missingConfig } from "@/lib/config";
 import { todayKey, dailyDifficulty, claimTodaysAttempt, rememberDailySeed } from "@/lib/daily";
+import { getMatch } from "@/lib/match";
 
 /**
  * Hands a player a signed seed so they can send a staked round themselves. The seed is
@@ -12,7 +13,7 @@ import { todayKey, dailyDifficulty, claimTodaysAttempt, rememberDailySeed } from
  * shop for good letters and only then commit a stake.
  */
 export async function POST(req: NextRequest) {
-  let body: { player?: string; difficulty?: number; lang?: string; daily?: boolean };
+  let body: { player?: string; difficulty?: number; lang?: string; daily?: boolean; matchId?: string };
   const missing = missingConfig();
   if (missing.length) {
     console.error("[config] missing", missing.join(", "));
@@ -41,7 +42,13 @@ export async function POST(req: NextRequest) {
     const nonce = await publicClient.readContract({
       address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "roundNonce", args: [player],
     });
-    const { seed, deadline, signature } = await signSeed(player, nonce as bigint, difficulty, lang);
+    const match = body.matchId ? await getMatch(body.matchId) : null;
+    const { seed, deadline, signature } = await signSeed(
+      player, nonce as bigint,
+      match ? match.difficulty : difficulty,
+      match ? (LANG_ID[match.lang] ?? 0) : lang,
+      match?.seed,
+    );
     if (body.daily) await rememberDailySeed(player, seed, today);
     return NextResponse.json({
       seed, deadline: deadline.toString(), signature, nonce: (nonce as bigint).toString(), difficulty, lang, daily: !!body.daily,

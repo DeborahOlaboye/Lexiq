@@ -10,7 +10,6 @@ import GameBoard from "@/components/GameBoard";
 import GuestBoard from "@/components/GuestBoard";
 import GuestLobby from "@/components/GuestLobby";
 import Leaderboard from "@/components/Leaderboard";
-import Matchmaking from "@/components/Matchmaking";
 import StreakBadge from "@/components/StreakBadge";
 import UsernamePrompt from "@/components/UsernamePrompt";
 import UsernameSetup from "@/components/UsernameSetup";
@@ -22,7 +21,7 @@ import { useProfile } from "@/hooks/useProfile";
 import type { Lang } from "@/lib/guestLetters";
 
 type View = "lobby" | "game" | "leaderboard";
-type GuestView = "setup" | "lobby" | "matchmaking" | "game" | "leaderboard";
+type GuestView = "setup" | "lobby" | "game" | "leaderboard";
 
 const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -166,15 +165,8 @@ export default function Home() {
             {(guestView === "lobby" || guestView === "setup") && (
               <GuestLobby
                 onPlay={(diff) => { setGuestDifficulty(diff); setGuestView("game"); }}
-                onMatchmaking={() => setGuestView("matchmaking")}
                 lang={guestLang}
                 onLangChange={setGuestLang}
-              />
-            )}
-            {guestView === "matchmaking" && (
-              <Matchmaking
-                onFound={() => { setGuestDifficulty(1); setGuestView("game"); }}
-                onCancel={() => setGuestView("lobby")}
               />
             )}
             {guestView === "game" && (
@@ -207,7 +199,7 @@ export default function Home() {
           <div style={{ width: "min(440px, 100%)", margin: "0 auto", background: "#2F2517", border: LINE2, borderRadius: 16, padding: 6, display: "flex", gap: 4 }}>
             {(["lobby", "game", "leaderboard"] as const).map((id) => {
               const active = id === "lobby"
-                ? (guestView === "lobby" || guestView === "setup" || guestView === "matchmaking")
+                ? (guestView === "lobby" || guestView === "setup")
                 : guestView === id;
               return (
                 <button key={id} onClick={() => setGuestView(id)}
