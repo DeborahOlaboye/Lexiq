@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Logo from "@/components/Logo";
 import LegalLinks from "@/components/LegalLinks";
@@ -40,7 +41,25 @@ const SCORING_ROWS = LENGTH_BONUS_TABLE.map(({ len, bonus }, i) => ({
   jackpot: bonus === MAX_BONUS,
 }));
 
+type Weekly = { funded: boolean; prize: string | null; endsIn: number };
+
+function countdown(seconds: number): string {
+  const d = Math.floor(seconds / 86400), h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return d > 0 ? `${d}d ${h}h` : `${h}h ${m}m`;
+}
+
 export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () => void; onConnect?: () => void }) {
+  // Read the pool rather than print a figure. This block used to show a hardcoded 128.40 USDm
+  // and a frozen countdown, which advertised a prize that did not exist.
+  const [weekly, setWeekly] = useState<Weekly | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/weekly").then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d) setWeekly(d); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   function handleConnect() {
     onConnect?.();
   }
@@ -79,7 +98,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
           </motion.h1>
 
           <motion.p {...fadeUp(0.22)} style={{ fontSize: "clamp(15px,2vw,18px)", lineHeight: 1.55, color: "#CBC0AE", maxWidth: 430, marginTop: 20, marginBottom: 0 }}>
-            Build as many words as you can from 7 random letters. Longer words score more. Stake USDm, beat your best, and climb the weekly prize board.
+            Build as many words as you can from 7 random letters. Rarer letters and longer words score more. Free to play — climb the weekly board and share the prize pool when there is one.
           </motion.p>
 
           <motion.div {...fadeUp(0.34)} className="flex flex-wrap gap-[14px]" style={{ marginTop: "clamp(20px,3vw,30px)" }}>
@@ -147,10 +166,10 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
       <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "0 clamp(18px,5vw,40px)" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14, padding: "clamp(18px,4vw,26px) 0", borderTop: LINE, borderBottom: LINE }}>
           {[
-            { val: "90s",    label: "per round",         lime: false },
+            { val: "60-120s", label: "per round",        lime: false },
             { val: "7",      label: "random letters",    lime: false },
-            { val: "11 pts", label: "top word score",    lime: true  },
-            { val: "USDm",   label: "weekly prize pool", lime: false },
+            { val: `${scoreWord("QUIZZED")} pts`, label: "top word so far", lime: true  },
+            { val: "Free",   label: "every round",       lime: false },
           ].map(({ val, label, lime }, i) => (
             <motion.div key={val} {...inView(i * 0.1)}>
               <motion.div
@@ -174,7 +193,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
           {[
             { n: "01", title: "Get your 7 letters",     body: "Seven random letters drawn from a keccak256 seed of live block data. Provably fair, fresh every round." },
             { n: "02", title: "Spell against the clock", body: "Tap tiles or type. Each word is committed on-chain as you go. Longer words are worth far more." },
-            { n: "03", title: "Reveal & score",          body: "At the buzzer your words reveal and tally. Beat 10 points to keep your stake — or feed the pool." },
+            { n: "03", title: "Reveal & score",          body: "At the buzzer your words reveal and tally, and your score goes on-chain and onto the week\u2019s board." },
           ].map(({ n, title, body }, i) => (
             <motion.div key={n} {...inView(0.18 + i * 0.12)} whileHover={{ y: -6, transition: { duration: 0.2 } }}
               style={{ background: "#241C13", borderRadius: 20, padding: "clamp(18px,3vw,28px)", border: LINE }}>
@@ -220,7 +239,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
           <div>
             <motion.h2 {...inView(0)} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(26px,5vw,38px)", letterSpacing: "-0.02em", marginBottom: 12 }}>Length is everything</motion.h2>
             <motion.p {...inView(0.1)} style={{ color: "#CBC0AE", fontSize: 16, lineHeight: 1.55, margin: 0 }}>
-              Two-letter words barely register. The seven-letter bomb is the jackpot. The whole game is the hunt for one more long word before the buzzer.
+              Three letters is the minimum, and rare letters carry their own weight — a Q or a Z is worth ten on its own. The seven-letter bomb is the jackpot.
             </motion.p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -246,14 +265,14 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
         </div>
       </div>
 
-      {/* STAKE / PRIZE */}
+      {/* FREE PLAY / WEEKLY PRIZE */}
       <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(36px,6vw,56px) clamp(18px,5vw,40px) 20px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 18 }}>
           <motion.div {...inView(0)} whileHover={{ y: -3, transition: { duration: 0.2 } }}
             style={{ background: "#241C13", borderRadius: 20, padding: "clamp(20px,3vw,30px)", border: LINE }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#9A8C77", textTransform: "uppercase" }}>Free to play</div>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,2.5vw,26px)", marginTop: 12, marginBottom: 8 }}>Just for the high score</div>
-            <p style={{ color: "#CBC0AE", fontSize: 15, lineHeight: 1.5, margin: 0 }}>Skip the stake entirely. Chase your personal best and climb the board on pure skill.</p>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,2.5vw,26px)", marginTop: 12, marginBottom: 8 }}>Nothing to lose</div>
+            <p style={{ color: "#CBC0AE", fontSize: 15, lineHeight: 1.5, margin: 0 }}>Every round is free. All you pay is the network fee, a fraction of a cent, in whatever stablecoin you already hold.</p>
           </motion.div>
           <motion.div
             {...inView(0.1)}
@@ -261,26 +280,26 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
             transition={{ boxShadow: { duration: 2.8, repeat: Infinity, ease: "easeInOut" } }}
             whileHover={{ y: -3, transition: { duration: 0.2 } }}
             style={{ borderRadius: 20, padding: "clamp(20px,3vw,30px)", background: "linear-gradient(135deg,rgba(255,91,69,.16),rgba(207,233,75,.10))", border: "1px solid rgba(255,91,69,.35)" }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#FF5B45", textTransform: "uppercase" }}>Stake to sweat</div>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,2.5vw,26px)", marginTop: 12, marginBottom: 8 }}>Score 10+ or lose it</div>
-            <p style={{ color: "#CBC0AE", fontSize: 15, lineHeight: 1.5, margin: 0 }}>Stake USDm before the round. Beat 10 points and it comes back (minus 1%). Fall short and it drops into the weekly pool.</p>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#FF5B45", textTransform: "uppercase" }}>Weekly board</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,2.5vw,26px)", marginTop: 12, marginBottom: 8 }}>Play often, rank high</div>
+            <p style={{ color: "#CBC0AE", fontSize: 15, lineHeight: 1.5, margin: 0 }}>Points build across the week. When a prize pool is funded, the week&apos;s best players share it.</p>
           </motion.div>
         </div>
         <motion.div {...inView(0.15)}
           style={{ marginTop: 18, background: "#1E1710", borderRadius: 20, padding: "clamp(20px,3vw,30px)", border: LINE, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
           <div>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#9A8C77", textTransform: "uppercase" }}>This week&apos;s prize pool</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#9A8C77", textTransform: "uppercase" }}>{weekly?.funded ? "This week\u2019s prize pool" : "This week"}</div>
             <motion.div
               animate={{ scale: [1, 1.04, 1], textShadow: ["0 0 0 rgba(207,233,75,0)", "0 0 22px rgba(207,233,75,0.7)", "0 0 0 rgba(207,233,75,0)"] }}
               transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
               style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(32px,6vw,46px)", color: "#CFE94B", lineHeight: 1, marginTop: 8 }}
             >
-              128.40{" "}<span style={{ fontSize: "clamp(16px,2.5vw,22px)", color: "#CBC0AE", fontWeight: 700 }}>USDm</span>
+              {weekly?.funded ? weekly.prize : "Climb the board"}
             </motion.div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77" }}>Resets in</div>
-            <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 26, color: "#F5EFE2" }}>3d 14h 22m</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 26, color: "#F5EFE2" }}>{weekly ? countdown(weekly.endsIn) : "—"}</div>
           </div>
         </motion.div>
       </div>
@@ -289,7 +308,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
       <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(36px,6vw,64px) clamp(18px,5vw,40px)" }}>
         <motion.div {...inView(0)} style={{ background: "#CFE94B", borderRadius: 26, padding: "clamp(36px,6vw,54px) clamp(24px,4vw,44px)", textAlign: "center" }}>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(30px,6vw,46px)", letterSpacing: "-0.02em", color: "#15110D", margin: "0 0 12px" }}>Got 90 seconds?</h2>
-          <p style={{ color: "#3c4416", fontSize: "clamp(14px,2vw,17px)", margin: "0 0 26px" }}>No wallet needed to play — sign in only if you want to stake and climb the chain leaderboard.</p>
+          <p style={{ color: "#3c4416", fontSize: "clamp(14px,2vw,17px)", margin: "0 0 26px" }}>No wallet needed to play — sign in to put your name on the weekly board.</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             {onGuestPlay && (
               <motion.button onClick={onGuestPlay} whileTap={{ scale: 0.97 }}

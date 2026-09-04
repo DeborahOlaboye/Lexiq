@@ -2,12 +2,13 @@
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { motion } from "framer-motion";
+import { awardBadge } from "@/lib/player";
 
 const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
 
 type Row = { playerId: string; username: string; points: number };
-type Weekly = { week: string; endsIn: number; funded: boolean; prizePool: string; rows: Row[] };
+type Weekly = { week: string; endsIn: number; funded: boolean; prize: string | null; rows: Row[] };
 
 function countdown(seconds: number): string {
   const d = Math.floor(seconds / 86400);
@@ -38,8 +39,13 @@ export default function WeeklyBoard() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (!weekly || !address) return;
+    const rank = weekly.rows.findIndex((r) => r.playerId.toLowerCase() === address.toLowerCase());
+    if (rank >= 0 && rank < 10) awardBadge("top10");
+  }, [weekly, address]);
+
   if (!weekly) return null;
-  const pool = Number(weekly.prizePool);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
@@ -57,7 +63,7 @@ export default function WeeklyBoard() {
       {weekly.funded ? (
         <div style={{ marginTop: 10, marginBottom: 4 }}>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(26px,6vw,34px)", color: "#CFE94B", lineHeight: 1 }}>
-            {pool.toFixed(2)} <span style={{ fontSize: "clamp(13px,2.5vw,16px)", color: "#CBC0AE" }}>USDm</span>
+            {weekly.prize}
           </div>
           <p style={{ fontSize: 12, color: "#CBC0AE", margin: "6px 0 0", lineHeight: 1.5 }}>
             Shared between the week&apos;s top players. Free to enter — just play.

@@ -40,8 +40,6 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
   const [loading, setLoading]     = useState(true);
   const [lastFetch, setLastFetch] = useState(0);
   const [, forceRender]           = useState(0);
-
-  const { data: prize }   = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "weeklyPrizePool" });
   const { data: myHigh }  = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "highScore",  args: address ? [address] : undefined });
   const { data: myTotal } = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "totalScore", args: address ? [address] : undefined });
   const { data: played }  = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "gamesPlayed",args: address ? [address] : undefined });
@@ -64,8 +62,6 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
   }
 
   useEffect(() => { fetchLeaderboard(); }, []); // eslint-disable-line
-
-  const prizeFormatted = prize ? (Number(prize) / 1e18).toFixed(2) : "—";
   const username = getStoredUsername();
 
   return (
@@ -81,21 +77,6 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
           </span>
         )}
       </motion.div>
-
-      {/* Prize pool — wallet users only */}
-      {!isGuest && (
-        <div style={{ borderRadius: 20, padding: "clamp(18px,4vw,26px)", textAlign: "center", background: "linear-gradient(135deg,rgba(207,233,75,.14),rgba(255,91,69,.08))", border: "1px solid rgba(207,233,75,.35)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 8 }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.14em", color: "#CFE94B", textTransform: "uppercase" }}>Weekly prize pool</div>
-          </div>
-          <motion.div
-            animate={{ textShadow: ["0 0 0 rgba(207,233,75,0)", "0 0 20px rgba(207,233,75,0.5)", "0 0 0 rgba(207,233,75,0)"] }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-            style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(32px,8vw,44px)", color: "#CFE94B", lineHeight: 1, marginBottom: 4 }}
-          >{prizeFormatted}</motion.div>
-          <div style={{ fontSize: 12, color: "#CBC0AE" }}>USDm</div>
-        </div>
-      )}
 
       {/* Stats — wallet only */}
       {address && !isGuest && (
@@ -193,51 +174,47 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
         )}
       </div>
 
-      {/* Season badges */}
-      <div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 9 }}>Season badges</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
-          {ALL_BADGES.map(({ id, name, desc }) => {
-            const earned = myBadges.includes(id);
-            return (
-              <motion.div key={id}
-                animate={earned ? { boxShadow: ["0 0 0 rgba(244,200,75,0)", "0 0 14px rgba(244,200,75,.4)", "0 0 0 rgba(244,200,75,0)"] } : {}}
-                transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-                style={{ background: earned ? "rgba(244,200,75,.08)" : "#241C13", borderRadius: 14, padding: "12px 14px", border: earned ? "1px solid rgba(244,200,75,.35)" : LINE, opacity: earned ? 1 : 0.45 }}>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: earned ? "#F4C84B" : "#9A8C77", marginBottom: 3 }}>
-                  {earned ? "★ " : "○ "}{name}
-                </div>
-                <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557", lineHeight: 1.4 }}>{desc}</div>
-              </motion.div>
-            );
-          })}
-        </div>
+      {/* Badges — a compact status row, not four description cards */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+        {ALL_BADGES.map(({ id, name, desc }) => {
+          const earned = myBadges.includes(id);
+          return (
+            <span key={id} title={earned ? name : `${name} — ${desc}`}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 100,
+                background: earned ? "rgba(244,200,75,.10)" : "rgba(255,255,255,.03)",
+                border: earned ? "1px solid rgba(244,200,75,.35)" : LINE2,
+                fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 11,
+                color: earned ? "#F4C84B" : "#6E6557" }}>
+              {earned ? "★" : "○"} {name}
+            </span>
+          );
+        })}
       </div>
 
-      {/* Scoring guide */}
-      <div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 9 }}>Length bonus</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 8 }}>
+      {/* Scoring is reference material — available, but not stacked under the board */}
+      <details>
+        <summary style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", cursor: "pointer", listStyle: "none" }}>
+          How scoring works
+        </summary>
+        <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(74px, 1fr))", gap: 7 }}>
           {SCORING.map(({ label, pts, hot }) => (
-            <div key={label} style={{ background: "#241C13", borderRadius: 11, padding: "clamp(8px,2vw,10px)", textAlign: "center", border: hot ? "1px solid rgba(255,91,69,.4)" : LINE2 }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: hot ? "#FF5B45" : "#9A8C77" }}>{label}</div>
-              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3.5vw,18px)", marginTop: 2, color: hot ? "#FF5B45" : "#CBC0AE" }}>{pts}</div>
+            <div key={label} style={{ background: "#241C13", borderRadius: 10, padding: "8px 6px", textAlign: "center", border: hot ? "1px solid rgba(255,91,69,.4)" : LINE2 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: hot ? "#FF5B45" : "#9A8C77" }}>{label}</div>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, marginTop: 2, color: hot ? "#FF5B45" : "#CBC0AE" }}>{pts}</div>
             </div>
           ))}
         </div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", margin: "14px 0 9px" }}>Letter values</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
+        <div style={{ marginTop: 9, display: "flex", flexWrap: "wrap", gap: 6 }}>
           {LETTER_VALUE_TIERS.map(({ value, letters }) => (
-            <div key={value} style={{ background: "#241C13", borderRadius: 11, padding: "clamp(8px,2vw,10px)", border: value >= 8 ? "1px solid rgba(255,91,69,.4)" : LINE2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#CBC0AE", letterSpacing: "0.06em" }}>{letters}</span>
-              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: value >= 8 ? "#FF5B45" : "#9A8C77" }}>{value}</span>
-            </div>
+            <span key={value} style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", padding: "4px 8px", borderRadius: 8, border: LINE2 }}>
+              {letters} <b style={{ color: value >= 8 ? "#FF5B45" : "#CBC0AE" }}>{value}</b>
+            </span>
           ))}
         </div>
-        <p style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557", marginTop: 9, marginBottom: 0, lineHeight: 1.5 }}>
-          A word scores its letters plus the length bonus. Minimum {LENGTH_BONUS_TABLE[0].len} letters.
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557", marginTop: 8, marginBottom: 0 }}>
+          Letters plus a length bonus. Minimum {LENGTH_BONUS_TABLE[0].len} letters.
         </p>
-      </div>
+      </details>
     </div>
   );
 }

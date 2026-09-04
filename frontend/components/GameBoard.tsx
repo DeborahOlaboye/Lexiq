@@ -11,11 +11,12 @@ import { useFeeCurrency } from "@/hooks/useFeeCurrency";
 import { wagmiConfig } from "@/lib/wagmi";
 import { isValidWord, isValidWordSync, validateWords, setBoardWords, clearBoardWords } from "@/lib/dictionary";
 import { motion, AnimatePresence } from "framer-motion";
-import { getStoredUsername, displayName, getSelectedSkin, SKINS } from "@/lib/player";
+import { getStoredUsername, displayName, getSelectedSkin, SKINS, awardBadge } from "@/lib/player";
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
 import { submitScore } from "@/hooks/usePlayerStreak";
 import { getPlayToken } from "@/lib/playSession";
+import MissedWord from "./MissedWord";
 import { hasBoardWords } from "@/lib/dictionary";
 
 /** Seconds per difficulty, mirroring roundDuration() in Lexiq.sol. The timer used to be
@@ -81,6 +82,7 @@ export default function GameBoard({
   const [submitting, setSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [missedWords, setMissedWords] = useState<{ word: string; pts: number }[]>([]);
   const [wordValid, setWordValid] = useState<"valid" | "invalid" | "unchecked">("unchecked");
   const [flashCombo, setFlashCombo] = useState(0);
   const comboRef = useRef(0);
@@ -92,6 +94,8 @@ export default function GameBoard({
     args: roundId !== null ? [roundId] : undefined,
     query: { refetchInterval: 5000 },
   });
+  const state_ = round ? Number((round as readonly unknown[])[ROUND.state]) : -1;
+
   const { data: letters } = useReadContract({
     address: contract, abi: LEXIQ_ABI, functionName: "getLetters",
     args: roundId !== null ? [roundId] : undefined,
@@ -100,12 +104,6 @@ export default function GameBoard({
   const { data: myHigh } = useReadContract({
     address: contract, abi: LEXIQ_ABI, functionName: "highScore",
     args: address ? [address] : undefined,
-  });
-  // Read the threshold rather than assume it. Hardcoded, this told a player their stake had
-  // come back whenever they beat 10 — while the contract settles against its own value and
-  // had already forfeited it.
-  const { data: threshold } = useReadContract({
-    address: contract, abi: LEXIQ_ABI, functionName: "stakeThreshold",
   });
 
   const letterStr = letters
@@ -146,8 +144,8 @@ export default function GameBoard({
     return () => clearTimeout(t);
   }, [input, letterStr]);
 
-  // A staked round is sent by the player, and a reload loses the set the lobby loaded — either
-  // way, fetch it rather than fall back to a request per word.
+  // A reload loses the set the lobby loaded, so fetch it rather than fall back to a request
+  // per word.
   useEffect(() => {
     if (roundId === null || hasBoardWords()) return;
     let cancelled = false;
@@ -183,6 +181,19 @@ export default function GameBoard({
    * letters, scores it, and signs the result for the contract — so this sends words, not a
    * score, and the player signs nothing and pays nothing.
    */
+  // What was on the board, once the round is over. Seeing what you missed — and being able to
+  // tap it for a meaning — is the vocabulary loop, and it only ever existed in guest mode.
+  useEffect(() => {
+    if (state_ !== ROUND_FINISHED || !letterStr) return;
+    const found = new Set(words.map((w) => w.word));
+    fetch(`/api/words?letters=${letterStr}&lang=${lang}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.words) setMissedWords(d.words.filter((w: { word: string }) => !found.has(w.word)).slice(0, 12));
+      })
+      .catch(() => {});
+  }, [state_, letterStr, lang]); // eslint-disable-line
+
   async function doSubmit() {
     if (!roundId || submitting || words.length === 0) return;
     setSubmitting(true);
@@ -242,6 +253,10 @@ export default function GameBoard({
     if (word.length < MIN_WORD_LENGTH || !canBuild(word, letterStr) || words.find((w) => w.word === word) || wordValid !== "valid") return;
     const salt = randomSalt();
     const pts = scoreWord(word);
+    // Badges are awarded where the thing actually happens. They were advertised on the
+    // leaderboard and the landing page while awardBadge() had no call sites at all, so no
+    // player could ever earn one.
+    if (word.length === 7) awardBadge("jackpot");
     setWords((prev) => [...prev, { word, salt, pts }]);
     setInput("");
     const id = popId + 1;
@@ -252,6 +267,7 @@ export default function GameBoard({
     const now = Date.now();
     const newCombo = lastWordAt.current > 0 && (now - lastWordAt.current) < 4500 ? comboRef.current + 1 : 1;
     comboRef.current = newCombo;
+    if (newCombo >= 3) awardBadge("onfire");
     lastWordAt.current = now;
     if (newCombo >= 2) {
       setFlashCombo(newCombo);
@@ -268,7 +284,7 @@ export default function GameBoard({
   }
 
   function shareResult(score: number) {
-    const text = `I scored ${score} on Lexiq! 🎯 7 letters, 90 seconds, on Celo.`;
+    const text = `I scored ${score} on Lexiq! 🎯 7 letters, ${DURATION[Number((round as readonly unknown[])[ROUND.difficulty])] ?? 90} seconds, on Celo.`;
     if (typeof navigator !== "undefined" && navigator.share) {
       navigator.share({ text }).catch(() => {});
     } else if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -291,9 +307,6 @@ export default function GameBoard({
   const r          = round as readonly unknown[];
   const finalScore = Number(r[ROUND.score]);
   const state      = Number(r[ROUND.state]);
-  const stake      = r[ROUND.stake] as bigint;
-  const stakeThreshold = threshold !== undefined ? Number(threshold) : 50;
-  const keptStake = finalScore >= stakeThreshold;
   const isNewBest = finalScore > best && best > 0;
   const sortedWords = [...words].sort((a, b) => b.pts - a.pts);
   const displayScore = state === 1 ? finalScore : myScore;
@@ -339,11 +352,6 @@ export default function GameBoard({
                 </div>
               )}
             </div>
-            {stake > 0n && (
-              <div style={{ width: "100%", marginTop: 12, borderRadius: 14, padding: 14, background: keptStake ? "rgba(207,233,75,.10)" : "rgba(255,91,69,.10)", border: keptStake ? "1px solid rgba(207,233,75,.35)" : "1px solid rgba(255,91,69,.35)" }}>
-                <span style={{ fontSize: 13, color: "#F5EFE2" }}>{keptStake ? "✓ Stake returned" : `✗ Score under ${stakeThreshold} — stake forfeited`}</span>
-              </div>
-            )}
             {sortedWords.length > 0 && (
               <div style={{ width: "100%", marginTop: 14, display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
                 {sortedWords.map(({ word, pts }) => (
@@ -351,6 +359,18 @@ export default function GameBoard({
                     {word} <b style={{ color: pts >= 8 ? "#FF5B45" : "#CFE94B" }}>+{pts}</b>
                   </span>
                 ))}
+              </div>
+            )}
+            {missedWords.length > 0 && (
+              <div style={{ width: "100%", marginTop: 14, background: "#241C13", border: LINE, borderRadius: 14, padding: 14, textAlign: "left" }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 9 }}>
+                  Words you missed · tap one for its meaning
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                  {missedWords.map(({ word, pts }) => (
+                    <MissedWord key={word} word={word} pts={pts} lang={lang} />
+                  ))}
+                </div>
               </div>
             )}
             <motion.button whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.97 }} onClick={onBack} style={{ width: "100%", marginTop: 20, padding: "clamp(13px,2.5vw,16px)", borderRadius: 15, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", boxShadow: "0 6px 0 #A9C931", border: "none", cursor: "pointer" }}>Play again</motion.button>

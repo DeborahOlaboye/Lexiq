@@ -10,7 +10,7 @@ import { usePlayerStreak } from "@/hooks/usePlayerStreak";
 import UsernamePrompt from "./UsernamePrompt";
 import DailyChallenge from "./DailyChallenge";
 import WeeklyBoard from "./WeeklyBoard";
-import { getLevel, getRankTitle, getRankProgress, SKINS, getSelectedSkin, saveSkin } from "@/lib/player";
+import { getLevel, getRankTitle, getRankProgress, SKINS, getSelectedSkin, saveSkin, awardBadge } from "@/lib/player";
 import { usePlayerPoints } from "@/hooks/usePlayerPoints";
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
@@ -77,11 +77,28 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   const [inMiniPay, setInMiniPay] = useState(false);
   useEffect(() => { setInMiniPay(isMiniPay()); }, []);
 
+  // Prizes are funded off-chain and not always in the same token, so this comes from the weekly
+  // endpoint rather than the contract. Weeks without one are normal — the tile then shows where
+  // the player sits on the board, so it says something either way instead of a dash.
+  const [weekly, setWeekly] = useState<{ funded: boolean; prize: string | null; rows: { playerId: string }[] } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/weekly").then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d) setWeekly(d); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const weekRank = weekly && address
+    ? weekly.rows.findIndex((r) => r.playerId.toLowerCase() === address.toLowerCase())
+    : -1;
+
+  // Badges are wallet-only, like the leaderboard — guests play, but progression is a reason
+  // to sign in.
+  useEffect(() => { if (points >= 100) awardBadge("century"); }, [points]);
+
   const { data: gasPrice } = useGasPrice({ chainId: 42220 });
   // Charge fees against whichever stablecoin the player actually holds.
   const fee = useFeeCurrency(address, gasPrice);
-
-  const { data: prizePool } = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "weeklyPrizePool" });
   const { data: myRounds }  = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "getPlayerRounds", args: address ? [address] : undefined });
   const { data: myHigh }    = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "highScore",       args: address ? [address] : undefined });
   const { data: myTotal }   = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "totalScore",      args: address ? [address] : undefined });
@@ -102,7 +119,6 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   const playerPaysFees = inMiniPay;
   const cannotAffordFees = playerPaysFees && !fee.loading && !fee.canAffordRound;
   const busy     = starting;
-  const prizeFormatted = prizePool ? (Number(prizePool) / 1e18).toFixed(2) : "—";
 
 
   /**
@@ -386,7 +402,12 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
       {/* Stat grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 11 }}>
         {[
-          { label: "Prize pool", value: prizeFormatted, unit: "USDm", lime: true,  glow: true,  delay: 0.08 },
+          weekly?.funded
+            ? { label: "Prize pool", value: weekly.prize ?? "—", lime: true, glow: true, delay: 0.08 }
+            : { label: "Week rank",
+                value: weekRank >= 0 ? `#${weekRank + 1}` : "—",
+                unit: weekRank >= 0 ? undefined : "play a round",
+                lime: weekRank >= 0, glow: false, delay: 0.08 },
           { label: "Your best",  value: myHigh?.toString() ?? "—",   unit: "pts",  lime: false, glow: false, delay: 0.15 },
           { label: "Total score",value: myTotal?.toString() ?? "—",               lime: false, glow: false, delay: 0.22 },
           { label: "Rounds",     value: played?.toString() ?? "—",                lime: false, glow: false, delay: 0.29 },
