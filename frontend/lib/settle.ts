@@ -7,11 +7,14 @@ import { scoreWords, MAX_WORDS } from "./scoring";
 import type { Lang } from "./guestLetters";
 
 /**
- * Wall-clock slack on top of the round length, covering typing the last word, request latency
- * and a slow connection. The clock lives here rather than in the contract so a transaction
- * landing a second late never costs an honest player their stake.
+ * Slack on top of the round length, for everything that happens between the buzzer and the
+ * submission landing: reading the board, tapping submit, a wallet confirmation, a slow request.
+ *
+ * Generous on purpose. It buys almost no protection — the letters are public on-chain from the
+ * moment a round opens, so anyone set on solving offline can do it in a second — while a tight
+ * window silently destroys the round of an honest player who paused before submitting.
  */
-const GRACE_SECONDS = 30;
+const GRACE_SECONDS = 5 * 60;
 const DURATION: Record<number, number> = { 0: 120, 1: 90, 2: 60 };
 
 export type SettleFailure = { ok: false; status: number; error: string };
@@ -60,7 +63,7 @@ export async function scoreSubmission(
     return { ok: false, status: 403, error: "Not your round" };
   }
   if (nowSeconds() - startedAt > (DURATION[difficulty] ?? 90) + GRACE_SECONDS) {
-    return { ok: false, status: 410, error: "Round expired" };
+    return { ok: false, status: 410, error: "This round timed out before it could be saved. Your next one will save fine." };
   }
 
   const letters  = await lettersForRound(roundId, player);

@@ -26,7 +26,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#F5EFE2", marginBottom: 6 }}>4. How we use your data</h2>
-          <p>We use gameplay and account data to operate leaderboards, matchmaking, streaks, and rank progression, and to communicate with you about your account when needed. We do not sell your data.</p>
+          <p>We use gameplay and account data to operate leaderboards, streaks, and rank progression, and to communicate with you about your account when needed. We do not sell your data.</p>
         </section>
 
         <section>

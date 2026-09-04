@@ -181,13 +181,13 @@ export default function GuestLobby({
         </p>
       </motion.div>
 
-      {/* Head to head — wallet only, so this is a prompt rather than a button that does nothing */}
+      {/* Signing in is what puts a player on the boards */}
       <motion.div {...fadeUp(0.1)}
         style={{ background: "linear-gradient(135deg, rgba(255,91,69,.12), rgba(207,233,75,.08))", border: "1px solid rgba(255,91,69,.28)", borderRadius: 22, padding: "clamp(18px,4vw,26px)" }}>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#FF5B45", textTransform: "uppercase" }}>Head to head</div>
-        <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(20px,4vw,26px)", letterSpacing: "-0.02em", margin: "8px 0 4px" }}>Play someone</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: "0.14em", color: "#FF5B45", textTransform: "uppercase" }}>Compete</div>
+        <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(20px,4vw,26px)", letterSpacing: "-0.02em", margin: "8px 0 4px" }}>Get on the board</div>
         <div style={{ fontSize: 14, color: "#CBC0AE", lineHeight: 1.5 }}>
-          Same seven letters, same clock, higher score wins. Sign in to play head to head and to appear on the boards.
+          Sign in for the daily challenge, the weekly board, and a rank that follows you across devices.
         </div>
       </motion.div>
 

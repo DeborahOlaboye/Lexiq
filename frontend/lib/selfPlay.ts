@@ -29,14 +29,13 @@ export async function selfStartRound(opts: {
   lang: Lang;
   feeCurrency: `0x${string}`;
   daily?: boolean;
-  matchId?: string;
 }): Promise<bigint> {
   const res = await fetch("/api/round/seed", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       player: opts.player, difficulty: opts.difficulty, lang: opts.lang,
-      daily: opts.daily, matchId: opts.matchId,
+      daily: opts.daily,
     }),
   });
   const seed = await res.json();

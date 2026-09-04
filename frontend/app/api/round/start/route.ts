@@ -9,7 +9,6 @@ import { LANG_BY_ID } from "@/lib/contracts";
 import { getServerAttributionTag } from "@/lib/attribution";
 import { missingConfig } from "@/lib/config";
 import { todayKey, dailyDifficulty, claimTodaysAttempt, markRoundAsDaily } from "@/lib/daily";
-import { getMatch, attachRound } from "@/lib/match";
 
 const ROUND_SECONDS: Record<number, number> = { 0: 120, 1: 90, 2: 60 };
 
@@ -22,7 +21,7 @@ const START_GAS = 300_000n;
  * real on-chain rounds with real letters rather than a client-side approximation.
  */
 export async function POST(req: NextRequest) {
-  let body: { player?: string; guestId?: string; difficulty?: number; lang?: string; challengeRoundId?: string; daily?: boolean; matchId?: string };
+  let body: { player?: string; guestId?: string; difficulty?: number; lang?: string; challengeRoundId?: string; daily?: boolean };
   const missing = missingConfig();
   if (missing.length) {
     console.error("[config] missing", missing.join(", "));
@@ -71,14 +70,7 @@ export async function POST(req: NextRequest) {
           const nonce = await publicClient.readContract({
             address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "roundNonce", args: [player],
           });
-          // A match issues both players the same seed, so they race the same seven letters.
-          const match = body.matchId ? await getMatch(body.matchId) : null;
-          const { seed, deadline, signature } = await signSeed(
-            player, nonce as bigint,
-            match ? match.difficulty : difficulty,
-            match ? (LANG_ID[match.lang] ?? 0) : lang,
-            match?.seed,
-          );
+          const { seed, deadline, signature } = await signSeed(player, nonce as bigint, difficulty, lang);
           return relayerWallet().writeContract({
             address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "startRoundFor",
             args: [player, difficulty, lang, seed, deadline, signature], ...fees,
@@ -116,7 +108,6 @@ export async function POST(req: NextRequest) {
     const wordHashes = hashAll(solveBoard(letters, LANG_BY_ID[lang] ?? "en").map((w) => w.word));
 
     if (body.daily) await markRoundAsDaily(roundId.toString(), today);
-    if (body.matchId) await attachRound(body.matchId, player, roundId.toString());
 
     return NextResponse.json({
       ok: true,

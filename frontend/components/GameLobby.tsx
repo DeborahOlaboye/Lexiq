@@ -10,7 +10,6 @@ import { usePlayerStreak } from "@/hooks/usePlayerStreak";
 import UsernamePrompt from "./UsernamePrompt";
 import DailyChallenge from "./DailyChallenge";
 import WeeklyBoard from "./WeeklyBoard";
-import Versus from "./Versus";
 import { getLevel, getRankTitle, getRankProgress, SKINS, getSelectedSkin, saveSkin, awardBadge } from "@/lib/player";
 import { usePlayerPoints } from "@/hooks/usePlayerPoints";
 import type { Lang } from "@/lib/guestLetters";
@@ -237,8 +236,6 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
       </AnimatePresence>
 
       <DailyChallenge lang={lang} onEnterGame={onEnterGame} />
-
-      <Versus lang={lang} difficulty={difficulty} onEnterGame={onEnterGame} />
 
       <WeeklyBoard />
 

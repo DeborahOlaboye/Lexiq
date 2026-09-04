@@ -212,10 +212,10 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
       {/* BUILT TO KEEP YOU SHARP */}
       <div style={{ width: "min(1080px, 100%)", margin: "0 auto", padding: "clamp(36px,6vw,56px) clamp(18px,5vw,40px) 20px" }}>
         <motion.h2 {...inView(0)} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(26px,5vw,38px)", letterSpacing: "-0.02em", margin: "0 0 6px" }}>Built to keep you sharp</motion.h2>
-        <motion.p {...inView(0.08)} style={{ color: "#9A8C77", fontSize: 16, marginBottom: 36 }}>Free rounds, real opponents, and progress that actually adds up.</motion.p>
+        <motion.p {...inView(0.08)} style={{ color: "#9A8C77", fontSize: 16, marginBottom: 36 }}>Free rounds, a daily challenge, and progress that actually adds up.</motion.p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16 }}>
           {[
-            { icon: "⚔",  title: "Play vs anyone",  body: "Get matched with another signed-in player. Same seven letters, same clock, higher score wins.", iconColor: "#FF5B45" },
+            { icon: "◷",  title: "A new board daily",  body: "One challenge a day, same settings for everyone, ranked by how much of your board you find.", iconColor: "#FF5B45" },
             { icon: "▲",  title: "Level up",         body: "Every round earns XP. Climb levels to unlock new tile skins for your board.",             iconColor: "#CFE94B" },
             { icon: "★",  title: "Season badges",    body: "Earn badges for combos, jackpot words, and weekly rankings before the season resets.",    iconColor: "#F4C84B" },
             { icon: "↗",  title: "Share your score", body: "Every result becomes a shareable card — challenge friends to beat it.",                    iconColor: "#CBC0AE" },

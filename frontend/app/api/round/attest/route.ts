@@ -3,7 +3,6 @@ import { missingConfig } from "@/lib/config";
 import { scoreSubmission } from "@/lib/settle";
 import { resolveDailyDate, recordDailyResult } from "@/lib/daily";
 import { addWeeklyPoints } from "@/lib/weekly";
-import { recordMatchScore } from "@/lib/match";
 
 /**
  * Scores a round and returns the signed attestation without sending anything.
@@ -36,7 +35,6 @@ export async function POST(req: NextRequest) {
     // Recorded here rather than after the transaction lands: the player sends it themselves,
     // so we never see the receipt. The attestation is single-use — the round's ACTIVE→FINISHED
     // transition enforces that on-chain — so this cannot be replayed for a better placing.
-    await recordMatchScore(roundId.toString(), result.player, result.score);
 
     // Every finished round feeds the weekly prize board, daily or not.
     await addWeeklyPoints({

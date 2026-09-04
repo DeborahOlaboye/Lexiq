@@ -6,7 +6,6 @@ import { missingConfig } from "@/lib/config";
 import { scoreSubmission } from "@/lib/settle";
 import { resolveDailyDate, recordDailyResult } from "@/lib/daily";
 import { addWeeklyPoints } from "@/lib/weekly";
-import { recordMatchScore } from "@/lib/match";
 
 /** submitRound, including the stake transfer on the staked path. */
 const SUBMIT_GAS = 350_000n;
@@ -49,8 +48,6 @@ export async function POST(req: NextRequest) {
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status === "reverted") throw new Error(`submitRound reverted (${hash})`);
-
-    await recordMatchScore(roundId.toString(), result.player, result.score);
 
     // Every finished round feeds the weekly prize board, daily or not.
     await addWeeklyPoints({

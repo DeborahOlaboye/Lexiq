@@ -89,15 +89,8 @@ export function deriveSeed(player: string, nonce: bigint): `0x${string}` {
   );
 }
 
-/**
- * @param override a seed to sign instead of the player's own. Head-to-head passes the match's
- *        seed here so both players are issued the same board — the contract verifies whatever
- *        bytes32 is signed, so this needs no change on-chain.
- */
-export async function signSeed(
-  player: string, nonce: bigint, difficulty: number, lang: number, override?: `0x${string}`,
-) {
-  const seed = override ?? deriveSeed(player, nonce);
+export async function signSeed(player: string, nonce: bigint, difficulty: number, lang: number) {
+  const seed = deriveSeed(player, nonce);
   const deadline = BigInt(nowSeconds() + SEED_TTL_SECONDS);
   const signature = await signerAccount().signTypedData({
     domain, types: SEED_TYPES, primaryType: "Seed",

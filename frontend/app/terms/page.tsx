@@ -31,7 +31,7 @@ export default function TermsPage() {
 
         <section>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#F5EFE2", marginBottom: 6 }}>5. On-chain data</h2>
-          <p>Round outcomes, scores, and any prize payouts are recorded on the Celo blockchain and are public and permanent. Off-chain data such as your chosen username may be stored to operate leaderboards and matchmaking.</p>
+          <p>Round outcomes, scores, and any prize payouts are recorded on the Celo blockchain and are public and permanent. Off-chain data such as your chosen username may be stored to operate leaderboards and rankings.</p>
         </section>
 
         <section>
