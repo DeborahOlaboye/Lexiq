@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { isValidWord } from "@/lib/dictionary";
+import { isValidWord, isValidWordSync, setBoardWords, clearBoardWords } from "@/lib/dictionary";
 import { scoreWord, MIN_WORD_LENGTH } from "@/lib/scoring";
 import type { Lang } from "@/lib/guestLetters";
 import { getGuestId, getStoredUsername, displayName, getSelectedSkin, SKINS, recordPlay, getRankTitle, getXP, addXP } from "@/lib/player";
@@ -105,6 +105,7 @@ export default function GuestBoard({
         if (!res.ok) throw new Error(data.error ?? "Could not deal a round");
         if (cancelled) return;
         savePlayToken(data.playToken);
+        setBoardWords(data.wordHashes);
         setLetterStr(data.letters);
         setRoundId(data.roundId);
         setPhase("active");
@@ -112,7 +113,7 @@ export default function GuestBoard({
         if (!cancelled) setDealError((err as Error)?.message ?? "Could not deal a round");
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearBoardWords(); };
   }, [guestId, difficulty, lang]);
 
   // Countdown — only when active
@@ -166,6 +167,10 @@ export default function GuestBoard({
   useEffect(() => {
     const w = input.trim().toUpperCase();
     if (w.length < MIN_WORD_LENGTH || !canBuild(w, letterStr)) { setWordValid("unchecked"); return; }
+    // Local when the board's hashes are loaded, which is the normal case — no debounce, no
+    // round trip, so the tick appears as the player finishes typing rather than a second later.
+    const local = isValidWordSync(w);
+    if (local !== null) { setWordValid(local ? "valid" : "invalid"); return; }
     setWordValid("unchecked");
     const t = setTimeout(async () => {
       const ok = await isValidWord(w, lang);

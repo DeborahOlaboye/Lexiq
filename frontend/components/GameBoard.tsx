@@ -8,13 +8,14 @@ import { scoreWord, MIN_WORD_LENGTH } from "@/lib/scoring";
 import { celoFee } from "@/lib/minipay";
 import { useFeeCurrency } from "@/hooks/useFeeCurrency";
 import { wagmiConfig } from "@/lib/wagmi";
-import { isValidWord, validateWords } from "@/lib/dictionary";
+import { isValidWord, isValidWordSync, validateWords, setBoardWords, clearBoardWords } from "@/lib/dictionary";
 import { motion, AnimatePresence } from "framer-motion";
 import { getStoredUsername, displayName, getSelectedSkin, SKINS } from "@/lib/player";
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
 import { submitScore } from "@/hooks/usePlayerStreak";
 import { getPlayToken } from "@/lib/playSession";
+import { hasBoardWords } from "@/lib/dictionary";
 
 /** Seconds per difficulty, mirroring roundDuration() in Lexiq.sol. The timer used to be
  *  hardcoded to 90s, so picking Easy or Hard changed nothing on the clock. */
@@ -132,6 +133,10 @@ export default function GameBoard({
   useEffect(() => {
     const w = input.trim().toUpperCase();
     if (w.length < MIN_WORD_LENGTH || !canBuild(w, letterStr)) { setWordValid("unchecked"); return; }
+    // Local when the board's hashes are loaded, which is the normal case — no debounce, no
+    // round trip, so the tick appears as the player finishes typing rather than a second later.
+    const local = isValidWordSync(w);
+    if (local !== null) { setWordValid(local ? "valid" : "invalid"); return; }
     setWordValid("unchecked");
     const t = setTimeout(async () => {
       const ok = await isValidWord(w, lang);
@@ -139,6 +144,22 @@ export default function GameBoard({
     }, 250);
     return () => clearTimeout(t);
   }, [input, letterStr]);
+
+  // A staked round is sent by the player, and a reload loses the set the lobby loaded — either
+  // way, fetch it rather than fall back to a request per word.
+  useEffect(() => {
+    if (roundId === null || hasBoardWords()) return;
+    let cancelled = false;
+    fetch("/api/round/words", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roundId: roundId.toString(), playToken: getPlayToken() }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d?.wordHashes) setBoardWords(d.wordHashes); })
+      .catch(() => { /* falls back to server validation */ });
+    return () => { cancelled = true; };
+  }, [roundId]);
 
   useEffect(() => {
     if (!round) return;

@@ -2,7 +2,7 @@ import "server-only";
 import rawEn from "an-array-of-english-words";
 import rawEs from "an-array-of-spanish-words";
 import rawFr from "an-array-of-french-words";
-import { MIN_WORD_LENGTH, MAX_WORD_LENGTH } from "./scoring";
+import { MIN_WORD_LENGTH, MAX_WORD_LENGTH, MAX_WORDS, scoreWord } from "./scoring";
 import type { Lang } from "./guestLetters";
 
 export function normalize(w: string): string {
@@ -64,4 +64,35 @@ export function acceptWords(words: string[], letters: string, lang: Lang, max: n
     if (out.length >= max) break;
   }
   return out;
+}
+
+/** Every valid word on a board, best first. */
+export function solveBoard(letters: string, lang: Lang): { word: string; pts: number }[] {
+  return [...dictFor(lang)]
+    .filter((w) => usesAvailableLetters(w, letters))
+    .map((w) => ({ word: w, pts: scoreWord(w) }))
+    .sort((a, b) => b.pts - a.pts || a.word.localeCompare(b.word));
+}
+
+/**
+ * The best score actually reachable on a board — the top `cap` words, since that is all a
+ * player may submit. Used to score a round as a share of what was there, so boards of
+ * differing generosity can be compared with each other.
+ *
+ * Solving walks the whole dictionary, so results are memoised. This process is long-lived
+ * (a container, not a lambda), so the cache survives between requests and a popular board is
+ * solved once.
+ */
+const maxScoreCache = new Map<string, number>();
+
+export function boardMaxScore(letters: string, lang: Lang, cap = MAX_WORDS): number {
+  const key = `${lang}:${letters}:${cap}`;
+  const hit = maxScoreCache.get(key);
+  if (hit !== undefined) return hit;
+
+  const total = solveBoard(letters, lang).slice(0, cap).reduce((sum, w) => sum + w.pts, 0);
+  // Bounded so a long-running process cannot grow this without limit.
+  if (maxScoreCache.size > 5000) maxScoreCache.clear();
+  maxScoreCache.set(key, total);
+  return total;
 }

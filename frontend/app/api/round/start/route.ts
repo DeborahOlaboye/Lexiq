@@ -3,6 +3,9 @@ import { isAddress, decodeEventLog } from "viem";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, LANG_ID } from "@/lib/contracts";
 import { publicClient, relayerWallet, signSeed, relayFees, lettersForRound } from "@/lib/attestation";
 import { guestAddress, issuePlayToken } from "@/lib/playtoken";
+import { solveBoard } from "@/lib/wordlist";
+import { hashAll } from "@/lib/wordhash";
+import { LANG_BY_ID } from "@/lib/contracts";
 import { getServerAttributionTag } from "@/lib/attribution";
 import { missingConfig } from "@/lib/config";
 
@@ -77,10 +80,15 @@ export async function POST(req: NextRequest) {
 
     const letters = await lettersForRound(roundId, player);
 
+    // Hashes, not words: the client can check a guess instantly and offline, without being
+    // handed a readable answer key.
+    const wordHashes = hashAll(solveBoard(letters, LANG_BY_ID[lang] ?? "en").map((w) => w.word));
+
     return NextResponse.json({
       ok: true,
       roundId: roundId.toString(),
       letters,
+      wordHashes,
       player,
       playToken: issuePlayToken(player),
       txHash: hash,

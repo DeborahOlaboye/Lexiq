@@ -13,6 +13,7 @@ import { usePlayerPoints } from "@/hooks/usePlayerPoints";
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
 import { savePlayToken } from "@/lib/playSession";
+import { setBoardWords } from "@/lib/dictionary";
 
 const LANGS: { id: Lang; label: string }[] = [
   { id: "en", label: "EN" },
@@ -133,6 +134,9 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not start round");
       savePlayToken(data.playToken);
+      // GameBoard validates against these; the module holds them, so it just needs them set
+      // before the board mounts. A refresh mid-round loses them and falls back to the server.
+      setBoardWords(data.wordHashes);
       setStatus(null);
       onEnterGame(BigInt(data.roundId));
     } catch (err) {
@@ -169,6 +173,9 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not accept challenge");
       savePlayToken(data.playToken);
+      // GameBoard validates against these; the module holds them, so it just needs them set
+      // before the board mounts. A refresh mid-round loses them and falls back to the server.
+      setBoardWords(data.wordHashes);
       setStatus(null);
       onEnterGame(BigInt(data.roundId));
     } catch (err) {
