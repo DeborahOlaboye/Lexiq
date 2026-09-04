@@ -1,7 +1,7 @@
 "use client";
 import { useReadContracts } from "wagmi";
 import { ERC20_ABI } from "@/lib/contracts";
-import { STABLES, ROUND_GAS, FEE_CURRENCY } from "@/lib/minipay";
+import { STABLES, ROUND_GAS, FEE_CURRENCY, FEE_CURRENCY_DIRECTORY, FEE_CURRENCY_DIRECTORY_ABI } from "@/lib/minipay";
 
 type FeeCurrency = {
   /** Address to pass as the CIP-64 feeCurrency (adapter for USDC/USDT). */
@@ -37,6 +37,16 @@ export function useFeeCurrency(address?: string, gasPrice?: bigint): FeeCurrency
     query: { enabled: !!address },
   });
 
+  // The FeeCurrencyDirectory holds the CELO↔fee-currency rate the node itself charges against.
+  const { data: rates } = useReadContracts({
+    contracts: STABLES.map((s) => ({
+      address: FEE_CURRENCY_DIRECTORY,
+      abi: FEE_CURRENCY_DIRECTORY_ABI,
+      functionName: "getExchangeRate" as const,
+      args: [s.feeCurrency as `0x${string}`],
+    })),
+  });
+
   const balances = STABLES.map((s, i) => {
     const raw = (data?.[i]?.result as bigint | undefined) ?? 0n;
     return {
@@ -47,11 +57,18 @@ export function useFeeCurrency(address?: string, gasPrice?: bigint): FeeCurrency
     };
   });
 
-  const best = balances.reduce((a, b) => (b.balance18 > a.balance18 ? b : a), balances[0]);
+  const bestIndex = balances.reduce((bi, b, i) => (b.balance18 > balances[bi].balance18 ? i : bi), 0);
+  const best = balances[bestIndex];
 
   // Cost of a whole round in the chosen token. Charging per transaction would let a player
   // start a round they cannot finish, stranding them after startRound succeeds.
-  const roundCost18 = gasPrice ? ROUND_GAS * gasPrice : 0n;
+  // Convert the CELO-denominated gas cost into the fee currency before comparing it to a
+  // balance. Comparing the two directly treated one USDT as one CELO, which at the current
+  // rate overstates the cost by more than an order of magnitude and tells players with ample
+  // balance that they cannot afford to play.
+  const rate = rates?.[bestIndex]?.result as readonly [bigint, bigint] | undefined;
+  const roundCostCelo = gasPrice ? ROUND_GAS * gasPrice : 0n;
+  const roundCost18 = rate && rate[1] > 0n ? (roundCostCelo * rate[0]) / rate[1] : 0n;
 
   return {
     address: (best.balance18 > 0n ? best.feeCurrency : FEE_CURRENCY) as `0x${string}`,

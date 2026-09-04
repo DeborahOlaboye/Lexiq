@@ -77,6 +77,11 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   const [challengeId, setChallengeId] = useState("");
   const [showChallenge, setShowChallenge] = useState(false);
 
+  // Whether this player pays for their own rounds. Read once on mount rather than during
+  // render, so the server and first client render agree.
+  const [inMiniPay, setInMiniPay] = useState(false);
+  useEffect(() => { setInMiniPay(isMiniPay()); }, []);
+
   const { data: gasPrice } = useGasPrice({ chainId: 42220 });
   // Charge fees against whichever stablecoin the player actually holds.
   const fee = useFeeCurrency(address, gasPrice);
@@ -106,9 +111,13 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   // USDm is needed for the stake only. The network fee is paid in whatever stablecoin the
   // wallet holds — MiniPay chooses it — so a zero USDm balance does not block a free round.
   const insufficientBalance = stakeBN > 0n && usdmBalance !== undefined && stakeBN > (usdmBalance as bigint);
-  // Only the staked path costs the player gas (approve + startRound). Free rounds are
-  // relayed end to end, so a zero balance must never block one.
-  const cannotAffordFees = stakeBN > 0n && !fee.loading && !fee.canAffordRound;
+  // Check the balance whenever the player is the one paying: always in MiniPay, where they
+  // settle their own rounds, and otherwise only when staking. Gating this on the stake alone
+  // was right while every free round was relayed — since MiniPay began self-paying it meant a
+  // player with an empty wallet got as far as signing before the wallet rejected it, instead
+  // of being offered the Deposit link up front.
+  const playerPaysFees = inMiniPay || stakeBN > 0n;
+  const cannotAffordFees = playerPaysFees && !fee.loading && !fee.canAffordRound;
   const busy     = approving || starting;
   const prizeFormatted = prizePool ? (Number(prizePool) / 1e18).toFixed(2) : "—";
 

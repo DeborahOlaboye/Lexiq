@@ -54,3 +54,18 @@ export function celoFee(feeCurrency?: `0x${string}`): { chainId: number; feeCurr
 export function addCashDeeplink(tokens: string = "USDm"): string {
   return `https://link.minipay.xyz/add_cash?tokens=${tokens}`;
 }
+
+/**
+ * Celo's FeeCurrencyDirectory — the allowlist of tokens that may pay gas, and the rate the
+ * node converts them at. Reading the rate is what lets a balance in USDT be compared with a
+ * cost quoted in CELO.
+ */
+export const FEE_CURRENCY_DIRECTORY = "0x15F344b9E6c3Cb6F0376A36A64928b13F62C6276" as const;
+
+export const FEE_CURRENCY_DIRECTORY_ABI = [
+  {
+    name: "getExchangeRate", type: "function", stateMutability: "view",
+    inputs: [{ name: "token", type: "address" }],
+    outputs: [{ name: "numerator", type: "uint256" }, { name: "denominator", type: "uint256" }],
+  },
+] as const;
