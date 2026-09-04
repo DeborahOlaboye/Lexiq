@@ -3,12 +3,62 @@ name: Deploy to Hetzner
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+# The image is built here rather than on the server for two reasons. The server has ~2GB of
+# RAM and `next build` was being killed by the kernel with no error at all, and
+# `docker compose up --build` stops the running container before the new image exists — so a
+# failed build took the site down with it. Building here means a broken build never reaches
+# production, and the swap is near-instant.
+env:
+  REGISTRY: ghcr.io
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lowercase the image name
+        id: meta
+        run: echo "image=$REGISTRY/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')-app" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:latest
+            ${{ steps.meta.outputs.image }}:${{ github.sha }}
+          # NEXT_PUBLIC_* is inlined into the browser bundle at build time. Supplied only at
+          # runtime, the contract address stays the zero-address fallback and every client-side
+          # read comes back empty — which /api/health cannot see, because it runs server-side.
+          build-args: |
+            NEXT_PUBLIC_PRIVY_APP_ID=${{ secrets.NEXT_PUBLIC_PRIVY_APP_ID }}
+            NEXT_PUBLIC_LEXIQ_ADDRESS=${{ secrets.NEXT_PUBLIC_LEXIQ_ADDRESS }}
+            BUILD_HEAP_MB=4096
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: Pull and restart
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.HETZNER_IP }}
@@ -18,5 +68,19 @@ jobs:
             set -e
             cd /opt/lexiq
             git pull origin main
-            docker compose --env-file .env.production up -d --build
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            export LEXIQ_IMAGE="${{ needs.build.outputs.image }}:${{ github.sha }}"
+            docker compose --env-file .env.production pull app
+            docker compose --env-file .env.production up -d
             docker image prune -f
+
+      - name: Verify the deploy is actually playable
+        run: |
+          for i in $(seq 1 30); do
+            body=$(curl -s --max-time 10 https://playlexiq.xyz/api/health || true)
+            if echo "$body" | grep -q '"ok":true'; then echo "healthy"; echo "$body"; exit 0; fi
+            sleep 5
+          done
+          echo "health check never went green:"
+          curl -s https://playlexiq.xyz/api/health || true
+          exit 1

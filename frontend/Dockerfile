@@ -14,7 +14,12 @@ ENV NEXT_PUBLIC_PRIVY_APP_ID=$NEXT_PUBLIC_PRIVY_APP_ID
 # bundle. Supplied only at runtime it stays the zero-address fallback and every read fails.
 ARG NEXT_PUBLIC_LEXIQ_ADDRESS
 ENV NEXT_PUBLIC_LEXIQ_ADDRESS=$NEXT_PUBLIC_LEXIQ_ADDRESS
-ENV NODE_OPTIONS="--max_old_space_size=3072"
+# Deliberately below the box's RAM. A high ceiling makes an out-of-memory kill *more* likely,
+# not less: V8 grows toward the limit before collecting hard, so on a small machine it
+# allocates past physical memory and the kernel kills the build with no error at all. CI
+# overrides this via BUILD_HEAP_MB where more memory is available.
+ARG BUILD_HEAP_MB=1536
+ENV NODE_OPTIONS="--max_old_space_size=$BUILD_HEAP_MB"
 RUN npm run build
 
 FROM node:20-alpine AS runner

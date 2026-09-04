@@ -7,6 +7,10 @@ services:
     command: redis-server --appendonly yes
 
   app:
+    # Built in CI and pulled here. `build:` is kept so a local `up --build` still works, but
+    # the server should not compile: it has too little memory, and building in place stops the
+    # running container before the new image exists, so a failed build takes the site down.
+    image: ${LEXIQ_IMAGE:-ghcr.io/deboraholaboye/lexiq-app:latest}
     build:
       context: ./frontend
       args:
