@@ -99,6 +99,12 @@ export default function GameBoard({
     address: contract, abi: LEXIQ_ABI, functionName: "highScore",
     args: address ? [address] : undefined,
   });
+  // Read the threshold rather than assume it. Hardcoded, this told a player their stake had
+  // come back whenever they beat 10 — while the contract settles against its own value and
+  // had already forfeited it.
+  const { data: threshold } = useReadContract({
+    address: contract, abi: LEXIQ_ABI, functionName: "stakeThreshold",
+  });
 
   const letterStr = letters
     ? (letters as readonly `0x${string}`[])
@@ -255,6 +261,8 @@ export default function GameBoard({
   const finalScore = Number(r[ROUND.score]);
   const state      = Number(r[ROUND.state]);
   const stake      = r[ROUND.stake] as bigint;
+  const stakeThreshold = threshold !== undefined ? Number(threshold) : 50;
+  const keptStake = finalScore >= stakeThreshold;
   const isNewBest = finalScore > best && best > 0;
   const sortedWords = [...words].sort((a, b) => b.pts - a.pts);
   const displayScore = state === 1 ? finalScore : myScore;
@@ -301,8 +309,8 @@ export default function GameBoard({
               )}
             </div>
             {stake > 0n && (
-              <div style={{ width: "100%", marginTop: 12, borderRadius: 14, padding: 14, background: finalScore >= 10 ? "rgba(207,233,75,.10)" : "rgba(255,91,69,.10)", border: finalScore >= 10 ? "1px solid rgba(207,233,75,.35)" : "1px solid rgba(255,91,69,.35)" }}>
-                <span style={{ fontSize: 13, color: "#F5EFE2" }}>{finalScore >= 10 ? "✓ Stake returned" : "✗ Score under 10 — stake forfeited"}</span>
+              <div style={{ width: "100%", marginTop: 12, borderRadius: 14, padding: 14, background: keptStake ? "rgba(207,233,75,.10)" : "rgba(255,91,69,.10)", border: keptStake ? "1px solid rgba(207,233,75,.35)" : "1px solid rgba(255,91,69,.35)" }}>
+                <span style={{ fontSize: 13, color: "#F5EFE2" }}>{keptStake ? "✓ Stake returned" : `✗ Score under ${stakeThreshold} — stake forfeited`}</span>
               </div>
             )}
             {sortedWords.length > 0 && (

@@ -34,7 +34,7 @@ const LETTER_VALUES: Record<string, number> = {
  * the jackpot: common long words are all one-point letters, so a flat bonus would let QUIZ
  * outscore RETAINS and the "use all seven" moment would lose its punch.
  */
-const LENGTH_BONUS: Record<number, number> = { 3: 2, 4: 5, 5: 10, 6: 18, 7: 30 };
+export const LENGTH_BONUS: Record<number, number> = { 3: 2, 4: 5, 5: 10, 6: 18, 7: 30 };
 
 export function scoreWord(word: string): number {
   const w = word.toUpperCase();
@@ -52,3 +52,22 @@ export function letterValue(letter: string): number {
 export function scoreWords(words: string[]): number {
   return words.reduce((sum, w) => sum + scoreWord(w), 0);
 }
+
+/**
+ * Presentation of the scoring rules, exported so the in-app guide is generated from the same
+ * numbers that score a word. Hardcoded tables in the UI outlived two scoring changes and told
+ * players two-letter words were worth a point long after they stopped being accepted.
+ */
+export const LENGTH_BONUS_TABLE = Object.entries(LENGTH_BONUS)
+  .map(([len, bonus]) => ({ len: Number(len), bonus }))
+  .sort((a, b) => a.len - b.len);
+
+export const LETTER_VALUE_TIERS = [
+  { value: 1,  letters: "A E I O U L N S T R" },
+  { value: 2,  letters: "D G" },
+  { value: 3,  letters: "B C M P" },
+  { value: 4,  letters: "F H V W Y" },
+  { value: 5,  letters: "K" },
+  { value: 8,  letters: "J X" },
+  { value: 10, letters: "Q Z" },
+];

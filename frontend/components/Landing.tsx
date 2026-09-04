@@ -2,6 +2,7 @@
 import { motion } from "framer-motion";
 import Logo from "@/components/Logo";
 import LegalLinks from "@/components/LegalLinks";
+import { LENGTH_BONUS_TABLE, scoreWord } from "@/lib/scoring";
 
 const HERO_TILES = [
   { l: "R", r: "-4deg", dur: "4s",   delay: "0s" },
@@ -29,14 +30,15 @@ const inView  = (delay = 0) => ({
   transition: { duration: 0.55, ease: [0.2, 1, 0.4, 1] as [number, number, number, number], delay },
 });
 
-const SCORING_ROWS = [
-  { label: "2 L",  pts: "1 pt",   w: "14%",  bar: "var(--line2)",        jackpot: false },
-  { label: "3 L",  pts: "2 pts",  w: "24%",  bar: "var(--line2)",        jackpot: false },
-  { label: "4 L",  pts: "3 pts",  w: "34%",  bar: "rgba(207,233,75,.4)", jackpot: false },
-  { label: "5 L",  pts: "5 pts",  w: "50%",  bar: "rgba(207,233,75,.6)", jackpot: false },
-  { label: "6 L",  pts: "8 pts",  w: "70%",  bar: "#CFE94B",             jackpot: false },
-  { label: "7 L+", pts: "11 pts", w: "100%", bar: "#FF5B45",             jackpot: true  },
-];
+const MAX_BONUS = Math.max(...LENGTH_BONUS_TABLE.map((r) => r.bonus));
+const BARS = ["var(--line2)", "rgba(207,233,75,.4)", "rgba(207,233,75,.6)", "#CFE94B", "#FF5B45"];
+const SCORING_ROWS = LENGTH_BONUS_TABLE.map(({ len, bonus }, i) => ({
+  label: `${len} L`,
+  pts: `+${bonus}`,
+  w: `${Math.round((bonus / MAX_BONUS) * 100)}%`,
+  bar: BARS[Math.min(i, BARS.length - 1)],
+  jackpot: bonus === MAX_BONUS,
+}));
 
 export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () => void; onConnect?: () => void }) {
   function handleConnect() {
@@ -120,7 +122,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
             transition={{ opacity: { duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number,number,number,number], delay: 0.4 }, scale: { duration: 0.5, ease: [0.2, 1.6, 0.4, 1] as [number,number,number,number], delay: 0.4 }, rotate: { duration: 0.5, delay: 0.4 }, y: { duration: 3.6, repeat: Infinity, ease: "easeInOut", delay: 1.0 } }}
             style={{ position: "absolute", top: "8%", right: "4%", background: "#FF5B45", color: "white", padding: "13px 18px", borderRadius: 14, boxShadow: "0 10px 26px rgba(255,91,69,.4)" }}>
             <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, opacity: 0.85, letterSpacing: "0.1em" }}>RETAINS</div>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 30, lineHeight: 1 }}>+11</div>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 30, lineHeight: 1 }}>+{scoreWord("RETAINS")}</div>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, scale: 0.6, rotate: -8 }}

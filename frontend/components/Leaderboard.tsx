@@ -5,6 +5,7 @@ import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
 import { motion, AnimatePresence } from "framer-motion";
 import UsernamePrompt from "./UsernamePrompt";
 import { getStoredUsername, getRankTitle, getLevel, ALL_BADGES, getBadges } from "@/lib/player";
+import { LENGTH_BONUS_TABLE, LETTER_VALUE_TIERS } from "@/lib/scoring";
 
 const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -24,14 +25,9 @@ function RankChip({ title }: { title: string }) {
     </span>
   );
 }
-const SCORING = [
-  { label: "2 L",  pts: "1",  hot: false },
-  { label: "3 L",  pts: "2",  hot: false },
-  { label: "4 L",  pts: "3",  hot: false },
-  { label: "5 L",  pts: "5",  hot: false },
-  { label: "6 L",  pts: "8",  hot: true  },
-  { label: "7 L+", pts: "11", hot: true  },
-];
+const SCORING = LENGTH_BONUS_TABLE.map(({ len, bonus }) => ({
+  label: `${len} L`, pts: `+${bonus}`, hot: len >= 6,
+}));
 
 /** `score` is the best single round; `points` is cumulative lifetime, which drives rank. */
 type Row = { playerId: string; username: string; score: number; points: number };
@@ -220,7 +216,7 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
 
       {/* Scoring guide */}
       <div>
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 9 }}>Scoring guide</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 9 }}>Length bonus</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 8 }}>
           {SCORING.map(({ label, pts, hot }) => (
             <div key={label} style={{ background: "#241C13", borderRadius: 11, padding: "clamp(8px,2vw,10px)", textAlign: "center", border: hot ? "1px solid rgba(255,91,69,.4)" : LINE2 }}>
@@ -229,6 +225,18 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
             </div>
           ))}
         </div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", margin: "14px 0 9px" }}>Letter values</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
+          {LETTER_VALUE_TIERS.map(({ value, letters }) => (
+            <div key={value} style={{ background: "#241C13", borderRadius: 11, padding: "clamp(8px,2vw,10px)", border: value >= 8 ? "1px solid rgba(255,91,69,.4)" : LINE2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#CBC0AE", letterSpacing: "0.06em" }}>{letters}</span>
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: value >= 8 ? "#FF5B45" : "#9A8C77" }}>{value}</span>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557", marginTop: 9, marginBottom: 0, lineHeight: 1.5 }}>
+          A word scores its letters plus the length bonus. Minimum {LENGTH_BONUS_TABLE[0].len} letters.
+        </p>
       </div>
     </div>
   );

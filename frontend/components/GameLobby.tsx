@@ -80,6 +80,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
 
   const { data: usdmBalance } = useReadContract({ address: USDM_ADDRESS as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined });
   const { data: prizePool } = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "weeklyPrizePool" });
+  const { data: thresholdRaw } = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "stakeThreshold" });
   const { data: myRounds }  = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "getPlayerRounds", args: address ? [address] : undefined });
   const { data: myHigh }    = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "highScore",       args: address ? [address] : undefined });
   const { data: myTotal }   = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "totalScore",      args: address ? [address] : undefined });
@@ -96,6 +97,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   useEffect(() => { if (txError) setStatus(null); }, [txError]);
 
 
+  const stakeThreshold = thresholdRaw !== undefined ? Number(thresholdRaw) : 50;
   const stakeNum = parseFloat(stake) || 0;
   const stakeBN  = stakeNum > 0 ? parseUnits(stakeNum.toFixed(18), 18) : 0n;
   // USDm is needed for the stake only. The network fee is paid in whatever stablecoin the
@@ -443,7 +445,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
                         the user still unable to stake, since staking settles in USDm. */}
                     <a href={addCashDeeplink("USDm")} target="_blank" rel="noopener noreferrer" style={{ color: "#FF5B45", textDecoration: "underline" }}>Deposit</a>
                   </p>
-                : <p style={{ fontSize: 11, color: "#6E6557", marginTop: 6, marginBottom: 0 }}>Staking uses USDm only · Score 10+ pts → stake returned minus 1% fee</p>}
+                : <p style={{ fontSize: 11, color: "#6E6557", marginTop: 6, marginBottom: 0 }}>Staking uses USDm only · Score {stakeThreshold}+ pts → stake returned minus 1% fee</p>}
             </motion.div>
           )}
         </AnimatePresence>
