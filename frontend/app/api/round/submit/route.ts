@@ -4,7 +4,8 @@ import { publicClient, relayerWallet, signScore, relayFees, nowSeconds, lettersF
 import { getServerAttributionTag } from "@/lib/attribution";
 import { missingConfig } from "@/lib/config";
 import { verifyPlayToken } from "@/lib/playtoken";
-import { acceptWords } from "@/lib/wordlist";
+import { acceptWords, boardMaxScore } from "@/lib/wordlist";
+import { dailyDateForRound, recordDailyResult } from "@/lib/daily";
 import { scoreWords, MAX_WORDS } from "@/lib/scoring";
 import type { Lang } from "@/lib/guestLetters";
 
@@ -21,7 +22,7 @@ const GRACE_SECONDS = 30;
 const DURATION: Record<number, number> = { 0: 120, 1: 90, 2: 60 };
 
 export async function POST(req: NextRequest) {
-  let body: { roundId?: string; words?: string[]; playToken?: string };
+  let body: { roundId?: string; words?: string[]; playToken?: string; username?: string };
   const missing = missingConfig();
   if (missing.length) {
     console.error("[config] missing", missing.join(", "));
@@ -82,9 +83,25 @@ export async function POST(req: NextRequest) {
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status === "reverted") throw new Error(`submitRound reverted (${hash})`);
 
+    // Ranked on the share of the board found, so a generous draw is worth no more than a
+    // barren one — which is what makes separate boards comparable at all.
+    const maxScore = boardMaxScore(letters, lang);
+    const percent = maxScore > 0 ? Math.round((score / maxScore) * 1000) / 10 : 0;
+
+    const dailyDate = await dailyDateForRound(roundId.toString());
+    if (dailyDate) {
+      await recordDailyResult({
+        date: dailyDate, playerId: player, username: body.username ?? "Anonymous",
+        score, maxScore, wordCount: accepted.length,
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       score,
+      maxScore,
+      percent,
+      daily: dailyDate ?? null,
       words: accepted,
       wordCount: accepted.length,
       rejected: submitted.length - accepted.length,

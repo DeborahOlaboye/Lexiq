@@ -8,6 +8,7 @@ import { useFeeCurrency } from "@/hooks/useFeeCurrency";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePlayerStreak } from "@/hooks/usePlayerStreak";
 import UsernamePrompt from "./UsernamePrompt";
+import DailyChallenge from "./DailyChallenge";
 import { getLevel, getRankTitle, getRankProgress, SKINS, getSelectedSkin, saveSkin } from "@/lib/player";
 import { usePlayerPoints } from "@/hooks/usePlayerPoints";
 import type { Lang } from "@/lib/guestLetters";
@@ -259,6 +260,8 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
           </motion.div>
         )}
       </AnimatePresence>
+
+      <DailyChallenge lang={lang} onEnterGame={onEnterGame} />
 
       {/* Hero start card */}
       <motion.div {...fadeUp(0)} style={{ background: "#241C13", borderRadius: 22, padding: "clamp(18px,4vw,26px)", border: LINE }}>

@@ -8,6 +8,7 @@ import { hashAll } from "@/lib/wordhash";
 import { LANG_BY_ID } from "@/lib/contracts";
 import { getServerAttributionTag } from "@/lib/attribution";
 import { missingConfig } from "@/lib/config";
+import { todayKey, dailyDifficulty, claimTodaysAttempt, markRoundAsDaily } from "@/lib/daily";
 
 /** startRoundFor: ~150k on mainnet. */
 const START_GAS = 300_000n;
@@ -18,7 +19,7 @@ const START_GAS = 300_000n;
  * real on-chain rounds with real letters rather than a client-side approximation.
  */
 export async function POST(req: NextRequest) {
-  let body: { player?: string; guestId?: string; difficulty?: number; lang?: string; challengeRoundId?: string };
+  let body: { player?: string; guestId?: string; difficulty?: number; lang?: string; challengeRoundId?: string; daily?: boolean };
   const missing = missingConfig();
   if (missing.length) {
     console.error("[config] missing", missing.join(", "));
@@ -27,7 +28,12 @@ export async function POST(req: NextRequest) {
 
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
 
-  const difficulty = [0, 1, 2].includes(body.difficulty ?? -1) ? body.difficulty! : 1;
+  const today = todayKey();
+  // The daily runs at one difficulty for everybody, so the length of the round is not
+  // something a player can pick to flatter their own score.
+  const difficulty = body.daily
+    ? dailyDifficulty(today)
+    : ([0, 1, 2].includes(body.difficulty ?? -1) ? body.difficulty! : 1);
   const lang = LANG_ID[body.lang ?? "en"] ?? 0;
 
   let player: `0x${string}`;
@@ -37,6 +43,13 @@ export async function POST(req: NextRequest) {
     player = guestAddress(body.guestId);
   } else {
     return NextResponse.json({ error: "Bad player" }, { status: 400 });
+  }
+
+  // Claimed before the round opens, not when it settles: claiming at the end would let a
+  // player open the daily, dislike the draw, walk away and try again — the same re-roll the
+  // seed attestation exists to prevent.
+  if (body.daily && !(await claimTodaysAttempt(player, today))) {
+    return NextResponse.json({ error: "You have already played today's challenge" }, { status: 409 });
   }
 
   try {
@@ -84,11 +97,15 @@ export async function POST(req: NextRequest) {
     // handed a readable answer key.
     const wordHashes = hashAll(solveBoard(letters, LANG_BY_ID[lang] ?? "en").map((w) => w.word));
 
+    if (body.daily) await markRoundAsDaily(roundId.toString(), today);
+
     return NextResponse.json({
       ok: true,
       roundId: roundId.toString(),
       letters,
       wordHashes,
+      daily: !!body.daily,
+      difficulty,
       player,
       playToken: issuePlayToken(player),
       txHash: hash,

@@ -6,6 +6,7 @@ import { scoreWord, MIN_WORD_LENGTH } from "@/lib/scoring";
 import type { Lang } from "@/lib/guestLetters";
 import { getGuestId, getStoredUsername, displayName, getSelectedSkin, SKINS, recordPlay, getRankTitle, getXP, addXP } from "@/lib/player";
 import ShareCard from "./ShareCard";
+import MissedWord from "./MissedWord";
 import { savePlayToken, getPlayToken } from "@/lib/playSession";
 
 const LINE  = "1px solid var(--line)";
@@ -356,13 +357,11 @@ export default function GuestBoard({
           {missedWords.length > 0 && (
             <div style={{ width: "100%", marginTop: 11, background: "#241C13", border: LINE, borderRadius: 14, padding: 14, textAlign: "left" }}>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 9 }}>
-                Words you missed
+                Words you missed · tap one for its meaning
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
                 {missedWords.map(({ word, pts }) => (
-                  <span key={word} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 9, background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 12, color: "#6E6557" }}>
-                    {word} <span style={{ opacity: 0.6, fontFamily: "var(--font-mono)", fontSize: 11 }}>+{pts}</span>
-                  </span>
+                  <MissedWord key={word} word={word} pts={pts} lang={lang} />
                 ))}
               </div>
               {missedWords.some(w => w.pts >= 11) && (

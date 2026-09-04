@@ -20,10 +20,35 @@ function buildDict(raw: unknown): Set<string> {
   return new Set((raw as string[]).map(normalize).filter((w) => re.test(w)));
 }
 
+/**
+ * Words the source list predates. It is a large, generally good list — it carries both British
+ * and American spellings, so COLOUR and COLOR both play — but it is old enough to miss words
+ * that are entirely ordinary to the players we have.
+ */
+const SUPPLEMENT: Record<Lang, string[]> = {
+  // Nothing over seven letters: with seven tiles and no reuse, a longer entry can never be
+  // played, so it would only ever be dead weight in the set.
+  en: [
+    "SELFIE", "WIFI", "EMOJI", "BLOGGER", "PODCAST", "TWEETED",
+    "HASHTAG", "MEMES", "TEXTED", "SIMCARD", "AIRTIME", "TOPUP", "FINTECH",
+  ],
+  es: ["SELFIE", "TUITEAR", "EMOJI", "MEMES", "BLOG"],
+  fr: ["SELFIE", "TWEETER", "EMOJI", "MEMES", "BLOG"],
+};
+
+function withSupplement(base: Set<string>, extra: string[]): Set<string> {
+  const re = new RegExp(`^[A-Z]{${MIN_WORD_LENGTH},${MAX_WORD_LENGTH}}$`);
+  for (const w of extra) {
+    const n = normalize(w);
+    if (re.test(n)) base.add(n);
+  }
+  return base;
+}
+
 const DICTS: Record<Lang, Set<string>> = {
-  en: buildDict(rawEn),
-  es: buildDict(rawEs),
-  fr: buildDict(rawFr),
+  en: withSupplement(buildDict(rawEn), SUPPLEMENT.en),
+  es: withSupplement(buildDict(rawEs), SUPPLEMENT.es),
+  fr: withSupplement(buildDict(rawFr), SUPPLEMENT.fr),
 };
 
 export function dictFor(lang: Lang): Set<string> {
