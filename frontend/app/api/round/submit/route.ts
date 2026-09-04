@@ -5,6 +5,7 @@ import { getServerAttributionTag } from "@/lib/attribution";
 import { missingConfig } from "@/lib/config";
 import { scoreSubmission } from "@/lib/settle";
 import { resolveDailyDate, recordDailyResult } from "@/lib/daily";
+import { addWeeklyPoints } from "@/lib/weekly";
 
 /** submitRound, including the stake transfer on the staked path. */
 const SUBMIT_GAS = 350_000n;
@@ -47,6 +48,13 @@ export async function POST(req: NextRequest) {
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status === "reverted") throw new Error(`submitRound reverted (${hash})`);
+
+    // Every finished round feeds the weekly prize board, daily or not.
+    await addWeeklyPoints({
+      playerId: result.player,
+      username: body.username ?? "Anonymous",
+      points: result.score,
+    });
 
     const dailyDate = await resolveDailyDate(roundId.toString(), result.player, result.seed);
     if (dailyDate) {

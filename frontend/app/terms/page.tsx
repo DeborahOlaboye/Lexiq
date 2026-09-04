@@ -11,17 +11,17 @@ export default function TermsPage() {
       <div style={{ display: "flex", flexDirection: "column", gap: 22, fontSize: 14, lineHeight: 1.7, color: "#CBC0AE" }}>
         <section>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#F5EFE2", marginBottom: 6 }}>1. What Lexiq is</h2>
-          <p>Lexiq is a word game on the Celo blockchain. Each round, players build words from a set of randomly generated letters within a time limit. Rounds and scores are recorded on-chain. Playing for free requires no wallet or stake.</p>
+          <p>Lexiq is a word game on the Celo blockchain. Each round, players build words from a set of randomly generated letters within a time limit. Rounds and scores are recorded on-chain. Lexiq is free to play and never asks you to risk your own funds.</p>
         </section>
 
         <section>
-          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#F5EFE2", marginBottom: 6 }}>2. Staking</h2>
-          <p>Lexiq lets you optionally stake USDm on a round. Staking is entirely optional and is not required to play. If you stake and score at or above the round's threshold, your stake is returned minus a small fee; if you score below the threshold, your stake is forfeited to the weekly prize pool. You are responsible for understanding this mechanic before staking — stakes are held and settled by the Lexiq smart contract and are not reversible once a round starts.</p>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#F5EFE2", marginBottom: 6 }}>2. Prizes</h2>
+          <p>From time to time we fund a weekly prize pool, which is shared between the highest-scoring players of that week. Entry is free and requires no payment or deposit of any kind — you cannot lose money by playing. Prizes are not guaranteed: a pool exists only in weeks we have funded one, and we may run a week with no prize at all. Where a pool exists, its balance is held by the Lexiq smart contract and is visible on-chain.</p>
         </section>
 
         <section>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#F5EFE2", marginBottom: 6 }}>3. No financial advice</h2>
-          <p>Nothing in Lexiq constitutes financial, investment, or legal advice. Stablecoin values, network availability, and smart contract behavior are outside our control. Only stake what you can afford to lose.</p>
+          <p>Nothing in Lexiq constitutes financial, investment, or legal advice. Stablecoin values, network availability, and smart contract behavior are outside our control. Playing costs only the network fee, which is a fraction of a cent.</p>
         </section>
 
         <section>
@@ -31,7 +31,7 @@ export default function TermsPage() {
 
         <section>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#F5EFE2", marginBottom: 6 }}>5. On-chain data</h2>
-          <p>Round outcomes, scores, and stake settlement are recorded on the Celo blockchain and are public and permanent. Off-chain data such as your chosen username may be stored to operate leaderboards and matchmaking.</p>
+          <p>Round outcomes, scores, and any prize payouts are recorded on the Celo blockchain and are public and permanent. Off-chain data such as your chosen username may be stored to operate leaderboards and matchmaking.</p>
         </section>
 
         <section>

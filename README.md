@@ -39,12 +39,16 @@ Letter values are what make Hard difficulty worth picking: it deals more rare le
 
 The numbers live in `frontend/lib/scoring.ts` and the in-app guide is generated from them.
 
-## Stake Mechanic
+## Prizes
 
-- Optional USDm stake, capped at 100 USDm per round
-- Clear the on-chain `stakeThreshold` (currently **50**) to get the stake back, minus a 1% fee
-- Below it, the stake goes to the weekly prize pool
-- Quitting early is just submitting what you have — score enough and you still keep the stake
+Players never stake and cannot lose money. When funding allows, a weekly prize pool is
+deposited into the contract and split between the week's highest-scoring players.
+
+- Entry is free — a round costs only the network fee, around 0.004 USDm
+- Ranked on points accumulated across the week, so playing regularly is what wins
+- **Prizes are not guaranteed** — a pool exists only in weeks one has been funded, and the
+  app shows a prize only when the contract actually holds one
+- Settle a week with `contracts/scripts/payout.ts`, which funds the pool and distributes it
 
 ## Setup
 

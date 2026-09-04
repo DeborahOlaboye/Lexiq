@@ -21,7 +21,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 17, color: "#F5EFE2", marginBottom: 6 }}>3. On-chain data</h2>
-          <p>Round results, scores, and stake settlement happen on the public Celo blockchain. Anything written on-chain (including your wallet address and stake amounts) is public and permanent by nature of the blockchain, independent of this policy.</p>
+          <p>Round results, scores, and any prize payouts happen on the public Celo blockchain. Anything written on-chain, including your wallet address, is public and permanent by nature of the blockchain, independent of this policy.</p>
         </section>
 
         <section>
