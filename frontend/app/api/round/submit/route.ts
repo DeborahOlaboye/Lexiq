@@ -5,7 +5,7 @@ import { getServerAttributionTag } from "@/lib/attribution";
 import { missingConfig } from "@/lib/config";
 import { scoreSubmission } from "@/lib/settle";
 import { resolveDailyDate, recordDailyResult } from "@/lib/daily";
-import { addWeeklyPoints } from "@/lib/weekly";
+import { addWeeklyPoints, flagIfImplausible } from "@/lib/weekly";
 
 /** submitRound, including the stake transfer on the staked path. */
 const SUBMIT_GAS = 350_000n;
@@ -48,6 +48,14 @@ export async function POST(req: NextRequest) {
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
     if (receipt.status === "reverted") throw new Error(`submitRound reverted (${hash})`);
+
+    // Coverage a human does not reach is recorded for review before any payout — not
+    // rejected, because the threshold is a guess until real scores prove it out.
+    await flagIfImplausible({
+      playerId: result.player, username: body.username ?? "Anonymous",
+      roundId: roundId.toString(), score: result.score, maxScore: result.maxScore,
+      percent: result.percent, wordCount: result.words.length,
+    });
 
     // Every finished round feeds the weekly prize board, daily or not.
     await addWeeklyPoints({

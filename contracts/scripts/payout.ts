@@ -13,6 +13,10 @@ import { ethers } from "hardhat";
  * WINNERS  comma-separated addresses, best first — take these from /api/weekly
  * SPLIT    comma-separated percentages, same length as WINNERS, must total 100
  * DRY      set to 1 to print the plan without sending anything
+ *
+ * Before paying, check the week for flagged rounds — coverage no human reaches:
+ *   ssh <server> 'docker compose -f /opt/lexiq/docker-compose.yml exec redis \
+ *     redis-cli LRANGE lx:flagged:$(date -u +%G-W%V) 0 -1'
  */
 async function main() {
   const lexiqAddress = process.env.LEXIQ_ADDRESS;

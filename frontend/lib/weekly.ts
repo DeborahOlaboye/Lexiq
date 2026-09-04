@@ -70,3 +70,44 @@ export function secondsUntilWeekEnd(now: Date = new Date()): number {
   const end = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + daysToMonday);
   return Math.max(0, Math.floor((end - now.getTime()) / 1000));
 }
+
+/**
+ * Coverage above which a submission stops looking like someone typing.
+ *
+ * Real play sits far below this — a settled round on mainnet found 139 of a possible 604, or
+ * 23%, and a strong human might reach 40–50%. Clearing most of a board means a solver, not
+ * hands on a phone keyboard.
+ *
+ * Deliberately generous, and it flags rather than rejects: the threshold is a guess until
+ * there is real data behind it, and refusing a genuinely brilliant round would be worse than
+ * paying one out. Review flags before a payout rather than trusting a number picked in advance.
+ */
+export const IMPLAUSIBLE_COVERAGE = 75;
+
+export async function flagIfImplausible(opts: {
+  playerId: string; username: string; roundId: string;
+  score: number; maxScore: number; percent: number; wordCount: number;
+}): Promise<boolean> {
+  if (opts.percent < IMPLAUSIBLE_COVERAGE) return false;
+
+  console.warn(
+    `[flag] round ${opts.roundId} by ${opts.playerId} covered ${opts.percent}% ` +
+    `(${opts.score}/${opts.maxScore}, ${opts.wordCount} words)`,
+  );
+
+  const kv = getRedis();
+  if (!kv) return true;
+  const week = weekKey();
+  await kv.rpush(`lx:flagged:${week}`, JSON.stringify({
+    at: new Date().toISOString(),
+    playerId: opts.playerId.toLowerCase(),
+    username: opts.username,
+    roundId: opts.roundId,
+    percent: opts.percent,
+    score: opts.score,
+    maxScore: opts.maxScore,
+    words: opts.wordCount,
+  }));
+  await kv.expire(`lx:flagged:${week}`, 60 * 60 * 24 * 60);
+  return true;
+}
