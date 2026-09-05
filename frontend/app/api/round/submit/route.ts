@@ -19,6 +19,12 @@ const SUBMIT_GAS = 350_000n;
  * hold, so there is nothing there worth sponsoring.
  *
  * Scoring is shared with that route, so what a round is worth never depends on who paid.
+ *
+ * Deliberately not rate limited. A round reaching here has already been opened and played, and
+ * refusing to settle it would take a player's round away after the fact. It is bounded anyway:
+ * it needs a play token and a round the contract still has ACTIVE, so it can run at most once
+ * per round that /api/round/start already allowed. The relayer floor in lib/ratelimit stops
+ * new rounds while leaving a float behind precisely so rounds like this one can still settle.
  */
 export async function POST(req: NextRequest) {
   const missing = missingConfig();

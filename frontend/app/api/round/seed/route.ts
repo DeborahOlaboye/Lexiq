@@ -5,6 +5,7 @@ import { publicClient, signSeed } from "@/lib/attestation";
 import { issuePlayToken } from "@/lib/playtoken";
 import { missingConfig } from "@/lib/config";
 import { todayKey, dailyDifficulty, claimTodaysAttempt, rememberDailySeed } from "@/lib/daily";
+import { hit, LIMITS, denied } from "@/lib/ratelimit";
 
 /**
  * Hands a player a signed seed so they can send a staked round themselves. The seed is
@@ -23,6 +24,12 @@ export async function POST(req: NextRequest) {
 
   const player = body.player ?? "";
   if (!isAddress(player)) return NextResponse.json({ error: "Bad player" }, { status: 400 });
+  // No gas rides on this route — the player sends their own transaction — so this only stops
+  // someone farming signatures. Checked before the daily is claimed so a refusal never costs
+  // a player their attempt.
+  const rl = await hit(`seed:${player.toLowerCase()}`, LIMITS.seedHourly);
+  if (!rl.ok) return denied({ error: "Too many rounds started. Please wait a moment.", status: 429, retryAfter: rl.retryAfter });
+
   const today = todayKey();
   // The daily runs at one difficulty for everybody, so its length is not something a player
   // can pick to flatter their own score.

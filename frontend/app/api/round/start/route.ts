@@ -9,6 +9,7 @@ import { LANG_BY_ID } from "@/lib/contracts";
 import { getServerAttributionTag } from "@/lib/attribution";
 import { missingConfig } from "@/lib/config";
 import { todayKey, dailyDifficulty, claimTodaysAttempt, markRoundAsDaily } from "@/lib/daily";
+import { checkRelayBudget, denied } from "@/lib/ratelimit";
 
 const ROUND_SECONDS: Record<number, number> = { 0: 120, 1: 90, 2: 60 };
 
@@ -39,13 +40,20 @@ export async function POST(req: NextRequest) {
   const lang = LANG_ID[body.lang ?? "en"] ?? 0;
 
   let player: `0x${string}`;
+  let isGuest = false;
   if (body.player && isAddress(body.player)) {
     player = body.player;
   } else if (body.guestId) {
     player = guestAddress(body.guestId);
+    isGuest = true;
   } else {
     return NextResponse.json({ error: "Bad player" }, { status: 400 });
   }
+
+  // Checked before the daily is claimed below, so a refused round never costs a player their
+  // one attempt at today's challenge.
+  const denial = await checkRelayBudget({ req, player, isGuest });
+  if (denial) return denied(denial);
 
   // Claimed before the round opens, not when it settles: claiming at the end would let a
   // player open the daily, dislike the draw, walk away and try again — the same re-roll the
