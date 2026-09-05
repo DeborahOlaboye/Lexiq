@@ -32,12 +32,16 @@ export async function GET() {
 
   let chain: Record<string, unknown>;
   let keysMatchChain = false;
+  let relayerCelo: number | null = null;
   try {
     const [rounds, onChainSigner, onChainRelayer] = await Promise.all([
       publicClient.readContract({ address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "totalRounds" }),
       publicClient.readContract({ address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "gameSigner" }),
       publicClient.readContract({ address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "relayer" }),
     ]);
+    if (relayer.address) {
+      relayerCelo = Number(await publicClient.getBalance({ address: relayer.address as `0x${string}` })) / 1e18;
+    }
     const same = (a?: string, b?: string) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
     keysMatchChain = same(signer.address, onChainSigner as string) && same(relayer.address, onChainRelayer as string);
 
@@ -46,9 +50,7 @@ export async function GET() {
       totalRounds: (rounds as bigint).toString(),
       gameSigner: { configured: signer.address ?? signer.error, onChain: onChainSigner, match: same(signer.address, onChainSigner as string) },
       relayer:    { configured: relayer.address ?? relayer.error, onChain: onChainRelayer, match: same(relayer.address, onChainRelayer as string) },
-      relayerCelo: relayer.address
-        ? (Number(await publicClient.getBalance({ address: relayer.address as `0x${string}` })) / 1e18).toFixed(4)
-        : null,
+      relayerCelo: relayerCelo?.toFixed(4) ?? null,
     };
   } catch (err) {
     chain = { reachable: false, error: (err as Error)?.message?.slice(0, 160) };
@@ -65,11 +67,19 @@ export async function GET() {
 
   // Which tier the relayer is in, and what it has spent today. Without this the thresholds
   // are invisible: guests would quietly stop being relayed with nothing anywhere saying why.
+  // belowWarn is the field the top-up alert watches. It sits above the guest floor on
+  // purpose: the point is to be told while there is still plenty of runway, not once
+  // guests have already stopped being relayed.
+  const warnCelo = Number(process.env.RELAY_WARN_CELO ?? "3");
   const relay = {
     state: await relayHealth(),
     roundsToday: await relayedToday(),
-    guestFloorCelo: process.env.RELAY_GUEST_MIN_CELO ?? "2",
-    stopFloorCelo: process.env.RELAY_MIN_CELO ?? "0.5",
+    celo: relayerCelo,
+    roundsLeft: relayerCelo === null ? null : Math.floor(relayerCelo / 0.0402),
+    warnCelo,
+    guestFloorCelo: Number(process.env.RELAY_GUEST_MIN_CELO ?? "2"),
+    stopFloorCelo: Number(process.env.RELAY_MIN_CELO ?? "0.5"),
+    belowWarn: relayerCelo !== null && relayerCelo < warnCelo,
   };
 
   const ok = config.missing.length === 0 && config.contractLooksValid
