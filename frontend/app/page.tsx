@@ -10,6 +10,7 @@ import GameBoard from "@/components/GameBoard";
 import GuestBoard from "@/components/GuestBoard";
 import GuestLobby from "@/components/GuestLobby";
 import Leaderboard from "@/components/Leaderboard";
+import LeaderboardTeaser from "@/components/LeaderboardTeaser";
 import StreakBadge from "@/components/StreakBadge";
 import UsernamePrompt from "@/components/UsernamePrompt";
 import UsernameSetup from "@/components/UsernameSetup";
@@ -177,20 +178,7 @@ export default function Home() {
                 onLeaderboard={() => setGuestView("leaderboard")}
               />
             )}
-            {guestView === "leaderboard" && (
-              <div style={{ background: "#241C13", border: LINE, borderRadius: 18, padding: "clamp(24px,6vw,40px)", textAlign: "center" }}>
-                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(18px,4vw,22px)", marginBottom: 8 }}>
-                  Sign in to compete
-                </div>
-                <p style={{ color: "#9A8C77", fontSize: 14, lineHeight: 1.5, margin: "0 0 20px" }}>
-                  The leaderboard and the weekly prize pool are for signed-in players.
-                  Your guest progress stays on this device.
-                </p>
-                <button onClick={login} style={{ padding: "13px 26px", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
-                  Sign In
-                </button>
-              </div>
-            )}
+            {guestView === "leaderboard" && <LeaderboardTeaser onSignIn={login} />}
           </div>
         </main>
 
