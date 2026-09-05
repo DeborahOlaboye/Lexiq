@@ -3,6 +3,7 @@ import { configReport } from "@/lib/config";
 import { publicClient, accountFrom } from "@/lib/attestation";
 import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
 import { getServerAttributionTag } from "@/lib/attribution";
+import { relayHealth, relayedToday } from "@/lib/ratelimit";
 
 /**
  * Derives an address from a key without ever revealing it, through the same normaliser the
@@ -62,8 +63,17 @@ export async function GET() {
     attribution = `FAILING: ${(err as Error)?.message?.slice(0, 80)}`;
   }
 
+  // Which tier the relayer is in, and what it has spent today. Without this the thresholds
+  // are invisible: guests would quietly stop being relayed with nothing anywhere saying why.
+  const relay = {
+    state: await relayHealth(),
+    roundsToday: await relayedToday(),
+    guestFloorCelo: process.env.RELAY_GUEST_MIN_CELO ?? "2",
+    stopFloorCelo: process.env.RELAY_MIN_CELO ?? "0.5",
+  };
+
   const ok = config.missing.length === 0 && config.contractLooksValid
     && signer.ok && relayer.ok && chain.reachable === true && keysMatchChain;
 
-  return NextResponse.json({ ok, config, chain, attribution }, { status: ok ? 200 : 503 });
+  return NextResponse.json({ ok, config, chain, relay, attribution }, { status: ok ? 200 : 503 });
 }
