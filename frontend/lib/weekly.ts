@@ -48,18 +48,26 @@ export type WeeklyRow = { playerId: string; username: string; points: number };
 export async function weeklyLeaderboard(week = weekKey(), limit = 20): Promise<WeeklyRow[]> {
   const kv = getRedis();
   if (!kv) return [];
-  const ids = await kv.zrevrange(board(week), 0, limit - 1);
-  if (ids.length === 0) return [];
+  // WITHSCORES brings the points back with the ids, and the names follow in one pipeline,
+  // so a twenty-player board costs two round trips rather than forty-one.
+  const flat = await kv.zrevrange(board(week), 0, limit - 1, "WITHSCORES");
+  if (flat.length === 0) return [];
 
-  const [points, names] = await Promise.all([
-    Promise.all(ids.map((id) => kv.zscore(board(week), id))),
-    Promise.all(ids.map((id) => kv.hget(`lx:u:${id}`, "username"))),
-  ]);
+  const ids: string[] = [];
+  const points: number[] = [];
+  for (let i = 0; i < flat.length; i += 2) {
+    ids.push(flat[i]);
+    points.push(Number(flat[i + 1] ?? 0));
+  }
+
+  const pipe = kv.pipeline();
+  ids.forEach((id) => pipe.hget(`lx:u:${id}`, "username"));
+  const names = await pipe.exec();
 
   return ids.map((id, i) => ({
     playerId: id,
-    username: names[i] ?? "Anonymous",
-    points: Number(points[i] ?? 0),
+    username: (names?.[i]?.[1] as string) ?? "Anonymous",
+    points: points[i],
   }));
 }
 

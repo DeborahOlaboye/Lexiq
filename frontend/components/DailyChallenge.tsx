@@ -1,6 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useGasPrice } from "wagmi";
+import { isMiniPay } from "@/lib/minipay";
+import { selfStartRound } from "@/lib/selfPlay";
+import { useFeeCurrency } from "@/hooks/useFeeCurrency";
 import { motion } from "framer-motion";
 import { getStoredUsername, displayName } from "@/lib/player";
 import { savePlayToken } from "@/lib/playSession";
@@ -29,6 +32,8 @@ export default function DailyChallenge({ lang = "en", onEnterGame }: {
   onEnterGame: (roundId: bigint) => void;
 }) {
   const { address } = useAccount();
+  const { data: gasPrice } = useGasPrice({ chainId: 42220 });
+  const fee = useFeeCurrency(address, gasPrice);
   const [daily, setDaily] = useState<Daily | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +53,19 @@ export default function DailyChallenge({ lang = "en", onEnterGame }: {
     setBusy(true);
     setError(null);
     try {
+      // Branches the same way the lobby does. Without this the daily was always relayed, so
+      // we paid for MiniPay players who can pay for themselves — and, worse, they would lose
+      // the daily entirely whenever the relayer paused, despite having funds of their own.
+      if (isMiniPay() && address) {
+        // difficulty is ignored for the daily — the server picks one for everybody — but the
+        // signature asks for it.
+        const id = await selfStartRound({
+          player: address, difficulty: 1, lang, daily: true, feeCurrency: fee.address,
+        });
+        onEnterGame(id);
+        return;
+      }
+
       const res = await fetch("/api/round/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
