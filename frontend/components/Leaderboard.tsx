@@ -174,7 +174,15 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
         )}
       </div>
 
-      {/* Badges — a compact status row, not four description cards */}
+      {/* Badges. Compacting these into chips dropped the heading, and an unlabelled row of
+
+          symbols reads as leaderboard categories rather than things you unlock. */}
+
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 8 }}>
+
+        Badges · {myBadges.length} of {ALL_BADGES.length} unlocked
+
+      </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
         {ALL_BADGES.map(({ id, name, desc }) => {
           const earned = myBadges.includes(id);
@@ -186,6 +194,11 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
                 fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 11,
                 color: earned ? "#F4C84B" : "#6E6557" }}>
               {earned ? "★" : "○"} {name}
+                {!earned && (
+                  <span style={{ fontFamily: "var(--font-mono)", fontWeight: 400, fontSize: 10, color: "#584F42", marginLeft: 3 }}>
+                    {desc}
+                  </span>
+                )}
             </span>
           );
         })}

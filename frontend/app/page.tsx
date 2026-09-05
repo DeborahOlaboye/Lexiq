@@ -194,10 +194,11 @@ export default function Home() {
           </div>
         </main>
 
-        {/* Bottom nav */}
+        {/* Bottom nav. Race appears only mid-round: it is a state, not a destination, and for
+            guests the tab mounted GuestBoard, which opens a relayer-funded round on mount. */}
         <nav style={{ position: "sticky", bottom: 0, zIndex: 30, padding: "10px clamp(16px,4vw,24px) 14px", background: "linear-gradient(to top, #15110D 62%, transparent)" }}>
           <div style={{ width: "min(440px, 100%)", margin: "0 auto", background: "#2F2517", border: LINE2, borderRadius: 16, padding: 6, display: "flex", gap: 4 }}>
-            {(["lobby", "game", "leaderboard"] as const).map((id) => {
+            {(["lobby", "game", "leaderboard"] as const).filter((id) => id !== "game" || guestView === "game").map((id) => {
               const active = id === "lobby"
                 ? (guestView === "lobby" || guestView === "setup")
                 : guestView === id;
@@ -298,7 +299,7 @@ export default function Home() {
       {/* Bottom nav */}
       <nav style={{ position: "sticky", bottom: 0, zIndex: 30, padding: "10px clamp(16px,4vw,24px) 14px", background: "linear-gradient(to top, #15110D 62%, transparent)" }}>
         <div style={{ width: "min(440px, 100%)", margin: "0 auto", background: "#2F2517", border: LINE2, borderRadius: 16, padding: 6, display: "flex", gap: 4 }}>
-          {(["lobby", "game", "leaderboard"] as View[]).map((id) => (
+          {(["lobby", "game", "leaderboard"] as View[]).filter((id) => id !== "game" || view === "game").map((id) => (
             <button key={id} onClick={() => setView(id)}
               style={{ flex: 1, textAlign: "center", padding: 12, borderRadius: 12, cursor: "pointer", border: "none", background: view === id ? "#CFE94B" : "transparent", color: view === id ? "#15110D" : "#9A8C77", fontFamily: "var(--font-display)", fontWeight: view === id ? 800 : 700, fontSize: 14, transition: "background 0.15s, color 0.15s" }}>
               {id === "lobby" ? "Lobby" : id === "game" ? "Race" : "Rankings"}
