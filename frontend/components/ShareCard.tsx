@@ -231,15 +231,22 @@ export default function ShareCard({ score, words, bestWord, bestPts, username, r
     canvas.toBlob(b => { if (b) setBlob(b); }, "image/png");
   }, [score, words, bestWord, bestPts, username, rank, streak]);
 
+  /** A number alone invites nothing. Naming the best word and asking for a beat does. */
+  const shareText = bestWord
+    ? `I scored ${score} on Lexiq — ${words} words, best was ${bestWord} for ${bestPts}. Beat that.`
+    : `I scored ${score} on Lexiq in one round. Beat that.`;
+
   async function handleShare() {
     if (!blob) return;
     setSharing(true);
     try {
       const file = new File([blob], "lexiq-score.png", { type: "image/png" });
+      // `text`, not just `title`: WhatsApp and most chat targets ignore title and would
+      // otherwise post a bare link. The challenge is what makes someone tap it.
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `I scored ${score} pts on Lexiq!`, url: "https://playlexiq.xyz" });
+        await navigator.share({ files: [file], text: shareText, url: "https://playlexiq.xyz" });
       } else if (navigator.share) {
-        await navigator.share({ title: `I scored ${score} pts on Lexiq!`, url: "https://playlexiq.xyz" });
+        await navigator.share({ text: shareText, url: "https://playlexiq.xyz" });
       } else {
         handleDownload();
       }
@@ -266,7 +273,7 @@ export default function ShareCard({ score, words, bestWord, bestPts, username, r
       setTimeout(() => setCopied(false), 2200);
     } catch {
       // Fallback: copy text
-      await navigator.clipboard.writeText(`I scored ${score} pts on Lexiq! https://playlexiq.xyz`).catch(() => {});
+      await navigator.clipboard.writeText(`${shareText} https://playlexiq.xyz`).catch(() => {});
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
     }

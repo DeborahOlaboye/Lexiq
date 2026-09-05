@@ -11,12 +11,15 @@ import { useFeeCurrency } from "@/hooks/useFeeCurrency";
 import { wagmiConfig } from "@/lib/wagmi";
 import { isValidWord, isValidWordSync, validateWords, setBoardWords, clearBoardWords } from "@/lib/dictionary";
 import { motion, AnimatePresence } from "framer-motion";
-import { getStoredUsername, displayName, getSelectedSkin, SKINS, awardBadge } from "@/lib/player";
+import { getStoredUsername, displayName, getSelectedSkin, SKINS, awardBadge, getRankTitle } from "@/lib/player";
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
 import { submitScore } from "@/hooks/usePlayerStreak";
 import { getPlayToken } from "@/lib/playSession";
 import MissedWord from "./MissedWord";
+import ShareCard from "./ShareCard";
+import { usePlayerPoints } from "@/hooks/usePlayerPoints";
+import { usePlayerStreak } from "@/hooks/usePlayerStreak";
 import { hasBoardWords } from "@/lib/dictionary";
 
 /** Seconds per difficulty, mirroring roundDuration() in Lexiq.sol. The timer used to be
@@ -69,10 +72,13 @@ export default function GameBoard({
   onLeaderboard: () => void;
 }) {
   const { address } = useAccount();
+  const points = usePlayerPoints();
+  const { streak } = usePlayerStreak(address);
   const { data: gasPrice } = useGasPrice({ chainId: 42220 });
   // Same stablecoin the lobby charged the round against.
   const fee = useFeeCurrency(address, gasPrice);
   const contract = LEXIQ_ADDRESS;
+  const [showShareCard, setShowShareCard] = useState(false);
   const [input, setInput] = useState("");
   const [words, setWords] = useState<WordEntry[]>([]);
   const [timeLeft, setTimeLeft] = useState(90);
@@ -294,14 +300,6 @@ export default function GameBoard({
     if ((used[l] || 0) < (avail[l] || 0)) setInput((prev) => prev + l);
   }
 
-  function shareResult(score: number) {
-    const text = `I scored ${score} on Lexiq! 🎯 7 letters, ${DURATION[Number((round as readonly unknown[])[ROUND.difficulty])] ?? 90} seconds, on Celo.`;
-    if (typeof navigator !== "undefined" && navigator.share) {
-      navigator.share({ text }).catch(() => {});
-    } else if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(text).catch(() => {});
-    }
-  }
 
   if (!roundId) return (
     <div className="flex flex-col items-center justify-center py-16 gap-4">
@@ -386,9 +384,43 @@ export default function GameBoard({
             )}
             <motion.button whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.97 }} onClick={onBack} style={{ width: "100%", marginTop: 20, padding: "clamp(13px,2.5vw,16px)", borderRadius: 15, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", boxShadow: "0 6px 0 #A9C931", border: "none", cursor: "pointer" }}>Play again</motion.button>
             <div style={{ display: "flex", gap: 10, width: "100%", marginTop: 10 }}>
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => shareResult(finalScore)} style={{ flex: 1, padding: "clamp(11px,2vw,13px)", borderRadius: 14, background: "none", border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Share result</motion.button>
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowShareCard(true)} style={{ flex: 1, padding: "clamp(11px,2vw,13px)", borderRadius: 14, background: "none", border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Share result</motion.button>
               <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onLeaderboard} style={{ flex: 1, padding: "clamp(11px,2vw,13px)", borderRadius: 14, background: "none", border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Leaderboard</motion.button>
             </div>
+
+            {/* The same card guests get. Signed-in players are the ones who are ranked and
+                prize-eligible, so their share is the one worth making shareable — the old
+                button sent plain text with no link in it at all. */}
+            <AnimatePresence>
+              {showShareCard && (
+                <motion.div
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  onClick={() => setShowShareCard(false)}
+                  style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                  <motion.div
+                    initial={{ scale: 0.94, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0 }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ width: "min(360px, 100%)", maxHeight: "90vh", overflowY: "auto", background: "#2F2517", border: LINE2, borderRadius: 22, padding: 26, textAlign: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                      <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, color: "#F5EFE2" }}>Share your score</span>
+                      <button onClick={() => setShowShareCard(false)}
+                        style={{ fontSize: 13, color: "#6E6557", cursor: "pointer", background: "none", border: "none", padding: "4px 8px" }}>
+                        ✕ Close
+                      </button>
+                    </div>
+                    <ShareCard
+                      score={finalScore}
+                      words={words.length}
+                      bestWord={sortedWords[0]?.word ?? null}
+                      bestPts={sortedWords[0]?.pts ?? 0}
+                      username={getStoredUsername() ?? (address ? displayName(address) : "Anonymous")}
+                      rank={getRankTitle(points)}
+                      streak={streak}
+                    />
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </motion.div>
