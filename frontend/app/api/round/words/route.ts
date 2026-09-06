@@ -26,11 +26,23 @@ export async function POST(req: NextRequest) {
 
   try {
     const roundId = BigInt(body.roundId);
-    const round = await publicClient.readContract({
-      address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "getRound", args: [roundId],
-    }) as readonly unknown[];
 
-    const player = round[ROUND.player] as `0x${string}`;
+    // A round mined a moment ago may not be on the node this read lands on yet, and getRound
+    // answers for an unknown round with a zeroed struct rather than reverting — so without
+    // this the player field is the zero address and their own round is refused as not theirs.
+    let round: readonly unknown[] = [];
+    let player = "0x0000000000000000000000000000000000000000" as `0x${string}`;
+    for (let i = 0; i < 8; i++) {
+      round = await publicClient.readContract({
+        address: LEXIQ_ADDRESS, abi: LEXIQ_ABI, functionName: "getRound", args: [roundId],
+      }) as readonly unknown[];
+      player = round[ROUND.player] as `0x${string}`;
+      if (Number(round[ROUND.startedAt]) > 0) break;
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    if (Number(round[ROUND.startedAt]) === 0) {
+      return NextResponse.json({ error: "Round not found" }, { status: 404 });
+    }
     if (!verifyPlayToken(body.playToken, player)) {
       return NextResponse.json({ error: "Not your round" }, { status: 403 });
     }
@@ -38,7 +50,13 @@ export async function POST(req: NextRequest) {
     const lang: Lang = LANG_BY_ID[Number(round[ROUND.lang])] ?? "en";
     const letters = await lettersForRound(roundId, player);
 
-    return NextResponse.json({ wordHashes: hashAll(solveBoard(letters, lang).map((w) => w.word)) });
+    // The letters go back too. The board used to read these from chain in the browser, where
+    // an unknown round hands back plausible but wrong letters that never get corrected — a
+    // player then builds words the server cannot score and the round settles at zero.
+    return NextResponse.json({
+      letters,
+      wordHashes: hashAll(solveBoard(letters, lang).map((w) => w.word)),
+    });
   } catch (err) {
     console.error("[round/words]", err);
     return NextResponse.json({ error: "Could not load board" }, { status: 500 });

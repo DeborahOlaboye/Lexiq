@@ -79,6 +79,11 @@ export default function GameBoard({
   const fee = useFeeCurrency(address, gasPrice);
   const contract = LEXIQ_ADDRESS;
   const [showShareCard, setShowShareCard] = useState(false);
+  // The score the server signed, kept so the result never depends on this RPC node having
+  // caught up with the settling transaction. `rejected` explains a low score rather than
+  // leaving a player staring at a number that does not match what they played.
+  const [settledResult, setSettledResult] = useState<{ score: number; rejected: number } | null>(null);
+  const [serverLetters, setServerLetters] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [words, setWords] = useState<WordEntry[]>([]);
   const [timeLeft, setTimeLeft] = useState(90);
@@ -98,30 +103,67 @@ export default function GameBoard({
   const { data: round, refetch } = useReadContract({
     address: contract, abi: LEXIQ_ABI, functionName: "getRound",
     args: roundId !== null ? [roundId] : undefined,
-    query: { refetchInterval: 5000 },
+    // Poll hard until the round actually shows up, then settle down. A node that has not
+    // caught up yet answers with a zeroed struct rather than reverting, and waiting a full
+    // five seconds to notice is what made the board flash before it settled.
+    query: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      refetchInterval: (q: any) => {
+        const d = q?.state?.data as readonly unknown[] | undefined;
+        return d && Number(d[ROUND.startedAt]) > 0 ? 5000 : 1000;
+      },
+    },
   });
   const state_ = round ? Number((round as readonly unknown[])[ROUND.state]) : -1;
+
+  /**
+   * Whether the chain has actually served us this round yet.
+   *
+   * getRound on a round the RPC node has not seen returns every field zeroed instead of
+   * reverting, so startedAt reads 0 and the timer works out as long expired. Without this
+   * guard the first thing a MiniPay player saw after paying for a round was "Time up",
+   * until the next poll corrected it. The relayed path never hit this: the server already
+   * retries until the round is visible before the board is ever mounted.
+   */
+  const startedAt = round ? Number((round as readonly unknown[])[ROUND.startedAt]) : 0;
+  const roundReady = startedAt > 0;
+
+  // Waiting on a node to catch up takes a second or two; waiting forever means the round
+  // genuinely is not there. Bound it so a bad id offers a way out instead of spinning.
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  useEffect(() => {
+    if (roundReady) { setLoadTimedOut(false); return; }
+    const t = setTimeout(() => setLoadTimedOut(true), 20000);
+    return () => clearTimeout(t);
+  }, [roundReady, roundId]);
 
   const { data: letters } = useReadContract({
     address: contract, abi: LEXIQ_ABI, functionName: "getLetters",
     args: roundId !== null ? [roundId] : undefined,
-    query: { enabled: roundId !== null },
+    // Gated on the round being visible for the same reason: getLetters on an unknown round
+    // hands back plausible-looking letters, and this read has no refetch to correct them.
+    query: { enabled: roundId !== null && roundReady },
   });
   const { data: myHigh } = useReadContract({
     address: contract, abi: LEXIQ_ABI, functionName: "highScore",
     args: address ? [address] : undefined,
   });
 
-  const letterStr = letters
+  // Server first. The chain read is a fallback and only trusted once the round is visible,
+  // because getLetters on a round a node has not caught up to returns letters that look real.
+  const chainLetters = roundReady && letters
     ? (letters as readonly `0x${string}`[])
         .map((b) => String.fromCharCode(parseInt(b.slice(2), 16)))
         .join("")
     : "";
+  const letterStr = serverLetters ?? chainLetters;
 
   // Reset all transient state when a new round begins
   useEffect(() => {
     setPhase("active");
     setTimeLeft(90);
+    setSettledResult(null);
+    setServerLetters(null);
     setWords([]);
     setInput("");
     setSubmitting(false);
@@ -153,7 +195,7 @@ export default function GameBoard({
   // A reload loses the set the lobby loaded, so fetch it rather than fall back to a request
   // per word.
   useEffect(() => {
-    if (roundId === null || hasBoardWords()) return;
+    if (roundId === null) return;
     let cancelled = false;
     fetch("/api/round/words", {
       method: "POST",
@@ -161,7 +203,13 @@ export default function GameBoard({
       body: JSON.stringify({ roundId: roundId.toString(), playToken: getPlayToken() }),
     })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (!cancelled && d?.wordHashes) setBoardWords(d.wordHashes); })
+      .then((d) => {
+        if (cancelled || !d) return;
+        if (d.wordHashes && !hasBoardWords()) setBoardWords(d.wordHashes);
+        // The authoritative letters. The server resolves these with a retry until the round
+        // is actually visible, which the browser's own read cannot do.
+        if (d.letters) setServerLetters(d.letters);
+      })
       .catch(() => { /* falls back to server validation */ });
     return () => { cancelled = true; };
   }, [roundId]);
@@ -172,15 +220,14 @@ export default function GameBoard({
   }, [round]);
 
   useEffect(() => {
-    if (phase !== "active" || !round) return;
+    if (phase !== "active" || !roundReady) return;
     const r = round as readonly unknown[];
-    const startedAt = Number(r[ROUND.startedAt]);
     const end = startedAt + DURATION[Number(r[ROUND.difficulty])];
     const tick = () => setTimeLeft(Math.max(0, end - Math.floor(Date.now() / 1000)));
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [phase, round]);
+  }, [phase, round, roundReady, startedAt]);
 
   /**
    * One relayed call. The server re-checks every word against the dictionary and the round's
@@ -218,6 +265,7 @@ export default function GameBoard({
           roundId, words: wordList, username, feeCurrency: fee.address,
         });
         score = settled.score;
+        setSettledResult({ score, rejected: wordList.length - settled.wordCount });
       } else {
         const res = await fetch("/api/round/submit", {
           method: "POST",
@@ -227,6 +275,7 @@ export default function GameBoard({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Could not submit round");
         score = data.score;
+        setSettledResult({ score, rejected: data.rejected ?? 0 });
       }
 
       setSubmitProgress(null);
@@ -251,7 +300,8 @@ export default function GameBoard({
     ? "#6E6557"
     : timeLeft > 30 ? "#F5EFE2" : timeLeft > 10 ? "#F4C84B" : "#FF5B45";
   const isActive = phase === "active" && timeLeft > 0 && !submitting;
-  const timeUp = (timeLeft === 0 || phase === "done");
+  // Never "time up" on a round we have not actually loaded yet.
+  const timeUp = roundReady && (timeLeft === 0 || phase === "done");
 
   // Once the buzzer goes there is nothing left to decide, so relayed players never have to tap
   // anything — the round settles itself. That tap was a way to lose a finished round simply by
@@ -307,14 +357,28 @@ export default function GameBoard({
       <button onClick={onBack} style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#CFE94B", background: "none", border: "none", cursor: "pointer" }}>← Back to lobby</button>
     </div>
   );
-  if (!round) return (
-    <div className="flex items-center justify-center py-16">
-      <p style={{ fontSize: 14, color: "#9A8C77", fontFamily: "var(--font-mono)" }}>Loading round…</p>
+  // roundReady, not just `round`: a zeroed struct from a node that has not caught up is
+  // truthy, and rendering the board against it is what produced the flash of "Time up".
+  // Also waits on letters: rendering a playable board before they are known is what let a
+  // player spend a whole round building words against letters that were never theirs.
+  if (!roundReady || !letterStr) return (
+    <div className="flex flex-col items-center justify-center py-16 gap-4">
+      <p style={{ fontSize: 14, color: "#9A8C77", fontFamily: "var(--font-mono)" }}>
+        {loadTimedOut ? "Could not load that round." : "Loading round…"}
+      </p>
+      {loadTimedOut && (
+        <button onClick={onBack} style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 14, color: "#CFE94B", background: "none", border: "none", cursor: "pointer" }}>
+          ← Back to lobby
+        </button>
+      )}
     </div>
   );
 
   const r          = round as readonly unknown[];
-  const finalScore = Number(r[ROUND.score]);
+  // Prefer what the server signed over the chain read: the settling transaction may not be
+  // visible to this node yet, and showing 0 for a round that scored is worse than showing the
+  // authoritative number a moment early.
+  const finalScore = settledResult?.score ?? Number(r[ROUND.score]);
   const state      = Number(r[ROUND.state]);
   const isNewBest = finalScore > best && best > 0;
   const sortedWords = [...words].sort((a, b) => b.pts - a.pts);
@@ -346,6 +410,14 @@ export default function GameBoard({
             <div key={finalScore} style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(72px,16vw,96px)", color: "#CFE94B", lineHeight: 1, animation: "popScore .5s cubic-bezier(.2,1.5,.4,1)" }}>{finalScore}</div>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 18, color: "#F5EFE2", marginTop: 4 }}>points</div>
             {isNewBest && <div style={{ fontSize: 14, color: "#CBC0AE", marginTop: 8 }}>Beat your old best of {best} by <b style={{ color: "#FF5B45" }}>+{finalScore - best}</b></div>}
+              {/* A round that scored nothing needs a reason. Silently showing 0 after a player
+                  watched their own words being accepted is the worst possible answer. */}
+              {!!settledResult?.rejected && (
+                <div style={{ fontSize: 13, color: "#FF5B45", marginTop: 10, maxWidth: 320, lineHeight: 1.5 }}>
+                  {settledResult.rejected} {settledResult.rejected === 1 ? "word" : "words"} did not count against this board&apos;s letters.
+                  {settledResult.score === 0 && " If the letters you saw look wrong, reload and start a new round."}
+                </div>
+              )}
             <div style={{ display: "flex", gap: 10, marginTop: 20, width: "100%" }}>
               <div style={{ flex: 1, background: "#241C13", borderRadius: 14, padding: 14, border: LINE }}>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase" }}>Words</div>
