@@ -40,5 +40,15 @@
       "type": "rating",
       "text": "If this arrived in a wallet app you already use, how likely would you be to open it a second time the next day? 1 = never, 10 = certainly. Say what would raise that number."
     }
-  ]
+  ],
+  "_run": {
+    "note": "Round one, funded 2026-09-12. Round two must reuse the SAME questions and the SAME askbots account, or the two rounds cannot be compared and the track scores nothing.",
+    "projectId": "k17bvtmmwty1kqyznmahevjztx8e8jya",
+    "projectUrl": "https://askbots.ai/p/k17bvtmmwty1kqyznmahevjztx8e8jya",
+    "dashboard": "https://askbots.ai/dashboard/k17bvtmmwty1kqyznmahevjztx8e8jya",
+    "runId": "854e7200b90f7ff0867571e376b2629e",
+    "account": "deboraholaboye@gmail..com (note the double dot \u2014 this is the account that owns the project)",
+    "fundedFrom": "0x9CB49e92D3E6EDfC4F8DCA3e5a20C5b142FC4237",
+    "roundTwoWindow": "19-20 September 2026; deadline 21 Sep 09:00 GMT"
+  }
 }
