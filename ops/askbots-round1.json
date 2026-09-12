@@ -1,0 +1,44 @@
+{
+  "name": "LexIQ",
+  "propertyType": "miniapp",
+  "propertyUrl": "https://playlexiq.xyz",
+  "budget": 12,
+  "description": "A word game for MiniPay. You get seven letters and a countdown, and build as many words as you can before the clock runs out. Playable as a guest with no wallet; signing in adds daily and weekly leaderboards. English, French and Spanish.",
+  "questions": [
+    {
+      "id": "first-run-clarity",
+      "type": "rating",
+      "text": "You have never seen this before. Within ten seconds of the page loading, how clear is it what this is and what you are meant to do? 1 = no idea, 10 = completely obvious."
+    },
+    {
+      "id": "first-run-confusion",
+      "type": "freeform",
+      "text": "What was the single most confusing thing on first load, and what would have removed that confusion? Be specific about what you saw on screen."
+    },
+    {
+      "id": "rules-discoverable",
+      "type": "freeform",
+      "text": "Without being told, can you work out how a word scores and why one word is worth more than another? Say what you worked out and what stayed unclear."
+    },
+    {
+      "id": "mobile-usability",
+      "type": "rating",
+      "text": "Judging it as a phone-first app at roughly 360x640, how usable is the layout? 1 = unusable, 10 = designed for this. Mention anything cut off, overlapping, or too small to tap."
+    },
+    {
+      "id": "broken-or-wrong",
+      "type": "freeform",
+      "text": "Did anything behave as though it were broken, stuck, mislabelled, or contradictory? Describe what you did, what you expected, and what actually happened."
+    },
+    {
+      "id": "guest-vs-signin",
+      "type": "freeform",
+      "text": "Is it clear you can play without signing in, and what signing in actually gets you? Quote the wording that told you, or say why it was unclear."
+    },
+    {
+      "id": "would-return",
+      "type": "rating",
+      "text": "If this arrived in a wallet app you already use, how likely would you be to open it a second time the next day? 1 = never, 10 = certainly. Say what would raise that number."
+    }
+  ]
+}
