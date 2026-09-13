@@ -12,7 +12,7 @@ Values for the celobuilders.xyz registration form. Deadline 21 Sep 2026 09:00 GM
 | `ownContracts` | 0xC1224E01dbAfD97585Ac3f35DCb0291B1676d508 |
 | `celoNetwork` | mainnet |
 | `primaryTrack` | judges-favorite |
-| `telegram` | (personal handle) |
+| `telegram` | @debielily |
 | `socialLink` | (X post tagging @CeloDevs and @Celo — still to write) |
 
 ## ERC-8004 agent
@@ -25,14 +25,16 @@ Metadata is a `data:` URI, so it lives on-chain and is content-addressed — not
 nothing that can be mutated after the fact. Update it with `setAgentURI(9835, uri)` from the
 owner wallet; the agent id itself never changes.
 
-## The attribution tag — read before sending any transaction
+## Attribution — done
 
-Registering on celobuilders returns an `attributionTag`, derived from the GitHub owner/repo
-slug and locked at first save. It is NOT the hostname-derived tag lib/attribution.ts already
-produces, and a self-derived code alone earns nothing. Once assigned, lib/attribution.ts must
-send both:
+Registered 12 Sep 2026. Assigned tag `celo_a7cd3616d8b0`, derived from the GitHub owner/repo
+slug and locked at first save. Wired into lib/attribution.ts as a multi-code suffix alongside
+the domain-derived `celo_06d24d32051f`, and verified by decoding a real suffix and confirming
+both codes are carried.
 
-    toDataSuffix([ourHostnameCode, assignedTag])
+Only the assigned code is credited. Transactions sent before this shipped carry the domain
+code alone and cannot be re-tagged, so the rounds played before registration count for nothing
+and are not recoverable.
 
-Transactions sent before that carry the wrong suffix and cannot be corrected afterwards, so
-every round played between now and then counts for nothing on every leaderboard.
+The submission is a DRAFT. Drafts appear on the leaderboard flagged as not eligible, so it
+must be published before 21 Sep 09:00 GMT — which needs the socialLink field.

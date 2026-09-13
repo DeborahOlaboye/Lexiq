@@ -13,12 +13,25 @@ import type { Hex } from "viem";
  */
 const APP_HOSTNAME = "playlexiq.xyz";
 
+/**
+ * The code assigned to this repository by celobuilders.xyz at hackathon registration.
+ *
+ * Not the same value as codeFromHostname: that one is derived from the domain, this one from
+ * the GitHub owner/repo slug, and the leaderboards credit only the assigned one. Both are sent
+ * together — an ERC-8021 suffix carries multiple codes — so the domain code keeps working for
+ * anything that already reads it.
+ *
+ * A tag lives in a transaction's calldata, so it counts only from the moment it ships. Nothing
+ * sent before this was wired in can be credited afterwards.
+ */
+const ASSIGNED_CODE = "celo_a7cd3616d8b0";
+
 const cache = new Map<string, Hex | undefined>();
 
 function tagFor(hostname: string): Hex | undefined {
   if (!cache.has(hostname)) {
     try {
-      cache.set(hostname, toDataSuffix(codeFromHostname(hostname)) as Hex);
+      cache.set(hostname, toDataSuffix([codeFromHostname(hostname), ASSIGNED_CODE]) as Hex);
     } catch (err) {
       // Attribution must never block a transaction — but don't hide the failure either.
       console.warn("[attribution] could not derive tag for", hostname, err);
