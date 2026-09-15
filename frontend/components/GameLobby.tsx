@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useGasPrice } from "wagmi";
-import { LEXIQ_ADDRESS, LEXIQ_ABI } from "@/lib/contracts";
+import { LEXIQ_ADDRESS, LEXIQ_ABI, ROUND } from "@/lib/contracts";
 import { celoFee, addCashDeeplink, isMiniPay } from "@/lib/minipay";
 import { selfStartRound } from "@/lib/selfPlay";
 import { useFeeCurrency } from "@/hooks/useFeeCurrency";
@@ -68,9 +68,26 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   const [status, setStatus]           = useState<string | null>(null);
   const [difficulty, setDifficulty]   = useState<0 | 1 | 2>(1);
   const [showDiff, setShowDiff]       = useState(false);
-  // Challenge: enter a round ID from a friend
-  const [challengeId, setChallengeId] = useState("");
-  const [showChallenge, setShowChallenge] = useState(false);
+  /**
+   * A challenge arrives as ?challenge=<roundId> on the shared link.
+   *
+   * It used to arrive as a number in a chat message that the player had to read, remember,
+   * and retype into a field hidden behind a toggle — which also replaced the Play button, so
+   * accepting a challenge meant losing the way to start a normal round. Carrying the id in
+   * the link removes all of that: opening it is the whole interaction.
+   *
+   * The parameter is stripped once read, so a refresh does not silently restart it and the
+   * URL a player might re-share is not stuck pointing at someone else's board.
+   */
+  const [challenge, setChallenge] = useState<bigint | null>(null);
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("challenge");
+    if (!raw || !/^\d+$/.test(raw)) return;
+    setChallenge(BigInt(raw));
+    const url = new URL(window.location.href);
+    url.searchParams.delete("challenge");
+    window.history.replaceState({}, "", url.toString());
+  }, []);
 
   // Whether this player pays for their own rounds. Read once on mount rather than during
   // render, so the server and first client render agree.
@@ -99,6 +116,18 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   const { data: gasPrice } = useGasPrice({ chainId: 42220 });
   // Charge fees against whichever stablecoin the player actually holds.
   const fee = useFeeCurrency(address, gasPrice);
+  const { data: challengeRound } = useReadContract({
+    address: contract, abi: LEXIQ_ABI, functionName: "getRound",
+    args: challenge !== null ? [challenge] : undefined,
+    query: { enabled: challenge !== null },
+  });
+  const chRound = challengeRound as readonly unknown[] | undefined;
+  // startedAt is 0 for a round no node has, so this also rejects an id that does not exist.
+  const challengeReady = !!chRound && Number(chRound[ROUND.startedAt]) > 0;
+  const challengeScore = chRound ? Number(chRound[ROUND.score]) : 0;
+  const challengeMine = !!chRound && !!address
+    && String(chRound[ROUND.player]).toLowerCase() === address.toLowerCase();
+
   const { data: myRounds }  = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "getPlayerRounds", args: address ? [address] : undefined });
   const { data: myHigh }    = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "highScore",       args: address ? [address] : undefined });
   const { data: myTotal }   = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "totalScore",      args: address ? [address] : undefined });
@@ -166,14 +195,14 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
     startFreeRound();
   }
 
-  async function handleChallenge() {
+  async function acceptChallenge(id: bigint) {
     setStatus("Accepting challenge…");
     setRelayError(null);
     try {
       const res = await fetch("/api/round/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player: address, challengeRoundId: challengeId.trim() }),
+        body: JSON.stringify({ player: address, challengeRoundId: id.toString() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not accept challenge");
@@ -231,6 +260,44 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
               <motion.span animate={{ opacity: [0.6, 1, 0.6] }} transition={{ duration: 1.4, repeat: Infinity }}
                 style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45" }}>Play now →</motion.span>
             )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* A challenge someone sent. Sits above everything, because it is why this person
+          opened the app at all — and it is the only screen where Play is not the first move. */}
+      <AnimatePresence>
+        {challenge !== null && challengeReady && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.4, ease: [0.2, 1, 0.4, 1] as [number,number,number,number] }}
+            style={{ borderRadius: 20, padding: "clamp(16px,4vw,22px)", background: "rgba(255,91,69,.08)", border: "1px solid rgba(255,91,69,.35)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <motion.span animate={{ rotate: [0, -12, 12, 0] }} transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }} style={{ fontSize: 20 }}>⚔</motion.span>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(17px,3.5vw,21px)", color: "#FF5B45" }}>
+                {challengeMine ? "This is your own round" : "You have been challenged"}
+              </div>
+            </div>
+            <div style={{ fontSize: 14, color: "#CBC0AE", marginBottom: 16, lineHeight: 1.5 }}>
+              {challengeMine
+                ? `Round #${challenge.toString()} is yours — send the link to someone else and see if they can beat ${challengeScore}.`
+                : challengeScore > 0
+                  ? `The same 7 letters as round #${challenge.toString()}. Beat ${challengeScore} points.`
+                  : `The same 7 letters as round #${challenge.toString()}. Their score is not in yet — set the bar.`}
+            </div>
+            {!challengeMine && (
+              <motion.button onClick={() => acceptChallenge(challenge)} disabled={busy || cannotAffordFees}
+                whileHover={!busy && !cannotAffordFees ? { scale: 1.02, y: -2 } : undefined}
+                whileTap={!busy && !cannotAffordFees ? { scale: 0.97 } : undefined}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 9, width: "100%", padding: "clamp(13px,2.5vw,16px)", borderRadius: 14, border: "none", background: "#FF5B45", color: "#fff", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", boxShadow: "0 5px 0 #C4432F", cursor: busy || cannotAffordFees ? "not-allowed" : "pointer", opacity: busy || cannotAffordFees ? 0.45 : 1 }}>
+                <span style={{ fontSize: 13 }}>▶</span>
+                {busy ? (status ?? "Working…") : "Play this board"}
+              </motion.button>
+            )}
+            <button onClick={() => setChallenge(null)}
+              style={{ display: "block", width: "100%", marginTop: 10, background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77" }}>
+              {challengeMine ? "Dismiss" : "Not now — play my own board"}
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -344,34 +411,15 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
         {/* Play CTA */}
         {status && <p style={{ fontSize: 12, color: "#CFE94B", fontFamily: "var(--font-mono)", marginBottom: 10, animation: "blink 1.4s infinite" }}>{status}</p>}
 
-        <AnimatePresence mode="wait">
-          {!showChallenge ? (
-            <motion.div key="play" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <motion.button onClick={handleStart} disabled={busy || cannotAffordFees}
-                animate={!busy && !cannotAffordFees ? { boxShadow: ["0 6px 0 #A9C931", "0 6px 24px rgba(207,233,75,0.6)", "0 6px 0 #A9C931"], y: [0, -3, 0] } : { boxShadow: "0 6px 0 #A9C931", y: 0 }}
-                transition={!busy && !cannotAffordFees ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" } : {}}
-                whileHover={!busy && !cannotAffordFees ? { scale: 1.03, y: -4 } : undefined}
-                whileTap={!busy && !cannotAffordFees ? { scale: 0.97 } : undefined}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", padding: "clamp(14px,3vw,17px)", borderRadius: 15, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", cursor: busy || cannotAffordFees ? "not-allowed" : "pointer", opacity: busy || cannotAffordFees ? 0.4 : 1 }}>
-                <span style={{ fontSize: 13 }}>▶</span>
-                {busy ? (status ?? "Working…") : `Play · ${diffLabel}`}
-              </motion.button>
-            </motion.div>
-          ) : (
-            <motion.div key="challenge" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              style={{ display: "flex", gap: 8 }}>
-              <input value={challengeId} onChange={e => setChallengeId(e.target.value.replace(/\D/g, ""))}
-                placeholder="Paste round ID…" inputMode="numeric"
-                style={{ flex: 1, background: "#1E1710", border: LINE2, borderRadius: 12, padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 14, color: "#F5EFE2", outline: "none" }} />
-              <motion.button onClick={handleChallenge} disabled={!challengeId || busy}
-                whileHover={challengeId && !busy ? { scale: 1.04 } : undefined}
-                whileTap={challengeId && !busy ? { scale: 0.96 } : undefined}
-                style={{ padding: "12px 18px", borderRadius: 12, border: "none", background: challengeId && !busy ? "#CFE94B" : "#2F2517", color: challengeId && !busy ? "#15110D" : "#6E6557", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, cursor: challengeId && !busy ? "pointer" : "not-allowed" }}>
-                Race!
-              </motion.button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <motion.button onClick={handleStart} disabled={busy || cannotAffordFees}
+          animate={!busy && !cannotAffordFees ? { boxShadow: ["0 6px 0 #A9C931", "0 6px 24px rgba(207,233,75,0.6)", "0 6px 0 #A9C931"], y: [0, -3, 0] } : { boxShadow: "0 6px 0 #A9C931", y: 0 }}
+          transition={!busy && !cannotAffordFees ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" } : {}}
+          whileHover={!busy && !cannotAffordFees ? { scale: 1.03, y: -4 } : undefined}
+          whileTap={!busy && !cannotAffordFees ? { scale: 0.97 } : undefined}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, width: "100%", padding: "clamp(14px,3vw,17px)", borderRadius: 15, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(16px,3vw,18px)", cursor: busy || cannotAffordFees ? "not-allowed" : "pointer", opacity: busy || cannotAffordFees ? 0.4 : 1 }}>
+          <span style={{ fontSize: 13 }}>▶</span>
+          {busy ? (status ?? "Working…") : `Play · ${diffLabel}`}
+        </motion.button>
 
         {cannotAffordFees && (
           <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#FF5B45", marginTop: 10, marginBottom: 0, lineHeight: 1.45 }}>
@@ -387,15 +435,6 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
           </p>
         )}
 
-        {/* Accept a friend's challenge */}
-        <div style={{ marginTop: 14, display: "flex", gap: 16, flexWrap: "wrap" }}>
-          <motion.button onClick={() => setShowChallenge(v => !v)} whileHover={{ opacity: 0.8 }}
-            style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557" }}>
-              {showChallenge ? "▾ Cancel challenge" : "▸ Accept a challenge"}
-            </span>
-          </motion.button>
-        </div>
 
       </motion.div>
 
@@ -420,7 +459,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
       {myRounds && myRounds.length > 0 && (
         <motion.div {...fadeUp(0.35)}>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 9 }}>
-            Recent rounds <span style={{ color: "#6E6557" }}>· tap to view · share to challenge a friend</span>
+            Recent rounds <span style={{ color: "#6E6557" }}>· tap to view · ⚔ sends a challenge link</span>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {[...myRounds].reverse().slice(0, 6).map((id, i) => (
@@ -436,13 +475,21 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
 function RoundChip({ id, index, onEnter }: { id: bigint; index: number; onEnter: (id: bigint) => void }) {
   const [copied, setCopied] = useState(false);
 
+  /**
+   * The link carries the round, so opening it is the whole interaction.
+   *
+   * This used to share a bare homepage link and the round number as prose, leaving the
+   * recipient to find a hidden field and retype the number. Almost nobody finishes that.
+   */
   function shareChallenge(e: React.MouseEvent) {
     e.stopPropagation();
-    const text = `Challenge me on Lexiq! Use round #${id.toString()} — same 7 letters, beat my score 🎯\nhttps://playlexiq.xyz`;
+    const url = `https://playlexiq.xyz/?challenge=${id.toString()}`;
+    const text = `I just played this board on Lexiq — same 7 letters, see if you can beat me 🎯`;
     if (navigator.share) {
-      navigator.share({ text }).catch(() => {});
+      navigator.share({ text, url }).catch(() => {});
     } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); });
+      navigator.clipboard.writeText(`${text}\n${url}`)
+        .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); });
     }
   }
 
