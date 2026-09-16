@@ -103,6 +103,16 @@ export default function GameBoard({
   const [flashCombo, setFlashCombo] = useState(0);
   const comboRef = useRef(0);
   const lastWordAt = useRef(0);
+  /**
+   * Whether this round has already been sent.
+   *
+   * The auto-submit guard used to read the round's state from chain, which lags by seconds —
+   * so submitting by hand a moment before the buzzer settled the round, then the buzzer fired
+   * auto-submit against data that still said ACTIVE, and the server answered "Round already
+   * finished" over a result that had saved perfectly well. A ref, because a manual submit
+   * resolving and the buzzer can land in the same tick, where state has not propagated yet.
+   */
+  const submittedRef = useRef(false);
   const skin = useRef(typeof window !== "undefined" ? getSelectedSkin() : SKINS[0]).current;
 
   const { data: round, refetch } = useReadContract({
@@ -169,6 +179,7 @@ export default function GameBoard({
     setTimeLeft(90);
     setSettledResult(null);
     setServerLetters(null);
+    submittedRef.current = false;
     setWords([]);
     setInput("");
     setSubmitting(false);
@@ -253,7 +264,8 @@ export default function GameBoard({
   }, [state_, letterStr, lang]); // eslint-disable-line
 
   async function doSubmit() {
-    if (!roundId || submitting || words.length === 0) return;
+    if (!roundId || submitting || submittedRef.current || words.length === 0) return;
+    submittedRef.current = true;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -287,7 +299,17 @@ export default function GameBoard({
       if (address) submitScore({ playerId: address, username, score });
       setTimeout(() => refetch(), 1000);
     } catch (err) {
-      const msg = (err as Error)?.message;
+      const msg = (err as Error)?.message ?? "";
+      // "Round already finished" is not a failure: the round settled, and this is a second
+      // attempt at it. Reporting it as an error tells a player their score was lost at the
+      // exact moment it was safely saved, which is the worst thing to be wrong about.
+      if (/already finished/i.test(msg)) {
+        setSubmitProgress(null);
+        refetch();
+        return;
+      }
+      // Anything else may well work on a second try, so let them have one.
+      submittedRef.current = false;
       setSubmitError(msg && msg.length < 120 ? msg : "Could not submit — tap to retry.");
       setSubmitProgress(null);
     } finally {
@@ -313,7 +335,7 @@ export default function GameBoard({
   // hesitating over it. MiniPay keeps the button, because settling there opens a wallet
   // confirmation and that should not appear unasked.
   useEffect(() => {
-    if (timeUp && !submitting && !submitError && words.length > 0
+    if (timeUp && !submitting && !submitError && !submittedRef.current && words.length > 0
         && state_ !== ROUND_FINISHED && !isMiniPay()) {
       doSubmit();
     }
