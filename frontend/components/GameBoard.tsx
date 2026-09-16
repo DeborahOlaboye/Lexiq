@@ -99,7 +99,15 @@ export default function GameBoard({
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [missedWords, setMissedWords] = useState<{ word: string; pts: number }[]>([]);
-  const [wordValid, setWordValid] = useState<"valid" | "invalid" | "unchecked">("unchecked");
+  /**
+   * Why the current input cannot be played, so the reason is on screen rather than inferred.
+   *
+   * "unusable" and "dupe" used to collapse into "unchecked", which rendered nothing at all:
+   * a player typing a real word out of letters the board does not have saw no message and a
+   * dead Submit button, with no way to tell which of the two was wrong. A player reported
+   * exactly that.
+   */
+  const [wordValid, setWordValid] = useState<"valid" | "invalid" | "unusable" | "dupe" | "unchecked">("unchecked");
   const [flashCombo, setFlashCombo] = useState(0);
   const comboRef = useRef(0);
   const lastWordAt = useRef(0);
@@ -195,7 +203,9 @@ export default function GameBoard({
   // Debounced async dictionary check whenever input changes
   useEffect(() => {
     const w = input.trim().toUpperCase();
-    if (w.length < MIN_WORD_LENGTH || !canBuild(w, letterStr)) { setWordValid("unchecked"); return; }
+    if (w.length < MIN_WORD_LENGTH) { setWordValid("unchecked"); return; }
+    if (!canBuild(w, letterStr)) { setWordValid("unusable"); return; }
+    if (words.some((x) => x.word === w)) { setWordValid("dupe"); return; }
     // Local when the board's hashes are loaded, which is the normal case — no debounce, no
     // round trip, so the tick appears as the player finishes typing rather than a second later.
     const local = isValidWordSync(w);
@@ -206,7 +216,7 @@ export default function GameBoard({
       setWordValid(ok ? "valid" : "invalid");
     }, 250);
     return () => clearTimeout(t);
-  }, [input, letterStr]);
+  }, [input, letterStr, words, lang]);
 
   // A reload loses the set the lobby loaded, so fetch it rather than fall back to a request
   // per word.
@@ -716,7 +726,10 @@ export default function GameBoard({
                     transition={{ duration: 0.18 }}
                     style={{ fontFamily: "var(--font-mono)", fontSize: 11, marginBottom: 6, paddingLeft: 4, color: wordValid === "valid" ? "#CFE94B" : "#FF5B45" }}
                   >
-                    {wordValid === "valid" ? "✓ Valid word" : "✗ Not in dictionary"}
+                    {wordValid === "valid" ? "✓ Valid word"
+                      : wordValid === "unusable" ? "✗ Uses letters this board does not have"
+                      : wordValid === "dupe" ? "✗ You already played that one"
+                      : "✗ Not in dictionary"}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -731,7 +744,11 @@ export default function GameBoard({
                     whileHover={!submitDisabled ? { scale: 1.02, y: -2 } : undefined}
                     whileTap={!submitDisabled ? { scale: 0.97 } : undefined}
                     style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "clamp(12px,2.5vw,14px)", borderRadius: 14, border: "none", background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2.5vw,17px)", cursor: submitDisabled ? "default" : "pointer", opacity: submitDisabled ? 0.4 : 1 }}>
-                    {wordValid === "invalid"
+                    {wordValid === "unusable"
+                      ? "Letters not on the board"
+                      : wordValid === "dupe"
+                      ? "Already played"
+                      : wordValid === "invalid"
                       ? "Not a word"
                       : input.length >= MIN_WORD_LENGTH && canBuild(input, letterStr) && scoreWord(input) > 0
                       ? `Submit  +${scoreWord(input)}`
