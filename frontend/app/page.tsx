@@ -123,12 +123,21 @@ export default function Home() {
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557", marginTop: 22 }}>
           {inMiniPay === null ? "Starting…" : "Connecting your wallet…"}
         </span>
-        {connectTimedOut && (
+        {/* Before detection resolves this is a plain page with a way to start, which is what
+            a crawler, a link preview and a slow phone all get. It is guest play, never a
+            wallet button, so MiniPay's zero-click rule still holds; once MiniPay is detected
+            this gives way to the connect status and only returns if that stalls. */}
+        {inMiniPay === null ? (
+          <button onClick={handleGuestPlay}
+            style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 15, padding: "13px 26px", borderRadius: 13, border: "none", background: "#CFE94B", color: "#15110D", cursor: "pointer", marginTop: 16 }}>
+            Play as guest
+          </button>
+        ) : connectTimedOut ? (
           <button onClick={handleGuestPlay}
             style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, padding: "9px 18px", borderRadius: 10, border: LINE2, background: "none", color: "#F5EFE2", cursor: "pointer", marginTop: 14 }}>
-            Play free instead
+            Play as guest instead
           </button>
-        )}
+        ) : null}
         <div style={{ marginTop: 18 }}><LegalLinks /></div>
       </div>
     );

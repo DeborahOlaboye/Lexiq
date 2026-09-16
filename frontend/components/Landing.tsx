@@ -75,7 +75,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
             {onGuestPlay && (
               <motion.button onClick={onGuestPlay} whileHover={{ opacity: 0.8 }} whileTap={{ scale: 0.97 }}
                 style={{ padding: "9px 16px", borderRadius: 10, border: LINE2, color: "#F5EFE2", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, background: "none", cursor: "pointer" }}>
-                Play free
+                Play as guest
               </motion.button>
             )}
             <motion.button onClick={handleConnect} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
@@ -108,7 +108,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
                 transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
                 whileHover={{ scale: 1.04, y: -4 }} whileTap={{ scale: 0.97 }}
                 style={{ display: "inline-flex", alignItems: "center", gap: 9, padding: "clamp(12px,2vw,16px) clamp(20px,3vw,26px)", borderRadius: 14, background: "#CFE94B", color: "#15110D", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,17px)", cursor: "pointer", border: "none" }}>
-                Play free
+                Play as guest
               </motion.button>
             )}
             <motion.button
@@ -119,6 +119,11 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
               Sign In
             </motion.button>
           </motion.div>
+
+          <motion.p {...fadeUp(0.42)} style={{ fontSize: 13, color: "#9A8C77", marginTop: 12, marginBottom: 0, maxWidth: 430, lineHeight: 1.5 }}>
+            No account and no wallet needed to play. Signing in is only to put your name on the
+            daily and weekly boards.
+          </motion.p>
         </div>
 
         {/* Floating tiles art */}
@@ -315,7 +320,7 @@ export default function Landing({ onGuestPlay, onConnect }: { onGuestPlay?: () =
                 animate={{ boxShadow: ["0 0 0 0 rgba(21,17,13,0)", "0 0 22px 6px rgba(21,17,13,0.22)", "0 0 0 0 rgba(21,17,13,0)"], y: [0, -4, 0] }}
                 transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
                 style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "clamp(13px,2vw,17px) clamp(26px,4vw,34px)", borderRadius: 14, background: "#15110D", color: "#CFE94B", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(15px,2vw,18px)", cursor: "pointer", border: "none" }}>
-                Play free
+                Play as guest
               </motion.button>
             )}
           </div>
