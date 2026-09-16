@@ -78,9 +78,12 @@ async function loadBoardWords(roundId: bigint): Promise<void> {
   } catch { /* falls back to asking the server per word */ }
 }
 
+export type AgentResult = { words: string[]; score: number; coverage: number; level: number; name: string };
+
 export type SelfSettleResult = {
   score: number; maxScore: number; percent: number;
   words: string[]; wordCount: number; txHash: `0x${string}`;
+  agent?: AgentResult;
 };
 
 /**
@@ -120,5 +123,6 @@ export async function selfSubmitRound(opts: {
   return {
     score: att.score, maxScore: att.maxScore, percent: att.percent,
     words: att.words, wordCount: att.wordCount, txHash: hash,
+    agent: att.agent,
   };
 }

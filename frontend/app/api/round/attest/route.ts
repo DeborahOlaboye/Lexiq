@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
       words: result.words,
       wordCount: result.words.length,
       rejected: submitted.length - result.words.length,
+      agent: result.agent,
       daily: dailyDate ?? null,
       // What the player needs to call submitRound themselves.
       deadline: result.deadline.toString(),

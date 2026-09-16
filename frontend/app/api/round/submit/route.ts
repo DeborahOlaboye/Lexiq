@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
       words: result.words,
       wordCount: result.words.length,
       rejected: submitted.length - result.words.length,
+      agent: result.agent,
       txHash: hash,
     });
   } catch (err) {

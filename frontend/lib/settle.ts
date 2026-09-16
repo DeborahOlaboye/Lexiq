@@ -5,6 +5,7 @@ import { verifyPlayToken } from "./playtoken";
 import { acceptWords, boardMaxScore } from "./wordlist";
 import { scoreWords, MAX_WORDS } from "./scoring";
 import type { Lang } from "./guestLetters";
+import { opponentPlay, LEVEL_NAMES, type OpponentPlay } from "./opponent";
 
 /**
  * Slack on top of the round length, for everything that happens between the buzzer and the
@@ -30,6 +31,8 @@ export type SettleResult = {
   percent: number;
   deadline: bigint;
   signature: `0x${string}`;
+  /** What the agent scored on the same board, for the head-to-head. */
+  agent: OpponentPlay & { name: string };
 };
 
 /**
@@ -74,5 +77,17 @@ export async function scoreSubmission(
 
   const { deadline, signature } = await signScore(roundId, player, score, words.length);
   const seed = String(round[ROUND.seed]);
-  return { ok: true, player, lang, letters, seed, words, score, maxScore, percent, deadline, signature };
+
+  /**
+   * The agent played the same board. Its level follows the round's difficulty, which the
+   * contract recorded when the round opened — so the opposition was fixed before the player
+   * saw a letter, and nobody can pick an easier opponent once they know their own score.
+   *
+   * Computed here rather than stored anywhere: it is a pure function of the seed, so it is the
+   * same answer every time and anyone can recompute it from public round data.
+   */
+  const play = opponentPlay({ seed, letters, lang, level: difficulty });
+  const agent = { ...play, name: LEVEL_NAMES[play.level] ?? "Sharp" };
+
+  return { ok: true, player, lang, letters, seed, words, score, maxScore, percent, deadline, signature, agent };
 }

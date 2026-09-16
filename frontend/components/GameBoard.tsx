@@ -57,6 +57,10 @@ function canBuild(word: string, letters: string) {
   return true;
 }
 
+/** What the opponent agent scored on the same board, as returned by the settle routes. */
+type AgentPlay = { words: string[]; score: number; coverage: number; level: number; name: string };
+type Settled = { score: number; rejected: number; agent?: AgentPlay };
+
 type WordEntry = { word: string; salt: `0x${string}`; pts: number };
 type Pop = { id: number; text: string };
 
@@ -81,8 +85,9 @@ export default function GameBoard({
   const [showShareCard, setShowShareCard] = useState(false);
   // The score the server signed, kept so the result never depends on this RPC node having
   // caught up with the settling transaction. `rejected` explains a low score rather than
-  // leaving a player staring at a number that does not match what they played.
-  const [settledResult, setSettledResult] = useState<{ score: number; rejected: number } | null>(null);
+  // leaving a player staring at a number that does not match what they played, and `agent`
+  // carries what the opponent scored on the same board.
+  const [settledResult, setSettledResult] = useState<Settled | null>(null);
   const [serverLetters, setServerLetters] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [words, setWords] = useState<WordEntry[]>([]);
@@ -265,7 +270,7 @@ export default function GameBoard({
           roundId, words: wordList, username, feeCurrency: fee.address,
         });
         score = settled.score;
-        setSettledResult({ score, rejected: wordList.length - settled.wordCount });
+        setSettledResult({ score, rejected: wordList.length - settled.wordCount, agent: settled.agent });
       } else {
         const res = await fetch("/api/round/submit", {
           method: "POST",
@@ -275,7 +280,7 @@ export default function GameBoard({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Could not submit round");
         score = data.score;
-        setSettledResult({ score, rejected: data.rejected ?? 0 });
+        setSettledResult({ score, rejected: data.rejected ?? 0, agent: data.agent });
       }
 
       setSubmitProgress(null);
@@ -416,6 +421,55 @@ export default function GameBoard({
                 <div style={{ fontSize: 13, color: "#FF5B45", marginTop: 10, maxWidth: 320, lineHeight: 1.5 }}>
                   {settledResult.rejected} {settledResult.rejected === 1 ? "word" : "words"} did not count against this board&apos;s letters.
                   {settledResult.score === 0 && " If the letters you saw look wrong, reload and start a new round."}
+                </div>
+              )}
+
+              {/* Head to head. The agent played these same seven letters, and its words were
+                  settled by the round's seed before this player typed anything — so this is a
+                  race that was already run, not a score invented to beat theirs. */}
+              {settledResult?.agent && (
+                <div style={{ width: "100%", marginTop: 18, background: "#241C13", border: LINE, borderRadius: 16, padding: "14px 16px" }}>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 10 }}>
+                    Head to head
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ flex: 1, textAlign: "center" }}>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", marginBottom: 3 }}>You</div>
+                      <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, color: finalScore >= settledResult.agent.score ? "#CFE94B" : "#F5EFE2" }}>
+                        {finalScore}
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: "#6E6557" }}>vs</div>
+                    <div style={{ flex: 1, textAlign: "center" }}>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", marginBottom: 3 }}>{settledResult.agent.name}</div>
+                      <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, color: settledResult.agent.score > finalScore ? "#FF5B45" : "#F5EFE2" }}>
+                        {settledResult.agent.score}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "center", marginTop: 10, fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14,
+                    color: finalScore > settledResult.agent.score ? "#CFE94B" : finalScore === settledResult.agent.score ? "#CBC0AE" : "#FF5B45" }}>
+                    {finalScore > settledResult.agent.score
+                      ? `You win by ${finalScore - settledResult.agent.score}`
+                      : finalScore === settledResult.agent.score
+                        ? "Dead heat"
+                        : `${settledResult.agent.name} wins by ${settledResult.agent.score - finalScore}`}
+                  </div>
+                  {settledResult.agent.words.length > 0 && (
+                    <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center" }}>
+                      {settledResult.agent.words.map((w) => {
+                        const mine = words.some((x) => x.word === w);
+                        return (
+                          <span key={w} title={mine ? "You found this too" : "You missed this one"}
+                            style={{ padding: "4px 9px", borderRadius: 8, background: mine ? "rgba(207,233,75,.10)" : "#1E1710", border: LINE,
+                              fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 12, letterSpacing: "0.04em",
+                              color: mine ? "#CFE94B" : "#9A8C77" }}>
+                            {w}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             <div style={{ display: "flex", gap: 10, marginTop: 20, width: "100%" }}>
