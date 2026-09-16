@@ -18,6 +18,7 @@ import LegalLinks from "@/components/LegalLinks";
 import { getStoredUsername, getRankTitle, getXP, getLocalStreak } from "@/lib/player";
 import { usePlayerPoints } from "@/hooks/usePlayerPoints";
 import { isMiniPay } from "@/lib/minipay";
+import { LENGTH_BONUS, letterValue } from "@/lib/scoring";
 import { useProfile } from "@/hooks/useProfile";
 import type { Lang } from "@/lib/guestLetters";
 
@@ -92,20 +93,43 @@ export default function Home() {
   // Covers both "still detecting" and "detected MiniPay, wallet not connected yet".
   // Deliberately renders before every other branch so no sign-in affordance can appear
   // inside MiniPay. The only escape hatch offered is guest play, never a wallet button.
+  //
+  // It also has to say what Lexiq is. This frame is what the server sends, so for anyone
+  // whose JavaScript has not run yet — a crawler, a link preview, a slow phone — it was the
+  // whole page, and it used to contain the word "Starting…" and nothing else. Reviewers
+  // reported zero headings and zero buttons and could not tell whether the app was loading
+  // or broken. The copy below is deliberately the four things they said were missing: what
+  // this is, what you do, how words score, and whether you need a wallet.
   if (inMiniPay === null || (inMiniPay && !wagmiConnected && !guestMode)) {
     return (
-      <div className="min-h-dvh bg-ink text-cream font-ui flex flex-col items-center justify-center gap-4" style={{ padding: 24 }}>
+      <div className="min-h-dvh bg-ink text-cream font-ui flex flex-col items-center justify-center" style={{ padding: 24, textAlign: "center" }}>
         <Logo size="md" />
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557" }}>
+
+        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "clamp(22px,5vw,30px)", letterSpacing: "-0.02em", margin: "18px 0 8px" }}>
+          90-second word race
+        </h1>
+        <p style={{ fontSize: 15, color: "#CBC0AE", lineHeight: 1.55, maxWidth: 380, margin: 0 }}>
+          Build as many words as you can from seven random letters before the clock runs out.
+        </p>
+        <p style={{ fontSize: 13, color: "#9A8C77", lineHeight: 1.55, maxWidth: 380, margin: "12px 0 0" }}>
+          Longer words score more — a seven-letter word adds {LENGTH_BONUS[7]} points on top of its
+          letters, and rare letters like Q and Z are worth {letterValue("Q")} each.
+        </p>
+        <p style={{ fontSize: 13, color: "#9A8C77", lineHeight: 1.55, maxWidth: 380, margin: "12px 0 0" }}>
+          Free to play, and no wallet is needed. Signing in adds your name to the daily and
+          weekly boards.
+        </p>
+
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557", marginTop: 22 }}>
           {inMiniPay === null ? "Starting…" : "Connecting your wallet…"}
         </span>
         {connectTimedOut && (
           <button onClick={handleGuestPlay}
-            style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, padding: "9px 18px", borderRadius: 10, border: LINE2, background: "none", color: "#F5EFE2", cursor: "pointer" }}>
+            style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, padding: "9px 18px", borderRadius: 10, border: LINE2, background: "none", color: "#F5EFE2", cursor: "pointer", marginTop: 14 }}>
             Play free instead
           </button>
         )}
-        <LegalLinks />
+        <div style={{ marginTop: 18 }}><LegalLinks /></div>
       </div>
     );
   }
