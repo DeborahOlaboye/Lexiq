@@ -93,7 +93,7 @@ export default function GameBoard({
   const [versus, setVersus] = useState(false);
   useEffect(() => { setVersus(getVersusMode()); }, [roundId]);
   /** The agent's target for this board, known from the seed before the player starts. */
-  const [agentTarget, setAgentTarget] = useState<{ score: number; name: string } | null>(null);
+  const [agentTarget, setAgentTarget] = useState<{ score: number; name: string; ticks?: Array<{ at: number; score: number }> } | null>(null);
   const [input, setInput] = useState("");
   const [words, setWords] = useState<WordEntry[]>([]);
   const [timeLeft, setTimeLeft] = useState(90);
@@ -338,6 +338,22 @@ export default function GameBoard({
   }
 
   const myScore = words.reduce((s, w) => s + w.pts, 0);
+  /**
+   * What the agent has on the board at this moment.
+   *
+   * Its words were settled by the seed before the round opened, but revealing the finished
+   * total from the first second made it look like the opponent had banked a score while the
+   * player sat on nothing. Walking the same totals against the clock makes it a race.
+   */
+  const agentNow = (() => {
+    if (!agentTarget) return 0;
+    if (!agentTarget.ticks?.length) return agentTarget.score;
+    if (phase === "done" || timeLeft === 0) return agentTarget.score;
+    const elapsed = (DURATION[Number((round as readonly unknown[])[ROUND.difficulty])] ?? 90) - timeLeft;
+    let at = 0;
+    for (const t of agentTarget.ticks) { if (t.at <= elapsed) at = t.score; else break; }
+    return at;
+  })();
   const best = myHigh ? Number(myHigh) : 0;
   const progress = best > 0 ? Math.min(100, Math.round((myScore / best) * 100)) : 0;
   const usedCounts = getLetterCounts(input);
@@ -632,14 +648,20 @@ export default function GameBoard({
             were fixed when the round opened, so showing the number now gives nothing away —
             and a race you can see is the difference between an opponent and a verdict. */}
         {versus && agentTarget && phase === "active" && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, padding: "9px 13px", borderRadius: 12, background: myScore > agentTarget.score ? "rgba(207,233,75,.10)" : "rgba(255,91,69,.08)", border: myScore > agentTarget.score ? "1px solid rgba(207,233,75,.35)" : "1px solid rgba(255,91,69,.3)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, padding: "9px 13px", borderRadius: 12, background: myScore >= agentNow ? "rgba(207,233,75,.10)" : "rgba(255,91,69,.08)", border: myScore >= agentNow ? "1px solid rgba(207,233,75,.35)" : "1px solid rgba(255,91,69,.3)" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#CBC0AE" }}>
-              ⚔ <b style={{ color: "#F5EFE2" }}>{agentTarget.name}</b> scored {agentTarget.score} here
+              ⚔ <b style={{ color: "#F5EFE2" }}>{agentTarget.name}</b>{" "}
+              <motion.b key={agentNow} initial={{ scale: 1.5, color: "#FF5B45" }} animate={{ scale: 1, color: "#F5EFE2" }} transition={{ duration: 0.4 }}
+                style={{ display: "inline-block", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13 }}>
+                {agentNow}
+              </motion.b>
             </span>
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: myScore > agentTarget.score ? "#CFE94B" : "#FF5B45" }}>
-              {myScore > agentTarget.score
-                ? `Ahead by ${myScore - agentTarget.score}`
-                : `${agentTarget.score - myScore + 1} more to beat it`}
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: myScore > agentNow ? "#CFE94B" : myScore === agentNow ? "#CBC0AE" : "#FF5B45" }}>
+              {myScore > agentNow
+                ? `You lead by ${myScore - agentNow}`
+                : myScore === agentNow
+                  ? "Level"
+                  : `Behind by ${agentNow - myScore}`}
             </span>
           </div>
         )}

@@ -4,9 +4,12 @@ import { publicClient, lettersForRound } from "@/lib/attestation";
 import { verifyPlayToken } from "@/lib/playtoken";
 import { missingConfig } from "@/lib/config";
 import { solveBoard } from "@/lib/wordlist";
-import { opponentPlay, LEVEL_NAMES } from "@/lib/opponent";
+import { opponentPlay, opponentTicks, LEVEL_NAMES } from "@/lib/opponent";
 import { hashAll } from "@/lib/wordhash";
 import type { Lang } from "@/lib/guestLetters";
+
+/** Mirrors roundDuration() in Lexiq.sol, so the pacing matches the clock the player sees. */
+const ROUND_SECONDS: Record<number, number> = { 0: 120, 1: 90, 2: 60 };
 
 /**
  * Word hashes for a round already in progress — a staked round the player sent themselves, or
@@ -67,7 +70,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       letters,
       wordHashes: hashAll(solveBoard(letters, lang).map((w) => w.word)),
-      agent: { score: play.score, level: play.level, name: LEVEL_NAMES[play.level] ?? "Sharp" },
+      agent: {
+        score: play.score,
+        level: play.level,
+        name: LEVEL_NAMES[play.level] ?? "Sharp",
+        // Running totals only — never the words, which would be the answer key.
+        ticks: opponentTicks(play, ROUND_SECONDS[Number(round[ROUND.difficulty])] ?? 90, String(round[ROUND.seed])),
+      },
     });
   } catch (err) {
     console.error("[round/words]", err);

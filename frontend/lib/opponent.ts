@@ -1,6 +1,6 @@
 import "server-only";
 import { solveBoard, boardMaxScore } from "./wordlist";
-import { scoreWords, MAX_WORDS } from "./scoring";
+import { scoreWord, scoreWords, MAX_WORDS } from "./scoring";
 import type { Lang } from "./guestLetters";
 
 /**
@@ -111,4 +111,39 @@ export function opponentPlay(opts: {
     coverage: max > 0 ? Math.round((score / max) * 100) : 0,
     level,
   };
+}
+
+/**
+ * When the agent's score arrives, so it climbs through the round instead of sitting there.
+ *
+ * Its words are decided by the seed before anyone plays, which is what makes the result
+ * checkable — but a finished number on screen from the first second reads as though the
+ * opponent had banked its points while you sat at zero. Spreading the same words across the
+ * round makes it a race you are actually in, and changes nothing about where it ends up.
+ *
+ * Only the running total goes to the browser. Sending the words themselves mid-round would
+ * hand a player the answers, so this deliberately returns scores and nothing else.
+ *
+ * Seeded from the round, so the pacing is identical on every device and reproducible after
+ * the fact — the same property the play itself has.
+ */
+export function opponentTicks(
+  play: OpponentPlay,
+  seconds: number,
+  seed: string,
+): Array<{ at: number; score: number }> {
+  if (play.words.length === 0 || seconds <= 0) return [];
+  const rand = mulberry32(seedToInt(seed) ^ 0x5bf03635);
+
+  // Inside the round rather than at its edges: nothing lands on the first or last breath,
+  // so the agent looks like it is playing rather than dumping a score at the buzzer.
+  const times = play.words
+    .map(() => (0.08 + 0.82 * rand()) * seconds)
+    .sort((a, b) => a - b);
+
+  let running = 0;
+  return play.words.map((word, i) => {
+    running += scoreWord(word);
+    return { at: Math.round(times[i]), score: running };
+  });
 }
