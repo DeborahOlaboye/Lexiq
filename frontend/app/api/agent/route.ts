@@ -20,6 +20,15 @@ import type { Lang } from "@/lib/guestLetters";
  */
 
 const STATE_KEY = "lx:agent:record";
+/**
+ * One bit per round, set when that round has been counted.
+ *
+ * Needed because rounds do not settle in order: a round still being played sits between
+ * settled ones, and an earlier version stopped counting there — so every finished round after
+ * an abandoned one was invisible until it aged out. Scanning past it instead needs a way to
+ * know what has already been tallied, and a bitmap answers that in O(1) and a few bytes.
+ */
+const COUNTED_KEY = "lx:agent:counted";
 /** Rounds opened and never played would hold the watermark back for ever. */
 const ABANDON_SECONDS = 60 * 60 * 24;
 
@@ -45,6 +54,9 @@ export async function GET() {
 
     const now = Math.floor(Date.now() / 1000);
     let watermark = rec.watermark;
+    // Once a round is still open, nothing above it may advance the watermark — but everything
+    // above it is still counted, which is the whole point.
+    let blocked = false;
 
     for (let id = rec.watermark + 1; id <= total; id++) {
       const r = await publicClient.readContract({
@@ -54,10 +66,19 @@ export async function GET() {
       const startedAt = Number(r[ROUND.startedAt]);
       const settled = Number(r[ROUND.state]) === ROUND_FINISHED;
 
-      // A round still in play must be looked at again next time, so the watermark stops here.
+      // Still in play: skip it for now, and hold the watermark here so it is looked at again.
       if (!settled) {
-        if (startedAt === 0 || now - startedAt < ABANDON_SECONDS) break;
-        watermark = id;   // old enough that it is never going to settle
+        if (startedAt === 0 || now - startedAt < ABANDON_SECONDS) {
+          if (!blocked) { watermark = id - 1; blocked = true; }
+          continue;
+        }
+        if (!blocked) watermark = id;   // old enough that it is never going to settle
+        continue;
+      }
+
+      // Counted on an earlier pass, while a round below it was still open.
+      if (kv && (await kv.getbit(COUNTED_KEY, id)) === 1) {
+        if (!blocked) watermark = id;
         continue;
       }
 
@@ -75,7 +96,8 @@ export async function GET() {
       if (agent.score > human) rec.wins++;
       else if (agent.score < human) rec.losses++;
       else rec.draws++;
-      watermark = id;
+      if (kv) await kv.setbit(COUNTED_KEY, id, 1);
+      if (!blocked) watermark = id;
     }
 
     rec.watermark = watermark;
