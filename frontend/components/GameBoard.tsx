@@ -15,7 +15,7 @@ import { getStoredUsername, displayName, getSelectedSkin, SKINS, awardBadge, get
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
 import { submitScore } from "@/hooks/usePlayerStreak";
-import { getPlayToken } from "@/lib/playSession";
+import { getPlayToken, getVersusMode } from "@/lib/playSession";
 import MissedWord from "./MissedWord";
 import ShareCard from "./ShareCard";
 import { usePlayerPoints } from "@/hooks/usePlayerPoints";
@@ -89,6 +89,11 @@ export default function GameBoard({
   // carries what the opponent scored on the same board.
   const [settledResult, setSettledResult] = useState<Settled | null>(null);
   const [serverLetters, setServerLetters] = useState<string | null>(null);
+  // Read once on mount rather than during render, so the server and first client render agree.
+  const [versus, setVersus] = useState(false);
+  useEffect(() => { setVersus(getVersusMode()); }, [roundId]);
+  /** The agent's target for this board, known from the seed before the player starts. */
+  const [agentTarget, setAgentTarget] = useState<{ score: number; name: string } | null>(null);
   const [input, setInput] = useState("");
   const [words, setWords] = useState<WordEntry[]>([]);
   const [timeLeft, setTimeLeft] = useState(90);
@@ -187,6 +192,7 @@ export default function GameBoard({
     setTimeLeft(90);
     setSettledResult(null);
     setServerLetters(null);
+    setAgentTarget(null);
     submittedRef.current = false;
     setWords([]);
     setInput("");
@@ -235,6 +241,7 @@ export default function GameBoard({
         // The authoritative letters. The server resolves these with a retry until the round
         // is actually visible, which the browser's own read cannot do.
         if (d.letters) setServerLetters(d.letters);
+        if (d.agent) setAgentTarget(d.agent);
       })
       .catch(() => { /* falls back to server validation */ });
     return () => { cancelled = true; };
@@ -459,7 +466,7 @@ export default function GameBoard({
               {/* Head to head. The agent played these same seven letters, and its words were
                   settled by the round's seed before this player typed anything — so this is a
                   race that was already run, not a score invented to beat theirs. */}
-              {settledResult?.agent && (
+              {versus && settledResult?.agent && (
                 <div style={{ width: "100%", marginTop: 18, background: "#241C13", border: LINE, borderRadius: 16, padding: "14px 16px" }}>
                   <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 10 }}>
                     Head to head
@@ -611,6 +618,22 @@ export default function GameBoard({
         <button onClick={onBack} style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#9A8C77", background: "none", border: "none", cursor: "pointer", padding: 0 }}>‹ Back</button>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557" }}>Round #{roundId.toString()}</span>
       </div>
+
+        {/* The target, while there is still time to do something about it. The agent's words
+            were fixed when the round opened, so showing the number now gives nothing away —
+            and a race you can see is the difference between an opponent and a verdict. */}
+        {versus && agentTarget && phase === "active" && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, padding: "9px 13px", borderRadius: 12, background: myScore > agentTarget.score ? "rgba(207,233,75,.10)" : "rgba(255,91,69,.08)", border: myScore > agentTarget.score ? "1px solid rgba(207,233,75,.35)" : "1px solid rgba(255,91,69,.3)" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#CBC0AE" }}>
+              ⚔ Racing <b style={{ color: "#F5EFE2" }}>{agentTarget.name}</b>
+            </span>
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: myScore > agentTarget.score ? "#CFE94B" : "#FF5B45" }}>
+              {myScore > agentTarget.score
+                ? `Ahead by ${myScore - agentTarget.score}`
+                : `${agentTarget.score - myScore + 1} to take the lead`}
+            </span>
+          </div>
+        )}
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-start" }}>
 

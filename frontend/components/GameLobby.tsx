@@ -14,7 +14,7 @@ import { getLevel, getRankTitle, getRankProgress, SKINS, getSelectedSkin, saveSk
 import { usePlayerPoints } from "@/hooks/usePlayerPoints";
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
-import { savePlayToken } from "@/lib/playSession";
+import { savePlayToken, saveVersusMode } from "@/lib/playSession";
 import { setBoardWords } from "@/lib/dictionary";
 
 const LANGS: { id: Lang; label: string }[] = [
@@ -67,6 +67,13 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   const [relayError, setRelayError]   = useState<string | null>(null);
   const [status, setStatus]           = useState<string | null>(null);
   const [difficulty, setDifficulty]   = useState<0 | 1 | 2>(1);
+  /**
+   * Whether to race the agent. Off by default: a player who did not ask for an opponent
+   * should not be told at the end that they lost to one. It was previously always on and
+   * only revealed on the results screen, which made the feature both a surprise and easy
+   * to miss entirely.
+   */
+  const [versus, setVersus] = useState(false);
   const [showDiff, setShowDiff]       = useState(false);
   /**
    * A challenge arrives as ?challenge=<roundId> on the shared link.
@@ -192,6 +199,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
 
 
   function handleStart() {
+    saveVersusMode(versus);
     startFreeRound();
   }
 
@@ -199,6 +207,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
     setStatus("Accepting challenge…");
     setRelayError(null);
     try {
+      saveVersusMode(versus);
       const res = await fetch("/api/round/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -409,6 +418,28 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
         </div>
 
         {/* Play CTA */}
+        {/* An explicit choice, made before the round opens. The agent plays every board anyway —
+            its words come from the seed — but being quietly measured against one you never asked
+            for is a different experience from choosing to race it. */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 8 }}>Mode</div>
+          <div style={{ display: "flex", gap: 7 }}>
+            {[
+              { on: false, label: "Solo", hint: "Just the board and the clock" },
+              { on: true, label: "⚔ Race the AI", hint: `${DIFFICULTIES[difficulty].label} opponent, same letters` },
+            ].map(({ on, label, hint }) => (
+              <motion.button key={label} onClick={() => setVersus(on)}
+                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
+                style={{ flex: 1, padding: "10px 12px", borderRadius: 12, textAlign: "left", cursor: "pointer",
+                  border: versus === on ? "1px solid #CFE94B" : LINE,
+                  background: versus === on ? "rgba(207,233,75,.12)" : "#1E1710" }}>
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: versus === on ? "#CFE94B" : "#F5EFE2" }}>{label}</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", marginTop: 3, lineHeight: 1.4 }}>{hint}</div>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
         {status && <p style={{ fontSize: 12, color: "#CFE94B", fontFamily: "var(--font-mono)", marginBottom: 10, animation: "blink 1.4s infinite" }}>{status}</p>}
 
         <motion.button onClick={handleStart} disabled={busy || cannotAffordFees}

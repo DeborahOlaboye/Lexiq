@@ -4,6 +4,7 @@ import { publicClient, lettersForRound } from "@/lib/attestation";
 import { verifyPlayToken } from "@/lib/playtoken";
 import { missingConfig } from "@/lib/config";
 import { solveBoard } from "@/lib/wordlist";
+import { opponentPlay, LEVEL_NAMES } from "@/lib/opponent";
 import { hashAll } from "@/lib/wordhash";
 import type { Lang } from "@/lib/guestLetters";
 
@@ -53,9 +54,20 @@ export async function POST(req: NextRequest) {
     // The letters go back too. The board used to read these from chain in the browser, where
     // an unknown round hands back plausible but wrong letters that never get corrected — a
     // player then builds words the server cannot score and the round settles at zero.
+    // The agent's target, known from the seed before the player starts. Sending it up front is
+    // what turns "you lost to a bot" on the results screen into a race you can see while you
+    // play — and it is safe to reveal, because its words were fixed when the round opened.
+    const play = opponentPlay({
+      seed: String(round[ROUND.seed]),
+      letters,
+      lang,
+      level: Number(round[ROUND.difficulty]),
+    });
+
     return NextResponse.json({
       letters,
       wordHashes: hashAll(solveBoard(letters, lang).map((w) => w.word)),
+      agent: { score: play.score, level: play.level, name: LEVEL_NAMES[play.level] ?? "Sharp" },
     });
   } catch (err) {
     console.error("[round/words]", err);
