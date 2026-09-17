@@ -15,7 +15,7 @@ import { getStoredUsername, displayName, getSelectedSkin, SKINS, awardBadge, get
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
 import { submitScore } from "@/hooks/usePlayerStreak";
-import { getPlayToken, getVersusMode } from "@/lib/playSession";
+import { getPlayToken, getVersusMode, saveRoundWords, getRoundWords, clearRoundWords } from "@/lib/playSession";
 import MissedWord from "./MissedWord";
 import ShareCard from "./ShareCard";
 import { usePlayerPoints } from "@/hooks/usePlayerPoints";
@@ -194,7 +194,10 @@ export default function GameBoard({
     setServerLetters(null);
     setAgentTarget(null);
     submittedRef.current = false;
-    setWords([]);
+    // Restores the words if this is the same round coming back — after a refresh, a route
+    // change, or the phone reclaiming a backgrounded tab. A genuinely new round has nothing
+    // stored and this is still an empty list.
+    setWords(roundId !== null ? getRoundWords(roundId.toString()) : []);
     setInput("");
     setSubmitting(false);
     setSubmitProgress(null);
@@ -357,6 +360,12 @@ export default function GameBoard({
       doSubmit();
     }
   }, [timeUp]); // eslint-disable-line
+
+  useEffect(() => {
+    if (roundId === null) return;
+    if (state_ === ROUND_FINISHED || settledResult) { clearRoundWords(roundId.toString()); return; }
+    saveRoundWords(roundId.toString(), words);
+  }, [roundId, words, state_, settledResult]);
 
   const submitWord = useCallback(() => {
     if (!isActive || !roundId) return;
