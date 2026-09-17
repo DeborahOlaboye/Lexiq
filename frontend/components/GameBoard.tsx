@@ -138,7 +138,11 @@ export default function GameBoard({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       refetchInterval: (q: any) => {
         const d = q?.state?.data as readonly unknown[] | undefined;
-        return d && Number(d[ROUND.startedAt]) > 0 ? 5000 : 1000;
+        if (d && Number(d[ROUND.startedAt]) > 0) return 5000;
+        // Fast only while the round is plausibly still landing, then back off. Polling every
+        // second indefinitely alongside the board's other reads is enough to earn a 403 from
+        // Forno, and a throttled RPC is the one thing that makes this wait longer, not shorter.
+        return (q?.state?.dataUpdateCount ?? 0) < 8 ? 1000 : 4000;
       },
     },
   });
@@ -349,7 +353,12 @@ export default function GameBoard({
     if (!agentTarget) return 0;
     if (!agentTarget.ticks?.length) return agentTarget.score;
     if (phase === "done" || timeLeft === 0) return agentTarget.score;
-    const elapsed = (DURATION[Number((round as readonly unknown[])[ROUND.difficulty])] ?? 90) - timeLeft;
+    // `round` is undefined until the chain read lands, and this runs above the guard that
+    // waits for it — casting it unchecked crashed the whole board whenever the RPC was slow
+    // or rate-limited, which is exactly when a player is least able to tolerate it.
+    const r = round as readonly unknown[] | undefined;
+    const seconds = r ? (DURATION[Number(r[ROUND.difficulty])] ?? 90) : 90;
+    const elapsed = seconds - timeLeft;
     let at = 0;
     for (const t of agentTarget.ticks) { if (t.at <= elapsed) at = t.score; else break; }
     return at;
