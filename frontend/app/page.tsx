@@ -20,10 +20,16 @@ import { usePlayerPoints } from "@/hooks/usePlayerPoints";
 import { isMiniPay } from "@/lib/minipay";
 import { LENGTH_BONUS, letterValue } from "@/lib/scoring";
 import { useProfile } from "@/hooks/useProfile";
+import { useRoutedView } from "@/hooks/useRoutedView";
 import type { Lang } from "@/lib/guestLetters";
 
 type View = "lobby" | "game" | "leaderboard";
 type GuestView = "setup" | "lobby" | "game" | "leaderboard";
+
+/** One path per screen. "setup" is an overlay and deliberately has none. */
+const VIEW_PATHS: Record<View, string> = { lobby: "/", game: "/play", leaderboard: "/leaderboard" };
+const GUEST_PATHS: Record<GuestView, string> = { setup: "/", lobby: "/", game: "/play", leaderboard: "/leaderboard" };
+const GUEST_TRANSIENT = ["setup"] as const;
 
 const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
@@ -72,10 +78,10 @@ export default function Home() {
   // Wallet-keyed identity. Gates the connected flow behind sign-up.
   const profile = useProfile(address);
 
-  const [view, setView]             = useState<View>("lobby");
+  const [view, setView] = useRoutedView<View>({ paths: VIEW_PATHS, fallback: "lobby" });
   const [activeRoundId, setActiveRoundId] = useState<bigint | null>(null);
   const [guestMode, setGuestMode]   = useState(false);
-  const [guestView, setGuestView]   = useState<GuestView>("lobby");
+  const [guestView, setGuestView] = useRoutedView<GuestView>({ paths: GUEST_PATHS, fallback: "lobby", transient: GUEST_TRANSIENT });
   const [guestDifficulty, setGuestDifficulty] = useState<0 | 1 | 2>(1);
   const [guestLang,       setGuestLang]       = useState<Lang>("en");
   const [authLang,        setAuthLang]        = useState<Lang>("en");
