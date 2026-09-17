@@ -426,7 +426,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
           <div style={{ display: "flex", gap: 7 }}>
             {[
               { on: false, label: "Solo", hint: "Just the board and the clock" },
-              { on: true, label: "⚔ Race the AI", hint: `${DIFFICULTIES[difficulty].label} opponent, same letters` },
+              { on: true, label: "⚔ Race the AI", hint: `Beat a score ${DIFFICULTIES[difficulty].label === "Easy" ? "Casual" : DIFFICULTIES[difficulty].label === "Hard" ? "Relentless" : "Sharp"} already set on these letters` },
             ].map(({ on, label, hint }) => (
               <motion.button key={label} onClick={() => setVersus(on)}
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}

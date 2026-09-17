@@ -634,12 +634,12 @@ export default function GameBoard({
         {versus && agentTarget && phase === "active" && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, padding: "9px 13px", borderRadius: 12, background: myScore > agentTarget.score ? "rgba(207,233,75,.10)" : "rgba(255,91,69,.08)", border: myScore > agentTarget.score ? "1px solid rgba(207,233,75,.35)" : "1px solid rgba(255,91,69,.3)" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#CBC0AE" }}>
-              ⚔ Racing <b style={{ color: "#F5EFE2" }}>{agentTarget.name}</b>
+              ⚔ <b style={{ color: "#F5EFE2" }}>{agentTarget.name}</b> scored {agentTarget.score} here
             </span>
             <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: myScore > agentTarget.score ? "#CFE94B" : "#FF5B45" }}>
               {myScore > agentTarget.score
                 ? `Ahead by ${myScore - agentTarget.score}`
-                : `${agentTarget.score - myScore + 1} to take the lead`}
+                : `${agentTarget.score - myScore + 1} more to beat it`}
             </span>
           </div>
         )}
