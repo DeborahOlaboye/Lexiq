@@ -9,16 +9,25 @@ import { getRedis } from "@/lib/redis";
  * connected wallet is a stable identity, so its name is stored server-side and follows the
  * player across devices and reinstalls.
  *
- * Shares the `lx:u:<playerId>` hash that /api/scores already writes, so a username set at
- * sign-up and one recorded alongside a score cannot disagree.
+ * Writes the same hashes the boards read, because they are the whole point of setting a name.
+ *
+ * This used to write `lx:u:<Checksummed>`, matching neither reader: the all-time board reads
+ * `lx:u:v2:<lowercase>` and the weekly board reads `lx:u:<lowercase>`. A player renaming
+ * themselves saved to a key nothing read, so every board kept showing whatever name was
+ * attached to their last score. Both are written now, and both lowercased — an address is
+ * case-insensitive, so the casing a wallet hands us must never decide where a name lands.
  */
 
-const KEY = (addr: string) => `lx:u:${addr}`;
+/** Read by /api/scores for the all-time board. */
+const KEY_V2 = (addr: string) => `lx:u:v2:${addr.toLowerCase()}`;
+/** Read by lib/weekly.ts for the weekly board. */
+const KEY_WEEKLY = (addr: string) => `lx:u:${addr.toLowerCase()}`;
+/** Where names were written before this was fixed, so existing ones are not orphaned. */
+const KEY_LEGACY = (addr: string) => `lx:u:${addr}`;
 
 function normalize(raw: string | null): string | null {
   if (!raw || !isAddress(raw)) return null;
-  // wagmi hands the client a checksummed address and /api/scores stores it verbatim, so
-  // checksum here too — lowercasing would write to a second, divergent key.
+  // Checksummed only so KEY_LEGACY can still find pre-fix names; every write lowercases.
   return getAddress(raw);
 }
 
@@ -37,7 +46,12 @@ export async function GET(req: NextRequest) {
   try {
     const kv = getRedis();
     if (!kv) return NextResponse.json({ username: null });
-    const username = await kv.hget(KEY(address), "username");
+    // v2 first, then the weekly key, then the pre-fix one — so a name saved under the old
+    // scheme still resolves instead of the player appearing to have lost it.
+    const username =
+      (await kv.hget(KEY_V2(address), "username")) ??
+      (await kv.hget(KEY_WEEKLY(address), "username")) ??
+      (await kv.hget(KEY_LEGACY(address), "username"));
     return NextResponse.json({ username: username ?? null });
   } catch (e) {
     console.error("/api/profile GET", e);
@@ -60,7 +74,11 @@ export async function POST(req: NextRequest) {
   try {
     const kv = getRedis();
     if (!kv) return NextResponse.json({ error: "Profile unavailable" }, { status: 503 });
-    await kv.hset(KEY(address), "username", username);
+    // Both boards, in one go: a rename that only reached one of them is the bug this fixes.
+    await Promise.all([
+      kv.hset(KEY_V2(address), "username", username),
+      kv.hset(KEY_WEEKLY(address), "username", username),
+    ]);
     return NextResponse.json({ ok: true, username });
   } catch (e) {
     console.error("/api/profile POST", e);

@@ -1,16 +1,33 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAccount } from "wagmi";
 import { getStoredUsername, saveUsername } from "@/lib/player";
+
+/**
+ * Every mounted prompt shows the same name.
+ *
+ * Each one used to read the cookie once on mount and keep its own copy, so renaming in the
+ * header left the lobby still showing the old name — two "Playing as" lines disagreeing on
+ * the same screen. One event, and they all move together.
+ */
+const CHANGED = "lx:username-changed";
 
 const LINE = "1px solid var(--line)";
 
 export default function UsernamePrompt({ onSet }: { onSet?: (name: string) => void }) {
+  const { address } = useAccount();
   const [current, setCurrent] = useState<string | null>(null);
   const [editing, setEditing]  = useState(false);
   const [draft, setDraft]      = useState("");
 
   useEffect(() => { setCurrent(getStoredUsername()); }, []);
+
+  useEffect(() => {
+    const onChanged = (e: Event) => setCurrent((e as CustomEvent<string>).detail);
+    window.addEventListener(CHANGED, onChanged);
+    return () => window.removeEventListener(CHANGED, onChanged);
+  }, []);
 
   function save() {
     const n = draft.trim().slice(0, 20);
@@ -19,6 +36,18 @@ export default function UsernamePrompt({ onSet }: { onSet?: (name: string) => vo
     setCurrent(n);
     setEditing(false);
     setDraft("");
+    window.dispatchEvent(new CustomEvent(CHANGED, { detail: n }));
+
+    // The cookie is per-device; the boards read the server. Without this a rename showed up
+    // here and nowhere else, leaving the leaderboard on whatever name the last score carried.
+    if (address) {
+      fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, username: n }),
+      }).catch(() => { /* the local name still changed; the next score carries it up */ });
+    }
+
     onSet?.(n);
   }
 
