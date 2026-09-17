@@ -97,17 +97,17 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
   // Prizes are funded off-chain and not always in the same token, so this comes from the weekly
   // endpoint rather than the contract. Weeks without one are normal — the tile then shows where
   // the player sits on the board, so it says something either way instead of a dash.
-  const [weekly, setWeekly] = useState<{ funded: boolean; prize: string | null; rows: { playerId: string }[] } | null>(null);
+  const [weekly, setWeekly] = useState<{ funded: boolean; prize: string | null; rows: { playerId: string }[]; standing: { rank: number | null } | null } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/weekly").then((r) => (r.ok ? r.json() : null))
+    fetch(address ? `/api/weekly?player=${address}` : "/api/weekly").then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (!cancelled && d) setWeekly(d); }).catch(() => {});
     return () => { cancelled = true; };
-  }, []);
+  }, [address]);
 
-  const weekRank = weekly && address
-    ? weekly.rows.findIndex((r) => r.playerId.toLowerCase() === address.toLowerCase())
-    : -1;
+  // From the standing, not the rows: the board returns twenty and searching it reported "no
+  // rank" to everyone below that — the players who most needed a reason to play again.
+  const weekRank = weekly?.standing?.rank ?? -1;
 
   // Badges are wallet-only, like the leaderboard — guests play, but progression is a reason
   // to sign in.
@@ -444,9 +444,10 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
           weekly?.funded
             ? { label: "Prize pool", value: weekly.prize ?? "—", lime: true, glow: true, delay: 0.08 }
             : { label: "Week rank",
-                value: weekRank >= 0 ? `#${weekRank + 1}` : "—",
-                unit: weekRank >= 0 ? undefined : "play a round",
-                lime: weekRank >= 0, glow: false, delay: 0.08 },
+                // standing.rank is 1-based, unlike the findIndex this replaced.
+                value: weekRank > 0 ? `#${weekRank}` : "—",
+                unit: weekRank > 0 ? undefined : "play a round",
+                lime: weekRank > 0, glow: false, delay: 0.08 },
           { label: "Your best",  value: myHigh?.toString() ?? "—",   unit: "pts",  lime: false, glow: false, delay: 0.15 },
           { label: "Total score",value: myTotal?.toString() ?? "—",               lime: false, glow: false, delay: 0.22 },
           { label: "Rounds",     value: played?.toString() ?? "—",                lime: false, glow: false, delay: 0.29 },

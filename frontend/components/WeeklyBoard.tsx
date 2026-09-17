@@ -8,7 +8,8 @@ const LINE  = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
 
 type Row = { playerId: string; username: string; points: number };
-type Weekly = { week: string; endsIn: number; funded: boolean; prize: string | null; rows: Row[] };
+type Standing = { rank: number | null; points: number; total: number; toNext: number | null };
+type Weekly = { week: string; endsIn: number; funded: boolean; prize: string | null; rows: Row[]; standing: Standing | null };
 
 function countdown(seconds: number): string {
   const d = Math.floor(seconds / 86400);
@@ -32,17 +33,18 @@ export default function WeeklyBoard() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/weekly")
+    fetch(address ? `/api/weekly?player=${address}` : "/api/weekly")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (!cancelled && d) setWeekly(d); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, []);
+  }, [address]);
 
   useEffect(() => {
     if (!weekly || !address) return;
-    const rank = weekly.rows.findIndex((r) => r.playerId.toLowerCase() === address.toLowerCase());
-    if (rank >= 0 && rank < 10) awardBadge("top10");
+    // From the standing rather than the visible rows, which only ever held the top twenty.
+    const rank = weekly.standing?.rank;
+    if (rank && rank <= 10) awardBadge("top10");
   }, [weekly, address]);
 
   if (!weekly) return null;
@@ -75,6 +77,33 @@ export default function WeeklyBoard() {
         </p>
       )}
 
+      {/* What each band gets. A board where only the top three win teaches everyone else to
+
+          stop trying, so the rewards are tiered and most of them cost nothing to give. */}
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
+
+        {[
+
+          { at: "Top 3", get: weekly.funded ? "share the pool" : "take the podium" },
+
+          { at: "Top 10", get: "★ Weekly badge" },
+
+          { at: "Everyone", get: "points toward your rank" },
+
+        ].map(({ at, get }) => (
+
+          <span key={at} style={{ display: "inline-flex", alignItems: "baseline", gap: 5, padding: "5px 9px", borderRadius: 9, background: "#1E1710", border: LINE2, fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77" }}>
+
+            <b style={{ color: "#CBC0AE", fontWeight: 700 }}>{at}</b> {get}
+
+          </span>
+
+        ))}
+
+      </div>
+
+
       {weekly.rows.length > 0 ? (
         <div style={{ marginTop: 14 }}>
           {weekly.rows.slice(0, 10).map((r, i) => {
@@ -96,6 +125,19 @@ export default function WeeklyBoard() {
         <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#6E6557", marginTop: 12, marginBottom: 0 }}>
           No scores yet this week — play a round to open the board.
         </p>
+      )}
+
+      {/* Where this player stands, whether or not they appear above. A rank alone is static;
+          a gap is something one more round can close, and it is the only thing on this card
+          that speaks to the player sitting in 24th. */}
+      {weekly.standing && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: LINE2, fontFamily: "var(--font-mono)", fontSize: 12, color: "#CBC0AE", lineHeight: 1.5 }}>
+          {weekly.standing.rank === null
+            ? "You have not scored this week yet — one round puts you on the board."
+            : weekly.standing.toNext === null
+              ? `You are #1 this week with ${weekly.standing.points.toLocaleString()} points. Hold it.`
+              : `You are #${weekly.standing.rank} of ${weekly.standing.total} — ${weekly.standing.toNext} ${weekly.standing.toNext === 1 ? "point" : "points"} from #${weekly.standing.rank - 1}.`}
+        </div>
       )}
     </motion.div>
   );

@@ -71,6 +71,60 @@ export async function weeklyLeaderboard(week = weekKey(), limit = 20): Promise<W
   }));
 }
 
+export type WeeklyStanding = {
+  /** 1-based position on the board, or null if this player has not scored this week. */
+  rank: number | null;
+  points: number;
+  /** How many players are on the board, so a rank can be read as "of N". */
+  total: number;
+  /** Points needed to pass the player immediately above. Null when already first. */
+  toNext: number | null;
+};
+
+/**
+ * Where one player stands, looked up directly rather than searched for in the visible rows.
+ *
+ * The board only ever returns its top twenty, so anything that located a player by scanning
+ * those rows reported nothing at all for the twenty-first — the lobby's rank tile showed a dash
+ * to exactly the players most in need of a reason to come back. A sorted set already knows
+ * every rank, so ask it.
+ *
+ * `toNext` is the useful half: a position is static, but "nine points from twelfth" is
+ * something a player can act on in one more round.
+ */
+export async function weeklyStanding(playerId: string, week = weekKey()): Promise<WeeklyStanding | null> {
+  const kv = getRedis();
+  if (!kv) return null;
+  const id = playerId.toLowerCase();
+  const key = board(week);
+
+  try {
+    const [rankFromTop, score, total] = await Promise.all([
+      kv.zrevrank(key, id),
+      kv.zscore(key, id),
+      kv.zcard(key),
+    ]);
+    if (rankFromTop === null || rankFromTop === undefined || score === null) {
+      return { rank: null, points: 0, total: Number(total ?? 0), toNext: null };
+    }
+
+    const points = Number(score);
+    // The player one place above, so the gap is a real number rather than an estimate.
+    let toNext: number | null = null;
+    if (rankFromTop > 0) {
+      const above = await kv.zrevrange(key, rankFromTop - 1, rankFromTop - 1, "WITHSCORES");
+      const aboveScore = Number(above[1] ?? points);
+      // +1 because matching the score above still leaves you behind it.
+      toNext = Math.max(1, Math.ceil(aboveScore - points) + 1);
+    }
+
+    return { rank: rankFromTop + 1, points, total: Number(total ?? 0), toNext };
+  } catch (e) {
+    console.error("[weekly] standing", (e as Error).message);
+    return null;
+  }
+}
+
 /** Seconds until this week's board closes, for the countdown in the UI. */
 export function secondsUntilWeekEnd(now: Date = new Date()): number {
   const d = new Date(now);
