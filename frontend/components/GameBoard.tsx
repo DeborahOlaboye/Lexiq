@@ -15,7 +15,7 @@ import { getStoredUsername, displayName, getSelectedSkin, SKINS, awardBadge, get
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
 import { submitScore } from "@/hooks/usePlayerStreak";
-import { getPlayToken, getVersusMode, saveRoundWords, getRoundWords, clearRoundWords } from "@/lib/playSession";
+import { getPlayToken, getVersusMode, getVersusLevel, saveRoundWords, getRoundWords, clearRoundWords } from "@/lib/playSession";
 import MissedWord from "./MissedWord";
 import ShareCard from "./ShareCard";
 import { usePlayerPoints } from "@/hooks/usePlayerPoints";
@@ -239,7 +239,7 @@ export default function GameBoard({
     fetch("/api/round/words", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roundId: roundId.toString(), playToken: getPlayToken() }),
+      body: JSON.stringify({ roundId: roundId.toString(), playToken: getPlayToken(), vsLevel: getVersusLevel() }),
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {

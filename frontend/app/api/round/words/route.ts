@@ -5,6 +5,7 @@ import { verifyPlayToken } from "@/lib/playtoken";
 import { missingConfig } from "@/lib/config";
 import { solveBoard } from "@/lib/wordlist";
 import { opponentPlay, opponentTicks, LEVEL_NAMES } from "@/lib/opponent";
+import { lockVersusLevel } from "@/lib/versusRound";
 import { hashAll } from "@/lib/wordhash";
 import type { Lang } from "@/lib/guestLetters";
 
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server not configured" }, { status: 503 });
   }
 
-  let body: { roundId?: string; playToken?: string };
+  let body: { roundId?: string; playToken?: string; vsLevel?: number };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
   if (!body.roundId) return NextResponse.json({ error: "Bad round" }, { status: 400 });
 
@@ -60,12 +61,11 @@ export async function POST(req: NextRequest) {
     // The agent's target, known from the seed before the player starts. Sending it up front is
     // what turns "you lost to a bot" on the results screen into a race you can see while you
     // play — and it is safe to reveal, because its words were fixed when the round opened.
-    const play = opponentPlay({
-      seed: String(round[ROUND.seed]),
-      letters,
-      lang,
-      level: Number(round[ROUND.difficulty]),
-    });
+    // The opponent the player asked for, fixed on the first load of this board.
+    const level = await lockVersusLevel(
+      body.roundId, body.vsLevel, Number(round[ROUND.difficulty]),
+    );
+    const play = opponentPlay({ seed: String(round[ROUND.seed]), letters, lang, level });
 
     return NextResponse.json({
       letters,

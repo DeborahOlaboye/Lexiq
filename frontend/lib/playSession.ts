@@ -75,3 +75,25 @@ export function getRoundWords(roundId: string): StoredWord[] {
 export function clearRoundWords(roundId: string): void {
   try { localStorage.removeItem(WORDS_PREFIX + roundId); } catch { /* nothing to do */ }
 }
+
+/**
+ * Which opponent the player chose to race, independent of the round's difficulty.
+ *
+ * Difficulty sets the clock; this sets who you are up against. Tying them together meant the
+ * only way to face the hardest agent was to give up half your time, which is two decisions
+ * forced into one.
+ */
+const VS_LEVEL_KEY = "lx_versus_level";
+
+export function saveVersusLevel(level: number): void {
+  try { sessionStorage.setItem(VS_LEVEL_KEY, String(level)); } catch { /* private mode */ }
+}
+
+export function getVersusLevel(): number | undefined {
+  try {
+    const raw = sessionStorage.getItem(VS_LEVEL_KEY);
+    if (raw === null) return undefined;
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= 0 && n <= 2 ? n : undefined;
+  } catch { return undefined; }
+}
