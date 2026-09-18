@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { LEXIQ_ADDRESS, LEXIQ_ABI, ROUND, ROUND_FINISHED, LANG_BY_ID } from "@/lib/contracts";
 import { publicClient } from "@/lib/attestation";
 import { getRedis } from "@/lib/redis";
-import { opponentPlay } from "@/lib/opponent";
+import { opponentPlay, AGENT_LEVEL } from "@/lib/opponent";
 import type { Lang } from "@/lib/guestLetters";
 
 /**
@@ -89,9 +89,7 @@ export async function GET() {
 
       const lang: Lang = LANG_BY_ID[Number(r[ROUND.lang])] ?? "en";
       const human = Number(r[ROUND.score]);
-      const agent = opponentPlay({
-        seed: String(r[ROUND.seed]), letters, lang, level: Number(r[ROUND.difficulty]),
-      });
+      const agent = opponentPlay({ seed: String(r[ROUND.seed]), letters, lang, level: AGENT_LEVEL });
 
       if (agent.score > human) rec.wins++;
       else if (agent.score < human) rec.losses++;

@@ -14,7 +14,7 @@ import { getLevel, getRankTitle, getRankProgress, SKINS, getSelectedSkin, saveSk
 import { usePlayerPoints } from "@/hooks/usePlayerPoints";
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
-import { savePlayToken, saveVersusMode, saveVersusLevel } from "@/lib/playSession";
+import { savePlayToken, saveVersusMode } from "@/lib/playSession";
 import { setBoardWords } from "@/lib/dictionary";
 
 const LANGS: { id: Lang; label: string }[] = [
@@ -42,12 +42,6 @@ function friendlyTxError(err: unknown): string {
 const LINE = "1px solid var(--line)";
 const LINE2 = "1px solid var(--line2)";
 
-/** The three opponents, described by how they actually perform rather than by adjective. */
-const AGENTS = [
-  { name: "Casual",     desc: "you win ~3 in 4",  colour: "#CFE94B" },
-  { name: "Sharp",      desc: "an even match",    colour: "#F5EFE2" },
-  { name: "Relentless", desc: "beats most rounds", colour: "#FF5B45" },
-] as const;
 
 const DIFFICULTIES = [
   { label: "Easy",   value: 0, time: "120s", desc: "More time, common letters" },
@@ -81,12 +75,6 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
    * to miss entirely.
    */
   const [versus, setVersus] = useState(false);
-  /**
-   * Who to race, separate from how long the round lasts. Defaults to Sharp, which is even
-   * against an average round — a strong player should reach for Relentless without also
-   * having to give up thirty seconds of clock to get it.
-   */
-  const [vsLevel, setVsLevel] = useState(1);
   const [showDiff, setShowDiff]       = useState(false);
   /**
    * A challenge arrives as ?challenge=<roundId> on the shared link.
@@ -213,7 +201,6 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
 
   function handleStart() {
     saveVersusMode(versus);
-    saveVersusLevel(vsLevel);
     startFreeRound();
   }
 
@@ -222,7 +209,6 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
     setRelayError(null);
     try {
       saveVersusMode(versus);
-      saveVersusLevel(vsLevel);
       const res = await fetch("/api/round/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -441,7 +427,7 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
           <div style={{ display: "flex", gap: 7 }}>
             {[
               { on: false, label: "Solo", hint: "Just the board and the clock" },
-              { on: true, label: "⚔ Race the AI", hint: `${AGENTS[vsLevel].name} plays the same letters against your clock` },
+              { on: true, label: "⚔ Race the AI", hint: "The same seven letters, against your clock" },
             ].map(({ on, label, hint }) => (
               <motion.button key={label} onClick={() => setVersus(on)}
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
@@ -454,46 +440,6 @@ export default function GameLobby({ onEnterGame, lang = "en", onLangChange }: { 
             ))}
           </div>
         </div>
-
-        <AnimatePresence>
-
-          {versus && (
-
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-
-              transition={{ duration: 0.22 }} style={{ overflow: "hidden", marginBottom: 16 }}>
-
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", marginBottom: 8 }}>Opponent</div>
-
-              <div style={{ display: "flex", gap: 7 }}>
-
-                {AGENTS.map((a, i) => (
-
-                  <motion.button key={a.name} onClick={() => setVsLevel(i)}
-
-                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
-
-                    style={{ flex: 1, padding: "9px 10px", borderRadius: 11, textAlign: "left", cursor: "pointer",
-
-                      border: vsLevel === i ? `1px solid ${a.colour}` : LINE,
-
-                      background: vsLevel === i ? "rgba(245,239,226,.06)" : "#1E1710" }}>
-
-                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 12, color: vsLevel === i ? a.colour : "#F5EFE2" }}>{a.name}</div>
-
-                    <div style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "#9A8C77", marginTop: 2, lineHeight: 1.4 }}>{a.desc}</div>
-
-                  </motion.button>
-
-                ))}
-
-              </div>
-
-            </motion.div>
-
-          )}
-
-        </AnimatePresence>
 
 
         {status && <p style={{ fontSize: 12, color: "#CFE94B", fontFamily: "var(--font-mono)", marginBottom: 10, animation: "blink 1.4s infinite" }}>{status}</p>}

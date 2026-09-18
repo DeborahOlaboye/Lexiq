@@ -5,8 +5,7 @@ import { verifyPlayToken } from "./playtoken";
 import { acceptWords, boardMaxScore } from "./wordlist";
 import { scoreWords, MAX_WORDS } from "./scoring";
 import type { Lang } from "./guestLetters";
-import { opponentPlay, LEVEL_NAMES, type OpponentPlay } from "./opponent";
-import { readVersusLevel } from "./versusRound";
+import { opponentPlay, AGENT_LEVEL, type OpponentPlay } from "./opponent";
 
 /**
  * Slack on top of the round length, for everything that happens between the buzzer and the
@@ -87,11 +86,9 @@ export async function scoreSubmission(
    * Computed here rather than stored anywhere: it is a pure function of the seed, so it is the
    * same answer every time and anyone can recompute it from public round data.
    */
-  // Whatever opponent this board was loaded against, so the final result matches the one the
-  // player watched climbing during the round rather than quietly reverting to the difficulty.
-  const level = await readVersusLevel(roundId.toString(), difficulty);
-  const play = opponentPlay({ seed, letters, lang, level });
-  const agent = { ...play, name: LEVEL_NAMES[play.level] ?? "Sharp" };
+  const play = opponentPlay({ seed, letters, lang, level: AGENT_LEVEL });
+  // No level name: how hard the agent is set is not the player's business.
+  const agent = { ...play, name: "Opponent" };
 
   return { ok: true, player, lang, letters, seed, words, score, maxScore, percent, deadline, signature, agent };
 }

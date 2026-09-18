@@ -46,6 +46,16 @@ const COVERAGE: Record<number, number> = { 0: 0.12, 1: 0.14, 2: 0.22 };
 
 export const LEVEL_NAMES: Record<number, string> = { 0: "Casual", 1: "Sharp", 2: "Relentless" };
 
+/**
+ * The level every round is played against.
+ *
+ * One opponent, always at full strength, the same for everyone. Tying it to the round's
+ * difficulty meant a player could face a weaker agent by choosing a longer clock, and naming
+ * the levels in the interface put the game's own tuning on display — neither belongs in a game
+ * with a prize attached. The agent is a fixed standard now, not a dial.
+ */
+export const AGENT_LEVEL = 2;
+
 /** Deterministic PRNG. Same seed, same game, every time and on every machine. */
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;

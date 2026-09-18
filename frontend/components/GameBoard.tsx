@@ -15,7 +15,7 @@ import { getStoredUsername, displayName, getSelectedSkin, SKINS, awardBadge, get
 import type { Lang } from "@/lib/guestLetters";
 import { getAttributionTag } from "@/lib/attribution";
 import { submitScore } from "@/hooks/usePlayerStreak";
-import { getPlayToken, getVersusMode, getVersusLevel, saveRoundWords, getRoundWords, clearRoundWords } from "@/lib/playSession";
+import { getPlayToken, getVersusMode, saveRoundWords, getRoundWords, clearRoundWords } from "@/lib/playSession";
 import MissedWord from "./MissedWord";
 import ShareCard from "./ShareCard";
 import { usePlayerPoints } from "@/hooks/usePlayerPoints";
@@ -239,7 +239,7 @@ export default function GameBoard({
     fetch("/api/round/words", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roundId: roundId.toString(), playToken: getPlayToken(), vsLevel: getVersusLevel() }),
+      body: JSON.stringify({ roundId: roundId.toString(), playToken: getPlayToken() }),
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
@@ -514,7 +514,7 @@ export default function GameBoard({
                     </div>
                     <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13, color: "#6E6557" }}>vs</div>
                     <div style={{ flex: 1, textAlign: "center" }}>
-                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", marginBottom: 3 }}>{settledResult.agent.name}</div>
+                      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#9A8C77", marginBottom: 3 }}>Opponent</div>
                       <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28, color: settledResult.agent.score > finalScore ? "#FF5B45" : "#F5EFE2" }}>
                         {settledResult.agent.score}
                       </div>
@@ -526,7 +526,7 @@ export default function GameBoard({
                       ? `You win by ${finalScore - settledResult.agent.score}`
                       : finalScore === settledResult.agent.score
                         ? "Dead heat"
-                        : `${settledResult.agent.name} wins by ${settledResult.agent.score - finalScore}`}
+                        : `Opponent wins by ${settledResult.agent.score - finalScore}`}
                   </div>
                   {settledResult.agent.words.length > 0 && (
                     <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 5, justifyContent: "center" }}>
@@ -659,7 +659,7 @@ export default function GameBoard({
         {versus && agentTarget && phase === "active" && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, padding: "9px 13px", borderRadius: 12, background: myScore >= agentNow ? "rgba(207,233,75,.10)" : "rgba(255,91,69,.08)", border: myScore >= agentNow ? "1px solid rgba(207,233,75,.35)" : "1px solid rgba(255,91,69,.3)" }}>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#CBC0AE" }}>
-              ⚔ <b style={{ color: "#F5EFE2" }}>{agentTarget.name}</b>{" "}
+              ⚔ <b style={{ color: "#F5EFE2" }}>Opponent</b>{" "}
               <motion.b key={agentNow} initial={{ scale: 1.5, color: "#FF5B45" }} animate={{ scale: 1, color: "#F5EFE2" }} transition={{ duration: 0.4 }}
                 style={{ display: "inline-block", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 13 }}>
                 {agentNow}

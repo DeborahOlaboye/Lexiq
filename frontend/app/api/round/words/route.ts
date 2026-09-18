@@ -4,8 +4,7 @@ import { publicClient, lettersForRound } from "@/lib/attestation";
 import { verifyPlayToken } from "@/lib/playtoken";
 import { missingConfig } from "@/lib/config";
 import { solveBoard } from "@/lib/wordlist";
-import { opponentPlay, opponentTicks, LEVEL_NAMES } from "@/lib/opponent";
-import { lockVersusLevel } from "@/lib/versusRound";
+import { opponentPlay, opponentTicks, AGENT_LEVEL } from "@/lib/opponent";
 import { hashAll } from "@/lib/wordhash";
 import type { Lang } from "@/lib/guestLetters";
 
@@ -25,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server not configured" }, { status: 503 });
   }
 
-  let body: { roundId?: string; playToken?: string; vsLevel?: number };
+  let body: { roundId?: string; playToken?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Bad request" }, { status: 400 }); }
   if (!body.roundId) return NextResponse.json({ error: "Bad round" }, { status: 400 });
 
@@ -61,19 +60,14 @@ export async function POST(req: NextRequest) {
     // The agent's target, known from the seed before the player starts. Sending it up front is
     // what turns "you lost to a bot" on the results screen into a race you can see while you
     // play — and it is safe to reveal, because its words were fixed when the round opened.
-    // The opponent the player asked for, fixed on the first load of this board.
-    const level = await lockVersusLevel(
-      body.roundId, body.vsLevel, Number(round[ROUND.difficulty]),
-    );
-    const play = opponentPlay({ seed: String(round[ROUND.seed]), letters, lang, level });
+    const play = opponentPlay({ seed: String(round[ROUND.seed]), letters, lang, level: AGENT_LEVEL });
 
     return NextResponse.json({
       letters,
       wordHashes: hashAll(solveBoard(letters, lang).map((w) => w.word)),
       agent: {
         score: play.score,
-        level: play.level,
-        name: LEVEL_NAMES[play.level] ?? "Sharp",
+        name: "Opponent",
         // Running totals only — never the words, which would be the answer key.
         ticks: opponentTicks(play, ROUND_SECONDS[Number(round[ROUND.difficulty])] ?? 90, String(round[ROUND.seed])),
       },
