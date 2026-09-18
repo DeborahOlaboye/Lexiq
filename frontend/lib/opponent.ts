@@ -22,13 +22,27 @@ import type { Lang } from "./guestLetters";
 /**
  * Share of the board's reachable score the agent aims for, by level.
  *
- * Calibrated against real settled rounds, not intuition: players have scored 54 of a possible
- * 372 (15%), 48 of 462 (10%) and 34 of 364 (9%). An earlier draft aimed at 22% on its easiest
- * setting, which would have beaten every human who has ever played and never once paid out.
- * Casual now loses to an average round, Sharp beats it, and Relentless needs a genuinely good
- * one — so the prize is winnable and still worth winning.
+ * Calibrated against settled rounds rather than intuition, and re-calibrated once there were
+ * enough of them to mean anything. The first pass used three rounds and put Casual at 7%,
+ * against a real average nearer 14% — so Casual lost every round it ever played, 0 from 4.
+ * A setting that cannot win is not a difficulty.
+ *
+ * Measured over 39 rounds: players average 14.4% coverage on Easy, 17.4% on Medium and 13.4%
+ * on Hard. Easy reads higher because it allows 120 seconds against Hard's 60 — the clock
+ * matters as much as the board, which the first calibration ignored entirely.
+ *
+ * Sharp is left alone: 16W 16L 1D across 33 rounds is as even as this can get, and moving a
+ * number that is demonstrably right would be tuning by feel.
+ *
+ * Casual sits at 12%, swept against the real Easy rounds: 11.5% still lost all four, 12.5%
+ * won half of them — which is Sharp's job, not this one. 12% wins one in four, so it is an
+ * opponent rather than a formality. Only four Easy rounds exist, so this is deliberately not
+ * tuned finer than that; revisit it when there are enough to mean something.
+ *
+ * Relentless has won all three of its rounds. Three is too few to conclude anything, but it
+ * is worth watching: a level nobody ever beats has the same problem Casual just had.
  */
-const COVERAGE: Record<number, number> = { 0: 0.07, 1: 0.14, 2: 0.22 };
+const COVERAGE: Record<number, number> = { 0: 0.12, 1: 0.14, 2: 0.22 };
 
 export const LEVEL_NAMES: Record<number, string> = { 0: "Casual", 1: "Sharp", 2: "Relentless" };
 

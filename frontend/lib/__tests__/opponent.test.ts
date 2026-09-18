@@ -61,15 +61,24 @@ const SEED = "0x9f2c4a1b3e5d7f8a0c2e4b6d8f0a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9b1d3f5a
   console.log("\nbeatability against real observed rounds");
   // Scores real players actually achieved on these exact boards.
   const REAL: Array<[string, number]> = [["EEYASHU", 54], ["TSAFOTC", 48], ["AUNENIV", 34]];
-  let beatable = true, worthwhile = true;
+  let worthwhile = true, casualBeatsSomething = false;
+  const casualScores: Array<[number, number]> = [];
   for (const [letters, human] of REAL) {
     const s0 = opponentPlay({ seed: SEED, letters, lang: "en", level: 0 }).score;
     const s2 = opponentPlay({ seed: SEED, letters, lang: "en", level: 2 }).score;
     console.log(`    ${letters}: human ${human}  vs  Casual ${s0}  Relentless ${s2}`);
-    if (s0 >= human) beatable = false;
+    casualScores.push([human, s0]);
+    if (s0 > human) casualBeatsSomething = true;
     if (s2 <= human) worthwhile = false;
   }
-  ok("Casual loses to a real observed round", beatable);
+  const strongest = casualScores.reduce((a, b) => (b[0] > a[0] ? b : a));
+  const strongestBeatsCasual = strongest[0] > strongest[1];
+  // Not "Casual always loses": that was the original assertion, and it described a level that
+  // went 0 from 4 in production. A difficulty nobody can lose to is not a difficulty. What
+  // must hold is that Casual is beatable by a good round and still capable of punishing a
+  // weak one.
+  ok("Casual loses to the strongest observed round", strongestBeatsCasual);
+  ok("Casual can still beat a weak round", casualBeatsSomething);
   ok("Relentless beats a real observed round", worthwhile);
 
   console.log("\nlanguages");
