@@ -126,9 +126,14 @@ export default function Home() {
           weekly boards.
         </p>
 
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557", marginTop: 22 }}>
-          {inMiniPay === null ? "Starting…" : "Connecting your wallet…"}
-        </span>
+        {/* Only while a wallet is genuinely connecting. Before detection resolves there is a
+            working Play button right below, and "Starting…" above it said the opposite —
+            reviewers read the pair as contradictory: is it loading, or can I press this? */}
+        {inMiniPay !== null && (
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "#6E6557", marginTop: 22 }}>
+            Connecting your wallet…
+          </span>
+        )}
         {/* Before detection resolves this is a plain page with a way to start, which is what
             a crawler, a link preview and a slow phone all get. It is guest play, never a
             wallet button, so MiniPay's zero-click rule still holds; once MiniPay is detected
