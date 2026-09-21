@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider, useSetActiveWallet } from "@privy-io/wagmi";
-import { PrivyProvider, useWallets } from "@privy-io/react-auth";
+import { PrivyProvider, useWallets, usePrivy } from "@privy-io/react-auth";
 import { useConnect, useAccount } from "wagmi";
 import { wagmiConfig } from "@/lib/wagmi";
 import { celo } from "wagmi/chains";
@@ -30,13 +30,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <PrivyProvider
       appId={privyAppId}
       config={{
-        loginMethods: ["google", "twitter", "discord", "github", "email", "farcaster", "telegram", "tiktok"],
+        // "wallet" enables the walletList below, which was configured but unreachable without
+        // it — anyone arriving with MetaMask or an injected wallet had social login or nothing.
+        // Social stays first: most players here have no wallet, and the landing page says so.
+        loginMethods: ["google", "twitter", "email", "wallet", "discord", "github", "farcaster", "telegram", "tiktok"],
         appearance: {
           theme: "dark",
           accentColor: "#CFE94B",
           logo: "https://playlexiq.xyz/icon.svg",
           landingHeader: "Sign in to Lexiq",
-          loginMessage: "Play, stake & compete on Celo",
+          loginMessage: "Play and compete on Celo",
           walletList: ["metamask", "coinbase_wallet", "detected_wallets"],
         },
         embeddedWallets: {
@@ -57,13 +60,27 @@ export function Providers({ children }: { children: React.ReactNode }) {
 /** Keep wagmi's active account in sync with the Privy embedded wallet. */
 function SyncPrivyToWagmi() {
   const { wallets } = useWallets();
+  const { user } = usePrivy();
   const { setActiveWallet } = useSetActiveWallet();
 
   useEffect(() => {
     if (wallets.length === 0) return;
-    const embedded = wallets.find(w => w.walletClientType === "privy");
-    setActiveWallet(embedded ?? wallets[0]);
-  }, [wallets, setActiveWallet]);
+    /**
+     * Whichever wallet the player actually signed in with.
+     *
+     * This used to prefer the embedded wallet unconditionally, so someone signing in with
+     * MetaMask while holding an embedded wallet from an earlier social login would play as
+     * the embedded address — a different identity on the leaderboard and a different owner
+     * for their rounds on chain. Privy already records the linked account; trust that first,
+     * and only fall back to the embedded wallet when there is nothing to go on.
+     */
+    const linked = user?.wallet?.address?.toLowerCase();
+    const chosen =
+      (linked ? wallets.find(w => w.address.toLowerCase() === linked) : undefined) ??
+      wallets.find(w => w.walletClientType === "privy") ??
+      wallets[0];
+    setActiveWallet(chosen);
+  }, [wallets, user, setActiveWallet]);
 
   return null;
 }
