@@ -40,7 +40,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
           logo: "https://playlexiq.xyz/icon.svg",
           landingHeader: "Sign in to Lexiq",
           loginMessage: "Play and compete on Celo",
-          walletList: ["metamask", "coinbase_wallet", "detected_wallets"],
+          // detected_wallets only catches wallets announcing themselves over EIP-6963, and
+          // naming just two left everything else with nowhere to appear. WalletConnect is the
+          // real catch-all — and how Valora and most mobile wallets connect on Celo — but it
+          // needs a WalletConnect Cloud project id, so it is not listed yet.
+          walletList: [
+            "detected_wallets", "metamask", "rabby_wallet", "okx_wallet",
+            "coinbase_wallet", "rainbow", "zerion", "uniswap", "safe",
+          ],
         },
         embeddedWallets: {
           ethereum: {
