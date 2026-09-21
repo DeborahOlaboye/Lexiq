@@ -40,14 +40,6 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
   const [loading, setLoading]     = useState(true);
   const [lastFetch, setLastFetch] = useState(0);
   const [, forceRender]           = useState(0);
-  /** The opponent agent's record, recomputed from round seeds rather than self-reported. */
-  const [agent, setAgent] = useState<{ wins: number; losses: number; draws: number; played: number; winRate: number; registry: string } | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/agent").then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (!cancelled && d && !d.error) setAgent(d); }).catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
   const { data: myHigh }  = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "highScore",  args: address ? [address] : undefined });
   const { data: myTotal } = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "totalScore", args: address ? [address] : undefined });
   const { data: played }  = useReadContract({ address: contract, abi: LEXIQ_ABI, functionName: "gamesPlayed",args: address ? [address] : undefined });
@@ -125,50 +117,6 @@ export default function Leaderboard({ isGuest }: { isGuest?: boolean }) {
           </motion.div>
         );
       })()}
-
-      {/* The agent, deliberately outside the rankings. It plays every board, so it would sit
-
-          near the top of any board it were allowed on — and a prize position held by the house
-
-          is not a prize. Here it is a mark to beat, with a record anyone can recompute from
-
-          round seeds rather than one it awards itself. */}
-
-      {agent && agent.played > 0 && (
-
-        <a href={agent.registry} target="_blank" rel="noopener noreferrer"
-
-          style={{ display: "block", textDecoration: "none", background: "#241C13", borderRadius: 18, border: "1px solid rgba(255,91,69,.28)", padding: "13px 16px", marginBottom: 12 }}>
-
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-
-              <span style={{ fontSize: 15 }}>⚔</span>
-
-              <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: "#F5EFE2" }}>LexIQ Opponent</span>
-
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.1em", color: "#9A8C77", textTransform: "uppercase", padding: "3px 7px", border: LINE2, borderRadius: 7 }}>not ranked</span>
-
-            </span>
-
-            <span style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 14, color: "#FF5B45" }}>
-
-              {agent.wins}W {agent.losses}L{agent.draws > 0 ? ` ${agent.draws}D` : ""}
-
-            </span>
-
-          </div>
-
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "#6E6557", marginTop: 6, lineHeight: 1.5 }}>
-
-            Wins {agent.winRate}% of {agent.played} rounds · recomputed from each round&apos;s seed, not self-reported
-
-          </div>
-
-        </a>
-
-      )}
 
 
       {/* Leaderboard table */}
